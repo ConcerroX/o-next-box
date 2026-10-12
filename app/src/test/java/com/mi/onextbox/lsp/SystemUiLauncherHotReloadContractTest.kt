@@ -1,0 +1,81 @@
+package com.mi.onextbox.lsp
+
+import java.io.File
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** Guards ownership contracts which otherwise require the OEM host's Android classes. */
+class SystemUiLauncherHotReloadContractTest {
+    @Test fun nativePluginHooksHavePreCommitReplayOwners() {
+        assertContains("FluidCloudMaterialHooker.kt", "registerReplay(\"fluid-material:plugins\"", "forEach(::installPlugin)")
+        assertContains("SystemUiRedOneHooker.kt", "registerReplay(\"red-one:plugins\"", "forEach(::installPersonalityClockHooks)")
+        assertContains("FluidCloudTemplateMaterialHooks.kt", "registerReplay(\"\$prefix:template-state\"", "Bundle(state.original)")
+    }
+
+    @Test fun launcherStartupOnlyHooksAreReplayedWithoutCallingApplicationOnCreate() {
+        assertContains("LauncherSearchDeviceCompat.kt", "registerReplay(\"launcher:search-bootstrap\"", "bootstrap.onApplicationReady(true)")
+        assertContains("LauncherRecentInteractionHooker.kt", "registerReplay(\"launcher:recent-bootstrap\"", "if (saved == true) installReadyHooks()")
+        assertContains("LauncherFeaturesHooker.kt", "registerReplay(\"launcher:folder-watchers\"", "forEach(::observeWatcher)")
+    }
+
+    @Test fun viewListenersHaveExplicitDetachPaths() {
+        assertContains("SystemUiHooker.kt", "removeOnLayoutChangeListener(guard.layout)", "removeOnPreDrawListener(guard.drawing)")
+        assertContains("LauncherHooker.kt", "view.removeOnLayoutChangeListener(listener)", "forEach(::keepCardLabelHidden)")
+        assertContains("LauncherCategoryPageHooker.kt", "sessions.values.toList().forEach { it.dispose() }")
+    }
+
+    @Test fun ownedMaterialIsRebuiltInsteadOfPassingItsDrawableAcrossGenerations() {
+        assertContains("FluidCloudMaterialHooker.kt", "material.releaseAll()", "material.restoreReloadState(it)")
+        val material = source("FluidCloudNotificationMaterial.kt")
+        assertTrue(material.contains("arrayOf(view, fallback, radius, weight, currentAlpha, view.background === this)"))
+        assertTrue(material.contains("delegate.callback = null"))
+        assertFalse(material.contains("arrayOf(view, this,"))
+    }
+
+    @Test fun authorizationAndPendingGestureActionsVetoReload() {
+        assertContains("FaceTapUnlockHooker.kt", "sessionUser == null && pendingDismiss == null && pendingHold == null",
+            "pendingOpticalEvents.get() == 0", "wake.dispose()")
+        assertContains("LauncherRecentInteractionHooker.kt", "canReload = { pending.isEmpty() }")
+        assertContains("PermanentClockSecondsHooker.kt", "canReload = { pendingToggles.get() == 0 }")
+    }
+
+    @Test fun searchTimersAndDecoderCannotOutliveRetirement() {
+        assertContains("LauncherSearchDeviceCompat.kt", "pending.values.toList().forEach(handler::removeCallbacks)",
+            "if (HotReloadLifecycle.isRetiring || launcher.isDestroyed")
+        assertContains("FaceTapWakeHandoff.kt", "disposed = true", "decoder.shutdownNow()",
+            "if (disposed || epoch != generation")
+    }
+
+    @Test fun rejectedRetirementRestartsSearchRecoveryWithoutDuplicateTimers() {
+        assertContains("LauncherSearchDeviceCompat.kt", "resumeAfterRejection = {",
+            "if (repairEnabled()) owners.keys.toList().forEach(::schedule)")
+        val schedule = source("LauncherSearchDeviceCompat.kt").substringAfter("fun schedule(launcher: Activity)")
+            .substringBefore("fun cancel(launcher: Activity)")
+        assertTrue(schedule.indexOf("cancel(launcher)") < schedule.indexOf("handler.postDelayed"))
+    }
+
+    @Test fun rejectedRetirementRestoresFacePollButNeverReplaysAuthorizationActions() {
+        val source = source("FaceTapUnlockHooker.kt")
+        assertTrue(source.contains("resumeAfterRejection = ::resumeAfterRejectedReload"))
+        val resume = source.substringAfter("private fun resumeAfterRejectedReload()")
+            .substringBefore("private fun reconcile()")
+        assertTrue(resume.contains("tap?.invalidate()"))
+        assertTrue(resume.contains("cancelFeedbackAndDismiss(hard = false)"))
+        assertTrue(resume.contains("main.removeCallbacks(refresh)"))
+        assertTrue(resume.contains("reconcile()"))
+        assertFalse(resume.contains("requestDismiss("))
+        assertFalse(resume.contains("commitDismiss("))
+        assertFalse(resume.contains("sessionUser = "))
+    }
+
+    private fun assertContains(file: String, vararg fragments: String) {
+        val text = source(file)
+        fragments.forEach { assertTrue("$file: $it", text.contains(it)) }
+    }
+
+    private fun source(file: String): String = listOf(
+        File("src/main/java/com/mi/onextbox/lsp/$file"),
+        File("app/src/main/java/com/mi/onextbox/lsp/$file"),
+    ).first { it.isFile }.readText()
+}

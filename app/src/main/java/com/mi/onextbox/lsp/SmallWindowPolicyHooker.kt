@@ -12,6 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import com.mi.onextbox.lsp.LspConfig.SmallWindowFeature as Feature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernMethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as Reflect
 import java.lang.ref.WeakReference
@@ -63,7 +64,7 @@ internal object SmallWindowPolicyHooker {
         val failed = AtomicBoolean(false)
         val callback = object : ModernMethodHook() {
             private fun run(param: MethodHookParam) {
-                if (failed.get() || param.throwable != null) return
+                if (HotReloadLifecycle.isRetiring || failed.get() || param.throwable != null) return
                 runCatching { action(param) }.onFailure {
                     if (failed.compareAndSet(false, true)) HookLog.w(TAG, "${method.name} callback disabled", it)
                 }
@@ -308,7 +309,8 @@ internal object SmallWindowPolicyHooker {
         val relayout = exact(target, "onRelayoutCaptionView")
         val init = exact(target, "initCaptionView")
         val savedHeights = WeakHashMap<View, Int>()
-        val observed = WeakHashMap<View, Boolean>()
+        val observed = WeakHashMap<View, View.OnLayoutChangeListener>()
+        val pending = WeakHashMap<View, Runnable>()
         hook(margin, before = true) { param ->
             val owner = param.thisObject as? View ?: return@hook
             if (enabled(Feature.CompactCaption) && phone(owner.context)) {
@@ -316,15 +318,17 @@ internal object SmallWindowPolicyHooker {
                 if (top > 0f) param.args[2] = (top - 4f).coerceAtLeast(1f)
             }
         }
-        listOf(init, relayout).forEach { method ->
-            hook(method) { param ->
-                val owner = param.thisObject as? View ?: return@hook
-                if (!phone(owner.context)) return@hook
-                if (observed.put(owner, true) == null) {
+        fun update(owner: View) {
+                if (HotReloadLifecycle.isRetiring || !phone(owner.context)) return
+                if (!observed.containsKey(owner)) {
                     val weak = WeakReference(owner)
-                    owner.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                        weak.get()?.let { runCatching { Reflect.callMethod(it, "updateTouchRegion") } }
+                    val listener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                        if (!HotReloadLifecycle.isRetiring) {
+                            weak.get()?.let { runCatching { Reflect.callMethod(it, "updateTouchRegion") } }
+                        }
                     }
+                    observed[owner] = listener
+                    owner.addOnLayoutChangeListener(listener)
                 }
                 var changed = false
                 listOf("mToolbarModeFrame", "mThreeButtonFrame").forEach { field ->
@@ -344,8 +348,36 @@ internal object SmallWindowPolicyHooker {
                 }
                 if (changed || enabled(Feature.CompactCaption)) {
                     val weak = WeakReference(owner)
-                    owner.post { weak.get()?.let { runCatching { Reflect.callMethod(it, "updateTouchRegion") } } }
+                    pending.remove(owner)?.let(owner::removeCallbacks)
+                    val task = Runnable {
+                        weak.get()?.let {
+                            pending.remove(it)
+                            if (!HotReloadLifecycle.isRetiring) runCatching { Reflect.callMethod(it, "updateTouchRegion") }
+                        }
+                    }
+                    pending[owner] = task
+                    owner.post(task)
                 }
+        }
+        HotReloadLifecycle.register("small-window-caption",
+            capture = { observed.keys.toTypedArray() },
+            detach = {
+                pending.forEach { (view, task) -> view.removeCallbacks(task) }
+                pending.clear()
+                observed.forEach { (view, listener) -> view.removeOnLayoutChangeListener(listener) }
+                observed.clear()
+                savedHeights.forEach { (view, height) ->
+                    view.layoutParams?.let { params -> params.height = height; view.layoutParams = params }
+                }
+                savedHeights.clear()
+            },
+            restore = { state ->
+                (state as? Array<*>)?.filterIsInstance<View>()?.filter { it.isAttachedToWindow }?.forEach(::update)
+            },
+        )
+        listOf(init, relayout).forEach { method ->
+            hook(method) { param ->
+                (param.thisObject as? View)?.let(::update)
             }
         }
     }
@@ -373,15 +405,18 @@ internal object SmallWindowPolicyHooker {
         Reflect.callMethod(terminateBuilder, "terminate")
         val terminate = Reflect.callMethod(terminateBuilder, "build")!!
         val id = Reflect.newInstance(VolumeShaper.Configuration::class.java, 0x4f4e58)
-        val handler = Handler(HandlerThread("ONextBox-StashedMedia").apply { start() }.looper)
+        var worker: HandlerThread? = null
+        val handler = java.util.concurrent.atomic.AtomicReference<Handler?>()
         val owned = mutableMapOf<Int, Any>() // only this shaper's live playback configurations
         var monitor: WeakReference<Any>? = null
+        var reapplyOwned = false
         val warning = AtomicBoolean(false)
         fun warn(error: Throwable) {
             if (warning.compareAndSet(false, true)) HookLog.w(TAG, "Stashed media interface error; cleanup will retry", error)
         }
         lateinit var reconcile: Runnable
         reconcile = Runnable {
+            if (HotReloadLifecycle.isRetiring) return@Runnable
             val pam = monitor?.get() ?: return@Runnable
             // Unknown task state must fail open and remove our gain, not leave an app muted.
             val uids = if (enabled(Feature.MuteStashed)) runCatching { stashedUids(loader) }.onFailure(::warn).getOrDefault(emptySet()) else emptySet()
@@ -411,7 +446,9 @@ internal object SmallWindowPolicyHooker {
                         owned.remove(piid)
                     }.onFailure(::warn)
                 }
-                changes.mute.forEach { piid ->
+                val toMute = if (reapplyOwned) changes.mute + desired else changes.mute
+                reapplyOwned = false
+                toMute.forEach { piid ->
                     val config = players[piid] ?: return@forEach
                     runCatching {
                         Reflect.callMethod(Reflect.callMethod(config, "getPlayerProxy"), "applyVolumeShaper", shape, play)
@@ -421,11 +458,84 @@ internal object SmallWindowPolicyHooker {
             }
             // Catches feature disable, same-UID foreground tasks and player death while we own gain.
             // New playback and stash events wake the worker; no polling when nothing is muted.
-            if (owned.isNotEmpty()) handler.postDelayed(reconcile, 1000)
+            if (owned.isNotEmpty() && !HotReloadLifecycle.isRetiring) handler.get()?.postDelayed(reconcile, 1000)
         }
-        fun schedule() { handler.removeCallbacks(reconcile); handler.post(reconcile) }
+        fun startWorker() {
+            if (worker?.isAlive == true) return
+            val thread = HandlerThread("ONextBox-StashedMedia").apply { start() }
+            worker = thread
+            handler.set(Handler(thread.looper))
+        }
+        fun onWorker(action: () -> Unit) {
+            val active = handler.get()
+            if (active == null) { action(); return }
+            val done = java.util.concurrent.CountDownLatch(1)
+            val failure = java.util.concurrent.atomic.AtomicReference<Throwable?>()
+            val phase = java.util.concurrent.atomic.AtomicInteger()
+            val task = Runnable {
+                if (!phase.compareAndSet(0, 1)) return@Runnable
+                try { action() } catch (error: Throwable) { failure.set(error) } finally { done.countDown() }
+            }
+            check(active.post(task)) { "Stashed-media worker is unavailable" }
+            if (!done.await(1, java.util.concurrent.TimeUnit.SECONDS)) {
+                if (phase.compareAndSet(0, 2)) {
+                    active.removeCallbacks(task)
+                    error("Stashed-media worker is busy")
+                }
+                // A running detach must finish before rollback can resume callbacks.
+                done.await()
+            }
+            failure.get()?.let { throw it }
+        }
+        fun schedule() {
+            if (HotReloadLifecycle.isRetiring) return
+            handler.get()?.let { it.removeCallbacks(reconcile); it.post(reconcile) }
+        }
+        HotReloadLifecycle.register("small-window-stashed-media",
+            // A preparation veto can consume the polling runnable while retaining our
+            // live shapers. Restart only reconciliation, never recreate their resources.
+            resumeAfterRejection = { schedule() },
+            capture = {
+                var state: Array<Any?>? = null
+                onWorker { state = arrayOf(monitor?.get(), HashMap(owned)) }
+                state
+            },
+            detach = {
+                // Remove only our gain before retiring. A failed reload cannot strand a player muted.
+                onWorker {
+                    owned.values.toList().forEach { config ->
+                        Reflect.callMethod(Reflect.callMethod(config, "getPlayerProxy"), "applyVolumeShaper", id, terminate)
+                    }
+                    owned.clear()
+                    handler.get()?.removeCallbacksAndMessages(null)
+                }
+                worker?.let { thread ->
+                    thread.quitSafely()
+                    thread.join(1_000)
+                    check(!thread.isAlive) { "Stashed-media worker did not stop" }
+                }
+                handler.set(null)
+                worker = null
+            },
+            restore = { value ->
+                val state = value as? Array<*>
+                startWorker()
+                onWorker {
+                    monitor = state?.getOrNull(0)?.let { WeakReference(it) }
+                    owned.clear()
+                    (state?.getOrNull(1) as? Map<*, *>)?.forEach { (piid, config) ->
+                        if (piid is Int && config != null) owned[piid] = config
+                    }
+                    reapplyOwned = true
+                }
+                schedule()
+            },
+        )
+        HotReloadLifecycle.afterCommit(::startWorker)
         listOf(event, release).forEach { method -> hook(method) { param ->
-            param.thisObject?.let { pam -> handler.post { monitor = WeakReference(pam); schedule() } }
+            param.thisObject?.let { pam -> handler.get()?.post {
+                if (!HotReloadLifecycle.isRetiring) { monitor = WeakReference(pam); schedule() }
+            } }
         } }
         listOf(add, remove, removeAll).forEach { method -> hook(method) { schedule() } }
     }

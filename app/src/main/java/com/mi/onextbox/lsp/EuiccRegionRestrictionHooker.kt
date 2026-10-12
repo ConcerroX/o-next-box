@@ -12,6 +12,7 @@ import android.widget.ScrollView
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernMethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import io.github.libxposed.api.XposedInterface
 import java.lang.ref.WeakReference
 import java.lang.reflect.Method
@@ -59,6 +60,24 @@ internal object EuiccRegionRestrictionHooker {
     private val replayingDownload = ThreadLocal<ReplayDownload?>()
 
     fun hook(classLoader: ClassLoader?): Boolean {
+        HotReloadLifecycle.register("euicc:confirmation", capture = { activityReference.get() },
+            canReload = {
+                synchronized(stateLock) {
+                    pendingConfirmation == null && pendingDownload == null &&
+                        dialogReference.get()?.isShowing != true &&
+                        activityReference.get()?.let { !it.isFinishing && !it.isDestroyed } != true
+                }
+            }, detach = {
+                dialogReference.get()?.let { dialog ->
+                    dialog.setOnDismissListener(null)
+                    dialog.setOnShowListener(null)
+                    dialog.findViewById<View>(android.R.id.button1)?.setOnClickListener(null)
+                    dialog.findViewById<View>(android.R.id.button2)?.setOnClickListener(null)
+                    dialog.dismiss()
+                }
+                dialogReference = WeakReference(null)
+                activityReference = WeakReference(null)
+            }, restore = { state -> activityReference = WeakReference(state as? Activity) })
         val countryHooked = hookCountryPrecheck(classLoader)
         val profileLimitHooked = hookProfileLimitCheck(classLoader)
         val confirmationHooked = hookConfirmationCodeFlow(classLoader)
@@ -349,6 +368,7 @@ internal object EuiccRegionRestrictionHooker {
     }
 
     private fun showPreDownloadDialog(activity: Activity, request: PendingDownload) {
+        if (HotReloadLifecycle.isRetiring) return
         if (activity.isFinishing || activity.isDestroyed || request.completed.get()) return
         synchronized(stateLock) {
             if (pendingDownload !== request) return
@@ -390,6 +410,7 @@ internal object EuiccRegionRestrictionHooker {
     }
 
     private fun showConfirmationDialog(activity: Activity, request: PendingConfirmation) {
+        if (HotReloadLifecycle.isRetiring) return
         if (activity.isFinishing || activity.isDestroyed || request.completed.get()) return
         synchronized(stateLock) {
             if (pendingConfirmation !== request) return

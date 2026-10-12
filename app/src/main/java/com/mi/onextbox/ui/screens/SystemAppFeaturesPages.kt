@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.mi.onextbox.R
 import com.mi.onextbox.lsp.LspConfig
+import com.mi.onextbox.lsp.SideKeyFeaturePolicy
 import com.mi.onextbox.ui.settings.SettingsCardRow
 import com.mi.onextbox.ui.settings.SettingsDivider
 import com.mi.onextbox.ui.settings.SettingsGroup
@@ -47,6 +48,17 @@ internal fun AndroidSystemFeaturesPage(
             onClick = { onOpenSubPage(FeaturePageMode.Installer) },
             showArrow = true,
         )
+    }
+    if (SideKeyFeaturePolicy.available) {
+        SettingsSection(title = stringResource(R.string.side_key_group))
+        SettingsGroup {
+            SettingsCardRow(
+                title = stringResource(R.string.side_key_title),
+                summary = stringResource(R.string.side_key_entry_summary),
+                onClick = { onOpenSubPage(FeaturePageMode.SideKey) },
+                showArrow = true,
+            )
+        }
     }
 }
 

@@ -15,12 +15,15 @@ import android.telephony.TelephonyManager
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernMethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.Proxy
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.TimeUnit
 
 /** Collects a passive, privacy-safe C17 eUICC status snapshot in the privileged LPA process. */
 internal object EuiccDiagnosticsHooker {
@@ -44,9 +47,14 @@ internal object EuiccDiagnosticsHooker {
     private const val MOBILE_COUNTRY_PROPERTY = "gsm.operator.iso-country"
     private const val MEP_FEATURE = "android.hardware.telephony.euicc.mep"
 
-    private val collector = Executors.newSingleThreadExecutor { runnable ->
+    private fun newCollector() = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "OOST-eSIM-diagnostics").apply { isDaemon = true }
     }
+    private var collector = newCollector()
+    private val pendingCallbacks = AtomicInteger()
+    private var refreshReceiver: BroadcastReceiver? = null
+    private var application: Application? = null
+    private var applicationLoader: ClassLoader? = null
     private val collecting = AtomicBoolean(false)
     private val receiverRegistered = AtomicBoolean(false)
     private val snapshotLock = Any()
@@ -55,6 +63,26 @@ internal object EuiccDiagnosticsHooker {
     private var latestSnapshot: EsimDiagnosticsSnapshot? = null
 
     fun hook(classLoader: ClassLoader?): Boolean {
+        HotReloadLifecycle.register("euicc:diagnostics", capture = {
+            arrayOf(application, applicationLoader, latestSnapshot?.lastDownloadResult)
+        }, canReload = { !collecting.get() && pendingCallbacks.get() == 0 }, detach = {
+            refreshReceiver?.let { application?.unregisterReceiver(it) }
+            refreshReceiver = null
+            receiverRegistered.set(false)
+            collector.shutdownNow()
+            check(collector.awaitTermination(250, TimeUnit.MILLISECONDS)) { "eSIM diagnostics worker is busy" }
+            application = null
+        }, restore = { state ->
+            val saved = state as? Array<*>
+            val app = saved?.getOrNull(0) as? Application
+            val loader = saved?.getOrNull(1) as? ClassLoader
+            (saved?.getOrNull(2) as? Int)?.let { latestSnapshot = EsimDiagnosticsSnapshot(lastDownloadResult = it) }
+            if (app != null) onApplicationReady(app, loader)
+        })
+        HotReloadLifecycle.afterCommit {
+            val app = currentApplicationContext() as? Application
+            if (app?.packageName == "com.oplus.euicc") onApplicationReady(app, classLoader)
+        }
         val applicationClass = findClass(APPLICATION_CLASS, classLoader)
         val onCreate = applicationClass?.declaredMethods?.singleOrNull { method ->
             method.name == "onCreate" && method.parameterCount == 0 && method.returnType == Void.TYPE
@@ -78,8 +106,13 @@ internal object EuiccDiagnosticsHooker {
     }
 
     private fun onApplicationReady(application: Application, classLoader: ClassLoader?) {
+        if (HotReloadLifecycle.isRetiring) return
+        val alreadyReady = this.application === application && receiverRegistered.get()
+        this.application = application
+        applicationLoader = classLoader
+        if (collector.isShutdown) collector = newCollector()
         registerRefreshReceiver(application, classLoader)
-        requestCollection(application, classLoader)
+        if (!alreadyReady) requestCollection(application, classLoader)
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag") // The legacy overload is used only below API 33.
@@ -87,6 +120,7 @@ internal object EuiccDiagnosticsHooker {
         if (!receiverRegistered.compareAndSet(false, true)) return
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(receiverContext: Context, intent: Intent?) {
+                if (HotReloadLifecycle.isRetiring) return
                 if (intent?.action == EsimDiagnosticsStore.ACTION_REFRESH) {
                     requestCollection(receiverContext.applicationContext, classLoader)
                 }
@@ -100,6 +134,7 @@ internal object EuiccDiagnosticsHooker {
                 @Suppress("DEPRECATION")
                 context.registerReceiver(receiver, filter)
             }
+            refreshReceiver = receiver
         }.onFailure { throwable ->
             receiverRegistered.set(false)
             HookLog.e(TAG, "Could not register the eSIM diagnostics refresh receiver", throwable)
@@ -107,9 +142,11 @@ internal object EuiccDiagnosticsHooker {
     }
 
     private fun requestCollection(context: Context, classLoader: ClassLoader?) {
+        if (HotReloadLifecycle.isRetiring) return
         if (!collecting.compareAndSet(false, true)) return
         collector.execute {
             try {
+                if (HotReloadLifecycle.isRetiring) return@execute
                 collect(context.applicationContext, classLoader)
             } catch (throwable: Throwable) {
                 HookLog.e(TAG, "eSIM diagnostics collection failed", throwable)
@@ -127,6 +164,7 @@ internal object EuiccDiagnosticsHooker {
     }
 
     private fun collect(context: Context, classLoader: ClassLoader?) {
+        if (HotReloadLifecycle.isRetiring) return
         val powerState = when (readSystemProperty(ESIM_POWER_PROPERTY)) {
             "0" -> "off"
             "1" -> "on"
@@ -256,6 +294,8 @@ internal object EuiccDiagnosticsHooker {
         assistant: Any,
         classLoader: ClassLoader?,
     ) {
+        if (HotReloadLifecycle.isRetiring) return
+        val waiting = EuiccPendingCallback(pendingCallbacks)
         runCatching {
             val manager = requireNotNull(
                 assistant.javaClass.methods.single { method ->
@@ -271,28 +311,34 @@ internal object EuiccDiagnosticsHooker {
                     method.name == "toString" -> "OOST-eSIM-info-callback"
                     method.name == "hashCode" -> System.identityHashCode(proxy)
                     method.name == "equals" -> proxy === args?.getOrNull(0)
-                    args?.firstOrNull()?.javaClass?.name == EUICC_INFO_MODEL_CLASS -> {
-                        val info = args.first()
-                        updateSnapshot(context) { current ->
-                            current.copy(
-                                capturedAtMillis = System.currentTimeMillis(),
-                                ppVersion = invokeNoArg(info, "a") as? String ?: "",
-                                firmwareVersion = invokeNoArg(info, "b") as? String ?: "",
-                                freeNonVolatileMemory = (invokeNoArg(info, "c") as? Number)?.toLong(),
-                                freeVolatileMemory = (invokeNoArg(info, "d") as? Number)?.toLong(),
-                                svn = invokeNoArg(info, "e") as? String ?: "",
-                                collectionMessage = "",
-                            )
+                    else -> waiting.complete {
+                        HotReloadLifecycle.withHook(fallback = { defaultReturnValue(method.returnType) }) {
+                            if (!HotReloadLifecycle.isRetiring && args?.firstOrNull()?.javaClass?.name == EUICC_INFO_MODEL_CLASS) {
+                                val info = args.first()
+                                updateSnapshot(context) { current ->
+                                    current.copy(
+                                        capturedAtMillis = System.currentTimeMillis(),
+                                        ppVersion = invokeNoArg(info, "a") as? String ?: "",
+                                        firmwareVersion = invokeNoArg(info, "b") as? String ?: "",
+                                        freeNonVolatileMemory = (invokeNoArg(info, "c") as? Number)?.toLong(),
+                                        freeVolatileMemory = (invokeNoArg(info, "d") as? Number)?.toLong(),
+                                        svn = invokeNoArg(info, "e") as? String ?: "",
+                                        collectionMessage = "",
+                                    )
+                                }
+                            }
+                            defaultReturnValue(method.returnType)
                         }
-                        defaultReturnValue(method.returnType)
                     }
-                    else -> defaultReturnValue(method.returnType)
                 }
             }
-            manager.javaClass.methods.single { method ->
+            val request = manager.javaClass.methods.single { method ->
                 method.name == "b" && method.parameterTypes.contentEquals(arrayOf(callbackClass))
-            }.invoke(manager, callback)
+            }
+            waiting.begin()
+            request.invoke(manager, callback)
         }.onFailure { throwable ->
+            waiting.cancel()
             HookLog.e(TAG, "Could not request OEM eUICC information", throwable)
         }
     }
@@ -302,6 +348,8 @@ internal object EuiccDiagnosticsHooker {
         assistant: Any,
         classLoader: ClassLoader?,
     ) {
+        if (HotReloadLifecycle.isRetiring) return
+        val waiting = EuiccPendingCallback(pendingCallbacks)
         runCatching {
             val manager = requireNotNull(
                 assistant.javaClass.methods.single { method ->
@@ -317,26 +365,32 @@ internal object EuiccDiagnosticsHooker {
                     method.name == "toString" -> "OOST-eSIM-SM-DP-callback"
                     method.name == "hashCode" -> System.identityHashCode(proxy)
                     method.name == "equals" -> proxy === args?.getOrNull(0)
-                    args?.firstOrNull()?.javaClass?.name == SMDP_MODEL_CLASS -> {
-                        val text = args.first().toString()
-                        val smdp = Regex("mSmdpAddress='([^']*)'").find(text)?.groupValues?.get(1).orEmpty()
-                        val smds = Regex("mSmdsAddress='([^']*)'").find(text)?.groupValues?.get(1).orEmpty()
-                        updateSnapshot(context) { current ->
-                            current.copy(
-                                capturedAtMillis = System.currentTimeMillis(),
-                                smdpAddress = smdp,
-                                smdsAddress = smds,
-                            )
+                    else -> waiting.complete {
+                        HotReloadLifecycle.withHook(fallback = { defaultReturnValue(method.returnType) }) {
+                            if (!HotReloadLifecycle.isRetiring && args?.firstOrNull()?.javaClass?.name == SMDP_MODEL_CLASS) {
+                                val text = args.first().toString()
+                                val smdp = Regex("mSmdpAddress='([^']*)'").find(text)?.groupValues?.get(1).orEmpty()
+                                val smds = Regex("mSmdsAddress='([^']*)'").find(text)?.groupValues?.get(1).orEmpty()
+                                updateSnapshot(context) { current ->
+                                    current.copy(
+                                        capturedAtMillis = System.currentTimeMillis(),
+                                        smdpAddress = smdp,
+                                        smdsAddress = smds,
+                                    )
+                                }
+                            }
+                            defaultReturnValue(method.returnType)
                         }
-                        defaultReturnValue(method.returnType)
                     }
-                    else -> defaultReturnValue(method.returnType)
                 }
             }
-            manager.javaClass.methods.single { method ->
+            val request = manager.javaClass.methods.single { method ->
                 method.name == "a" && method.parameterTypes.contentEquals(arrayOf(callbackClass))
-            }.invoke(manager, callback)
+            }
+            waiting.begin()
+            request.invoke(manager, callback)
         }.onFailure { throwable ->
+            waiting.cancel()
             HookLog.e(TAG, "Could not request OEM SM-DP+/SM-DS information", throwable)
         }
     }
@@ -365,6 +419,7 @@ internal object EuiccDiagnosticsHooker {
         context: Context,
         transform: (EsimDiagnosticsSnapshot) -> EsimDiagnosticsSnapshot,
     ) {
+        if (HotReloadLifecycle.isRetiring) return
         synchronized(snapshotLock) {
             val current = latestSnapshot
                 ?: EsimDiagnosticsStore.read(context)
@@ -376,6 +431,7 @@ internal object EuiccDiagnosticsHooker {
     }
 
     private fun publish(context: Context, snapshot: EsimDiagnosticsSnapshot) {
+        if (HotReloadLifecycle.isRetiring) return
         if (!EsimDiagnosticsStore.publish(context, snapshot)) {
             HookLog.w(TAG, "The privileged eSIM process could not publish its diagnostics snapshot")
         }
@@ -480,5 +536,26 @@ internal object EuiccDiagnosticsHooker {
                 ModernReflect.findClassIfExists(className, loader)?.let { return it }
             }
         return null
+    }
+}
+
+/** Keep an asynchronous request busy until its entire callback (or retirement fallback) has returned. */
+internal class EuiccPendingCallback(private val pending: AtomicInteger) {
+    private val waiting = AtomicBoolean(false)
+
+    fun begin() {
+        check(waiting.compareAndSet(false, true))
+        pending.incrementAndGet()
+    }
+
+    fun cancel() {
+        if (waiting.compareAndSet(true, false)) pending.decrementAndGet()
+    }
+
+    fun <T> complete(action: () -> T): T {
+        val ownsCompletion = waiting.compareAndSet(true, false)
+        return try { action() } finally {
+            if (ownsCompletion) pending.decrementAndGet()
+        }
     }
 }

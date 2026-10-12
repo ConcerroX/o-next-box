@@ -4,6 +4,86 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class FeatureSearchTest {
+    @Test fun softwareUpdateHasOneDestinationForAllTenFeatures() {
+        assertEquals(10, SoftwareUpdateFeatureItems.all.size)
+        SoftwareUpdateFeatureItems.all.forEach { item ->
+            val entry = FeatureSearchIndex.entries.single { it.title == item.title }
+            assertEquals(FeaturePageMode.SoftwareUpdate, entry.page)
+            assertEquals(item.summary, entry.description)
+        }
+        assertEquals(FeaturePageMode.SoftwareUpdate, FeatureSearchIndex.entries.single {
+            it.title == com.mi.onextbox.R.string.ota_page_title
+        }.page)
+    }
+    @Test fun customLauncherGridUsesTheDesktopLayoutPage() {
+        val entry = FeatureSearchIndex.entries.single { it.title == com.mi.onextbox.R.string.launcher_custom_grid_title }
+        assertEquals(FeaturePageMode.DesktopLayout, entry.page)
+        assertEquals(0, entry.description)
+    }
+    @Test fun aospBackPanelUsesTheNativeSystemUiPage() {
+        val entry = FeatureSearchIndex.entries.single {
+            it.title == com.mi.onextbox.R.string.feature_aosp_back_panel_title
+        }
+        assertEquals(FeaturePageMode.SystemUiNative, entry.page)
+        assertEquals(com.mi.onextbox.R.string.feature_aosp_back_panel_summary, entry.description)
+    }
+    @Test fun batchNotificationPermissionsUseTheToolsDestination() {
+        listOf(
+            com.mi.onextbox.R.string.notification_batch_title,
+            com.mi.onextbox.R.string.notification_batch_notifications,
+            com.mi.onextbox.R.string.notification_batch_banner,
+            com.mi.onextbox.R.string.notification_batch_lock_screen,
+        ).forEach { title ->
+            assertEquals(FeaturePageMode.NotificationBatch, FeatureSearchIndex.entries.single { it.title == title }.page)
+        }
+    }
+    @Test fun roundNotificationClearButtonUsesTheNotificationCenterPage() {
+        val entry = FeatureSearchIndex.entries.single {
+            it.title == com.mi.onextbox.R.string.feature_round_notification_clear_button_title
+        }
+        assertEquals(FeaturePageMode.SystemUiNotificationCenter, entry.page)
+        assertEquals(com.mi.onextbox.R.string.feature_round_notification_clear_button_summary, entry.description)
+    }
+
+    @Test fun keyboardDismissButtonUsesTheKeyboardPage() {
+        val entry = FeatureSearchIndex.entries.single {
+            it.title == com.mi.onextbox.R.string.keyboard_hide_dismiss_title
+        }
+        assertEquals(FeaturePageMode.Keyboard, entry.page)
+        assertEquals(com.mi.onextbox.R.string.keyboard_hide_dismiss_summary, entry.description)
+    }
+
+    @Test fun keyboardBottomLiftFixUsesTheKeyboardPage() {
+        val entry = FeatureSearchIndex.entries.single {
+            it.title == com.mi.onextbox.R.string.keyboard_bottom_lift_fix_title
+        }
+        assertEquals(FeaturePageMode.Keyboard, entry.page)
+        assertEquals(com.mi.onextbox.R.string.keyboard_bottom_lift_fix_summary, entry.description)
+    }
+
+    @Test fun hiddenKeyboardEmojiGroupIsNotSearchable() {
+        assertFalse(KeyboardFeatureVisibility.emojiGroupVisible)
+        assertFalse(FeatureSearchIndex.entries.any {
+            it.title == com.mi.onextbox.R.string.keyboard_emoji_group ||
+                it.title == com.mi.onextbox.R.string.keyboard_flag_emoji_title
+        })
+        listOf(
+            com.mi.onextbox.R.string.keyboard_page_title,
+            com.mi.onextbox.R.string.keyboard_material_group,
+            com.mi.onextbox.R.string.keyboard_layout_group,
+        ).forEach { title ->
+            assertEquals(FeaturePageMode.Keyboard, FeatureSearchIndex.entries.single { it.title == title }.page)
+        }
+    }
+
+    @Test fun keyboardMaterialHasItsOwnSearchDestination() {
+        val entry = FeatureSearchIndex.entries.single {
+            it.title == com.mi.onextbox.R.string.keyboard_material_unlock_title
+        }
+        assertEquals(FeaturePageMode.Keyboard, entry.page)
+        assertEquals(com.mi.onextbox.R.string.keyboard_material_unlock_summary, entry.description)
+    }
+
     @Test fun systemRootDetectionOpensAndroidSystemPage() {
         val entry = FeatureSearchIndex.entries.single {
             it.title == com.mi.onextbox.R.string.feature_system_root_detection_title
@@ -173,12 +253,28 @@ class FeatureSearchTest {
     @Test fun fluidCloudMaterialIsSearchableOnItsOwnPage() {
         assertTrue(FeaturePageMode.SystemUiFluidCloud.isNestedPage)
         val destinations = FeatureSearchIndex.entries.filter { it.page == FeaturePageMode.SystemUiFluidCloud }
-        assertEquals(3, destinations.size)
+        assertEquals(5, destinations.size)
         val category = destinations.single { it.title == com.mi.onextbox.R.string.feature_fluid_cloud_title }
         assertEquals(com.mi.onextbox.R.string.feature_fluid_cloud_entry_summary, category.description)
         assertTrue(destinations.any { it.title == com.mi.onextbox.R.string.feature_fluid_cloud_card_group })
         val material = destinations.single { it.title == com.mi.onextbox.R.string.feature_fluid_cloud_material_title }
         assertEquals(0, material.description)
+        assertTrue(destinations.any { it.title == com.mi.onextbox.R.string.fluid_media_blacklist_title })
+        val browser = destinations.single { it.title == com.mi.onextbox.R.string.fluid_browser_title }
+        assertEquals(com.mi.onextbox.R.string.fluid_browser_summary, browser.description)
+        assertTrue(FeaturePageMode.SystemUiFluidCloudMediaBlacklist.isNestedPage)
+        assertTrue(FeatureSearchIndex.entries.any { it.page == FeaturePageMode.SystemUiFluidCloudMediaBlacklist })
+    }
+    @Test fun phoneManagerCountdownUsesItsOwnTopLevelPage() {
+        assertFalse(FeaturePageMode.PhoneManager.isNestedPage)
+        assertEquals(FeaturePageMode.PhoneManager, FeatureSearchIndex.entries.single {
+            it.title == com.mi.onextbox.R.string.phone_manager_title
+        }.page)
+        val countdown = FeatureSearchIndex.entries.single {
+            it.title == com.mi.onextbox.R.string.phone_manager_skip_countdown_title
+        }
+        assertEquals(FeaturePageMode.PhoneManager, countdown.page)
+        assertEquals(com.mi.onextbox.R.string.phone_manager_skip_countdown_summary, countdown.description)
     }
     @Test fun statusBarGroupsAndControlsKeepTheirDestination() {
         val titles = listOf(

@@ -80,24 +80,46 @@ class LspStatusUiTest {
     }
 
     @Test
-    fun staleTargetDisplayRequiresEnabledModuleConnectedFrameworkAndCompleteScopes() {
-        val stale = staleSnapshot()
-        listOf(
-            stale.copy(moduleState = LspModuleState.UNKNOWN),
-            stale.copy(moduleState = LspModuleState.DISABLED),
-            stale.copy(serviceConnected = false),
-            stale.copy(verifiedScopes = null),
-            stale.copy(verifiedScopes = emptySet()),
-            stale.copy(missingScopes = setOf("com.android.systemui")),
-        ).forEach { snapshot ->
-            assertEquals(LspStatus.WAITING_RESTART, homeLspDisplayStatus(snapshot, false))
+    fun homepageKeepsNormalDisplayAfterFailedHotReloadWithoutChangingLiveStatus() {
+        val failed = staleSnapshot().copy(reason = "target_reload_failed")
+        listOf(false, true).forEach { rootStartupPending ->
+            val displayStatus = homeLspDisplayStatus(failed, rootStartupPending)
+            assertEquals(LspStatus.READY, displayStatus)
+            assertEquals(R.string.lsp_status_ready, lspStatusTextResource(displayStatus))
+            assertEquals(failed.frameworkVersionText, formatLspStatusText(
+                displayStatus, "Ready", failed.frameworkVersionText,
+            ))
+        }
+        assertEquals(LspStatus.WAITING_RESTART, failed.status)
+        assertEquals("target_reload_failed", failed.reason)
+        assertFalse(failed.isReady)
+    }
+
+    @Test
+    fun loadedTargetDisplayRequiresEnabledModuleConnectedFrameworkAndCompleteScopes() {
+        listOf("target_stale", "target_reload_failed").forEach { reason ->
+            val loaded = staleSnapshot().copy(reason = reason)
+            listOf(
+                loaded.copy(moduleState = LspModuleState.UNKNOWN),
+                loaded.copy(moduleState = LspModuleState.DISABLED),
+                loaded.copy(serviceConnected = false),
+                loaded.copy(verifiedScopes = null),
+                loaded.copy(verifiedScopes = emptySet()),
+                loaded.copy(missingScopes = setOf("com.android.systemui")),
+            ).forEach { snapshot ->
+                assertEquals(LspStatus.WAITING_RESTART, homeLspDisplayStatus(snapshot, false))
+            }
         }
     }
 
     @Test
-    fun homepageKeepsDisabledMissingScopeAndOtherStatesEvenWithAStaleReason() {
-        LspStatus.entries.filter { it != LspStatus.WAITING_RESTART }.forEach { status ->
-            assertEquals(status, homeLspDisplayStatus(staleSnapshot().copy(status = status), false))
+    fun homepageKeepsDisabledMissingScopeAndOtherStatesEvenWithALoadedTargetReason() {
+        listOf("target_stale", "target_reload_failed").forEach { reason ->
+            LspStatus.entries.filter { it != LspStatus.WAITING_RESTART }.forEach { status ->
+                assertEquals(status, homeLspDisplayStatus(
+                    staleSnapshot().copy(status = status, reason = reason), false,
+                ))
+            }
         }
     }
 

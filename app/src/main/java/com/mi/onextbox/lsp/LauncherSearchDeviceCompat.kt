@@ -8,6 +8,7 @@ import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import com.mi.onextbox.lsp.compat.ModernHookBridge
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernMethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect
 import io.github.libxposed.api.XposedInterface
@@ -42,9 +43,14 @@ internal object LauncherSearchDeviceCompat {
         return runCatching {
             val applicationClass = ModernReflect.findClass(APPLICATION, loader)
             val onCreate = ModernReflect.findDeclaredMethodExact(applicationClass, "onCreate")
+            var recoveryStarted = false
             val bootstrap = LauncherSearchBootstrap {
+                recoveryStarted = true
                 installRecovery(loader, selectedClass, implementationField)
             }
+            HotReloadLifecycle.registerReplay("launcher:search-bootstrap",
+                capture = { recoveryStarted },
+                replay = { saved -> if (saved == true) bootstrap.onApplicationReady(true) })
             // OEM feature initialization needs the context set by attachBaseContext.
             ModernHookBridge.hookMethod(onCreate, object : ModernMethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam) {
@@ -211,9 +217,30 @@ internal object LauncherSearchDeviceCompat {
         private val international = selectedClass.name == EXPORT_SEARCH
         private val handler = Handler(Looper.getMainLooper())
         private val pending = WeakHashMap<Activity, RecoveryTask>()
+        private val owners = WeakHashMap<Activity, Boolean>()
+
+        init {
+            HotReloadLifecycle.register("launcher:search-recovery:${selectedClass.name}",
+                capture = { owners.keys.toTypedArray() },
+                detach = {
+                    pending.values.toList().forEach(handler::removeCallbacks)
+                    pending.clear()
+                    owners.clear()
+                },
+                restore = { saved ->
+                    if (repairEnabled()) (saved as? Array<*>)?.filterIsInstance<Activity>()?.forEach(::schedule)
+                },
+                resumeAfterRejection = {
+                    // A recovery timer may have observed retirement before another owner vetoed it.
+                    // schedule replaces its old timer, preserving at most one task per live activity.
+                    if (repairEnabled()) owners.keys.toList().forEach(::schedule)
+                })
+        }
 
         fun schedule(launcher: Activity) {
+            if (HotReloadLifecycle.isRetiring) return
             if (launcher.isDestroyed || launcher.isFinishing) return
+            owners[launcher] = true
             cancel(launcher)
             RecoveryTask(launcher).also { task ->
                 pending[launcher] = task
@@ -379,7 +406,7 @@ internal object LauncherSearchDeviceCompat {
             override fun run() {
                 val launcher = owner.get() ?: return
                 if (pending[launcher] !== this) return
-                if (launcher.isDestroyed || launcher.isFinishing) {
+                if (HotReloadLifecycle.isRetiring || launcher.isDestroyed || launcher.isFinishing) {
                     cancel(launcher)
                     return
                 }

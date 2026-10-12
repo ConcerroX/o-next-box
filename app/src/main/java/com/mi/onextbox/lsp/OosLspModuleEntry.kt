@@ -1,45 +1,89 @@
 package com.mi.onextbox.lsp
 
+import android.util.Log
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.HookConfigSnapshot
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
+import com.mi.onextbox.lsp.compat.HotReloadDispatchMailbox
+import com.mi.onextbox.lsp.compat.ModernHotReloadSession
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.function.Consumer
 
 /** Single modern API 102 entry for all ONextBox scopes. */
 class OosLspModuleEntry : XposedModule() {
     private val dispatchedPackages = ConcurrentHashMap.newKeySet<String>()
+    private data class ReloadTarget(
+        val packageName: String,
+        val classLoader: ClassLoader,
+        val sourceDir: String,
+        val system: Boolean = false,
+    ) {
+        fun export(): Array<Any> = arrayOf(packageName, classLoader, sourceDir, system)
+    }
+    private val reloadTargets = CopyOnWriteArrayList<ReloadTarget>()
+    private var reloadMailbox = HotReloadDispatchMailbox.create()
+    private val lifecycleReceiver = Consumer<Array<Any>> { row ->
+        HotReloadLifecycle.withHook(
+            fallback = { deferLifecycle(row) },
+            action = { dispatchLifecycle(readTarget(row)) },
+        )
+    }
+    private var processName = ""
+    private var systemServer = false
 
     override fun onModuleLoaded(param: XposedModuleInterface.ModuleLoadedParam) {
+        processName = param.processName
+        systemServer = param.isSystemServer
+        HotReloadLifecycle.begin()
+        ModernHotReloadSession.begin(staging = false)
+        attachRuntime()
+        HotReloadDispatchMailbox.bind(reloadMailbox, lifecycleReceiver)
+        HookLog.i(
+            TAG,
+            "Modern API $apiVersion attached: $processName " +
+                "(${frameworkName} ${frameworkVersion})",
+        )
+    }
+
+    private fun attachRuntime(): Boolean {
         ModernHookRuntime.attach(this)
-        runCatching { getRemotePreferences(PREFERENCES_GROUP) }
-            .onSuccess {
-                ModernHookRuntime.attachRemotePreferences(PREFERENCES_GROUP, it)
-                HookConfigSnapshot.attach(it)
-            }
+        return runCatching {
+            val preferences = getRemotePreferences(PREFERENCES_GROUP)
+            ModernHookRuntime.attachRemotePreferences(PREFERENCES_GROUP, preferences)
+            check(HookConfigSnapshot.attach(preferences)) { "Preference listener is unavailable" }
+            HotReloadLifecycle.register(
+                key = "core.preferences",
+                detach = { check(HookConfigSnapshot.detach()) { "Preference listener could not be removed" } },
+                restore = { check(HookConfigSnapshot.attach(preferences)) { "Preference listener could not be restored" } },
+            )
+        }
             .onFailure {
                 HookLog.w(
                     TAG,
-                    "Remote preferences unavailable in ${param.processName}; synced system state will be used",
+                    "Remote preferences unavailable in $processName; synced system state will be used",
                     it,
                 )
-            }
-        HookLog.i(
-            TAG,
-            "Modern API $apiVersion attached: ${param.processName} " +
-                "(${frameworkName} ${frameworkVersion})",
-        )
+            }.isSuccess
     }
 
     override fun onSystemServerStarting(
         param: XposedModuleInterface.SystemServerStartingParam,
     ) {
-        ModernHookRuntime.attach(this)
-        val loader = param.classLoader
+        HotReloadDispatchMailbox.submit(
+            reloadMailbox, ReloadTarget(PACKAGE_SYSTEM, param.classLoader, "", system = true).export(),
+        )
+    }
+
+    private fun dispatchSystemServer(loader: ClassLoader) {
         if (LspConfig.isImmersiveNavigationEnabledXposed()) {
             ImmersiveNavigationHooker.hook()
         }
         FrameworkHooker.hook(packageName = PACKAGE_SYSTEM, classLoader = loader)
+        SideKeyHooker.hookSystemServer(loader)
+        AppErrorTrackingHooker.hookSystemServer(loader)
         StatusBarScrollToTopHooker.hookSystemServer(loader)
         BatteryOptimizationHooker.hookSystemServer(loader)
         SystemRootDetectionHooker.hookSystemServer(loader)
@@ -57,7 +101,6 @@ class OosLspModuleEntry : XposedModule() {
     }
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) {
-        ModernHookRuntime.attach(this)
         val packageName = param.packageName
 
         // API 102 reports every package that becomes ready in a process. SystemUI can later load
@@ -66,15 +109,39 @@ class OosLspModuleEntry : XposedModule() {
         // processes while rejecting this ambiguous framework callback.
         if (packageName == PACKAGE_ANDROID) return
 
-        val classLoader = param.classLoader
-        val dispatchKey = "$packageName@${System.identityHashCode(classLoader)}"
+        HotReloadDispatchMailbox.submit(reloadMailbox,
+            ReloadTarget(packageName, param.classLoader, param.applicationInfo.sourceDir.orEmpty()).export())
+    }
+
+    private fun deferLifecycle(row: Array<Any>) {
+        HotReloadDispatchMailbox.defer(reloadMailbox, lifecycleReceiver, row)
+    }
+
+    private fun readTarget(row: Any?): ReloadTarget {
+        val fields = row as? Array<*> ?: error("Invalid lifecycle record")
+        check(fields.size == 4) { "Invalid lifecycle record size" }
+        return ReloadTarget(fields[0] as String, fields[1] as ClassLoader, fields[2] as String, fields[3] as Boolean)
+    }
+
+    private fun dispatchLifecycle(target: ReloadTarget) {
+        ModernHookRuntime.attach(this)
+        val dispatchKey = "${target.packageName}@${System.identityHashCode(target.classLoader)}"
         if (!dispatchedPackages.add(dispatchKey)) return
+        reloadTargets += target
+        if (target.system) dispatchSystemServer(target.classLoader) else dispatchPackage(target)
+    }
+
+    private fun dispatchPackage(target: ReloadTarget) {
+        val packageName = target.packageName
+        val classLoader = target.classLoader
 
         InstallerRedirectHooker.hookApp()
 
         when (packageName) {
             PACKAGE_SYSTEM_UI -> {
+                SideKeySystemUiHooker.hook(classLoader)
                 ImmersiveNavigationHooker.hook(classLoader)
+                AospBackPanelHooker.hook(classLoader)
                 AssistantHooker.hook(packageName, classLoader)
                 SystemUiHooker.hook(packageName, classLoader)
                 DisconnectedBluetoothIconHooker.hook(classLoader)
@@ -84,9 +151,11 @@ class OosLspModuleEntry : XposedModule() {
                 PermanentClockSecondsHooker.hookSystemUi(classLoader)
                 SystemUiRedOneHooker.hook(classLoader)
                 NotificationRemovalHooker.hookSystemUi(classLoader)
+                NotificationClearButtonHooker.hook(classLoader)
                 SmallWindowHooker.hookSystemUi(classLoader)
                 FaceTapUnlockHooker.hook(classLoader)
                 KeyguardCaptureHooker.hookSystemUi(classLoader)
+                FluidCloudMediaBlacklistHooker.hook(classLoader)
             }
 
             PACKAGE_SETTINGS -> {
@@ -104,7 +173,7 @@ class OosLspModuleEntry : XposedModule() {
                 FrameworkHooker.hook(packageName, classLoader)
                 AssistantHooker.hook(packageName, classLoader)
                 LauncherHooker.hook(classLoader)
-                LauncherFeaturesHooker.hook(classLoader)
+                LauncherFeaturesHooker.hook(classLoader, target.sourceDir)
                 ExpressCardHooker.hook(packageName, classLoader)
                 SystemUiRedOneHooker.hookLauncherClock()
             }
@@ -124,15 +193,32 @@ class OosLspModuleEntry : XposedModule() {
 
             PACKAGE_APP_MARKET -> AppMarketHooker.hook(classLoader)
             TrafficManagementRules.PACKAGE_NAME ->
-                TrafficManagementHooker.hook(classLoader, param.applicationInfo.sourceDir)
+                TrafficManagementHooker.hook(classLoader, target.sourceDir)
+            KeyboardMaterialRules.PACKAGE_NAME -> {
+                KeyboardMaterialHooker.hook(classLoader, target.sourceDir)
+                KeyboardFlagEmojiHooker.hook(classLoader, target.sourceDir)
+                KeyboardBottomLiftHooker.hook(classLoader, target.sourceDir)
+                KeyboardDismissButtonHooker.hook(classLoader)
+            }
             "com.oplus.battery" -> {
                 BatteryCycleCountHooker.hook(classLoader)
-                BatteryOptimizationHooker.hookBattery(classLoader, param.applicationInfo.sourceDir)
+                BatteryOptimizationHooker.hookBattery(classLoader, target.sourceDir)
             }
 
             FileManagerCardRules.PACKAGE_NAME -> FileManagerHooker.hook(classLoader)
 
             "com.oplus.securitypermission" -> SecurityPermissionHooker.hook(classLoader)
+
+            PhoneManagerSettings.PACKAGE_NAME ->
+                PhoneManagerCountdownHooker.hook(classLoader, target.sourceDir)
+
+            SoftwareUpdateSettings.PACKAGE_NAME ->
+                SoftwareUpdateHooker.hook(classLoader, target.sourceDir)
+
+            SoftwareUpdateSettings.SYSTEM_FILES_PACKAGE_NAME ->
+                SystemFileUpdateHooker.hook(classLoader, target.sourceDir)
+
+            FluidCloudBrowserSettings.PACKAGE_NAME -> FluidCloudBrowserHooker.hook(classLoader)
 
             "com.android.permissioncontroller", "com.google.android.permissioncontroller" ->
                 PermissionUiStyleHooker.hookPermissionController(classLoader)
@@ -151,12 +237,111 @@ class OosLspModuleEntry : XposedModule() {
     }
 
     override fun onHotReloading(param: XposedModuleInterface.HotReloadingParam): Boolean {
-        // Stateful OEM hooks are installed only at process start. Refuse partial hot reloads.
-        return false
+        val session = ModernHotReloadSession.current
+        val currentTargets = reloadTargets.toList()
+        // Read the framework-owned preference at the decision point, not an APK-bundled flag.
+        val enabled = runCatching {
+            getRemotePreferences(PREFERENCES_GROUP)
+                .getBoolean(ModuleHotReloadSettings.PREFERENCE_KEY, false)
+        }.getOrDefault(false)
+        if (!ModuleHotReloadPolicy.canReload(
+                enabled, processName, systemServer, currentTargets.map { it.packageName }.toSet(),
+                session?.healthy == true && currentTargets.isNotEmpty() && HookConfigSnapshot.isListening,
+            )) {
+            if (enabled) reloadStatus("Hot reload deferred for $processName; restart this scope. " +
+                "healthy=${session?.healthy}, preferences=${HookConfigSnapshot.isListening}, " +
+                "packages=${currentTargets.map { it.packageName }.distinct()}")
+            return false
+        }
+        var resourceState: Map<String, Any?>? = null
+        return runCatching {
+            resourceState = HotReloadLifecycle.prepare()
+            val targets = reloadTargets.toList()
+            check(ModuleHotReloadPolicy.canReload(
+                enabled, processName, systemServer, targets.map { it.packageName }.toSet(), session?.healthy == true,
+            )) { "Lifecycle changed while preparing hot reload" }
+            val mailbox = HotReloadDispatchMailbox.retire(reloadMailbox)
+            // Only platform values and the host's loader cross the module-classloader boundary.
+            param.setSavedInstanceState(arrayOf(
+                RELOAD_PROTOCOL, processName, systemServer, targets.map { it.export() }.toTypedArray(), resourceState,
+                mailbox,
+            ))
+            true
+        }.onFailure {
+            runCatching {
+                resourceState?.let { state -> HotReloadLifecycle.cancelPreparation(state) }
+                if (!HotReloadLifecycle.isRetiring) HotReloadDispatchMailbox.bind(reloadMailbox, lifecycleReceiver)
+            }.onFailure { recoveryError ->
+                session?.markFailed()
+                if (recoveryError !== it) it.addSuppressed(recoveryError)
+            }
+            if (HotReloadLifecycle.isRetiring) session?.markFailed()
+            reloadStatus("Hot reload preparation rejected; restart $processName", it)
+        }
+            .getOrDefault(false)
+    }
+
+    override fun onHotReloaded(param: XposedModuleInterface.HotReloadedParam) {
+        var session: ModernHotReloadSession.Session? = null
+        try {
+            val state = param.savedInstanceState as? Array<*> ?: error("Missing hot-reload state")
+            check(state.size == 6 && state[0] == RELOAD_PROTOCOL) { "Unsupported hot-reload state" }
+            processName = param.processName
+            systemServer = param.isSystemServer
+            check(state[1] == processName && state[2] == systemServer &&
+                ModuleHotReloadPolicy.supportsProcess(processName, systemServer)) {
+                "Process is not supported for hot reload"
+            }
+            val rows = state[3] as? Array<*> ?: error("Missing target lifecycle records")
+            val targets = rows.map(::readTarget)
+            check(ModuleHotReloadPolicy.canReload(
+                true, processName, systemServer, targets.map { it.packageName }.toSet(), targets.isNotEmpty(),
+            )) { "Unsupported lifecycle records" }
+            @Suppress("UNCHECKED_CAST")
+            val resources = state[4] as? Map<String, Any?> ?: error("Missing resource ownership state")
+            @Suppress("UNCHECKED_CAST")
+            val mailbox = state[5] as? Array<Any?> ?: error("Missing lifecycle handover")
+            reloadMailbox = mailbox
+            HotReloadLifecycle.begin(resources)
+            session = ModernHotReloadSession.begin(staging = true)
+            check(attachRuntime() && HookConfigSnapshot.isAvailable) { "Remote preferences are not ready" }
+
+            // API 102 does not replay initial callbacks. Preserve the exact dispatch order and paths.
+            targets.forEach { target ->
+                if (target.system) dispatchSystemServer(target.classLoader) else dispatchPackage(target)
+                val dispatchKey = "${target.packageName}@${System.identityHashCode(target.classLoader)}"
+                dispatchedPackages.add(dispatchKey)
+                reloadTargets += target
+            }
+            HotReloadLifecycle.replaySavedState()
+            session.commit(param.oldHookHandles)
+            HotReloadLifecycle.complete()
+            HotReloadDispatchMailbox.bind(reloadMailbox, lifecycleReceiver)
+            reloadStatus("Hot reload completed for $processName")
+        } catch (error: Throwable) {
+            session?.markFailed()
+            runCatching { HotReloadLifecycle.fail() }
+            if (session?.hasCommittedHooks != true) HookConfigSnapshot.detach()
+            reloadStatus("Hot reload failed; restart $processName", error)
+            // Do not call the default callback: it would remove all previous hooks on failure.
+            throw IllegalStateException("Hot reload failed; restart $processName", error)
+        }
+    }
+
+    private fun reloadStatus(message: String, error: Throwable? = null) {
+        // Keep a concise local outcome even when the framework rate-limits hook-install logs.
+        if (error == null) {
+            Log.i(TAG, message)
+            HookLog.i(TAG, message)
+        } else {
+            Log.w(TAG, message, error)
+            HookLog.w(TAG, message, error)
+        }
     }
 
     private companion object {
         const val TAG = "ONextBox-Entry"
+        const val RELOAD_PROTOCOL = "onextbox.reload.lifecycle.v3"
         const val PREFERENCES_GROUP = "lsp_features"
         const val PACKAGE_SYSTEM = "system"
         const val PACKAGE_ANDROID = "android"

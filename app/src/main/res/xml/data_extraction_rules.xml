@@ -8,6 +8,10 @@
         <exclude domain="device_sharedpref" path="push_monitor.xml" />
         <exclude domain="device_sharedpref" path="lsposed_status_cache.xml" />
         <exclude domain="file" path="logs/" />
+        <exclude domain="database" path="app_errors.db" />
+        <exclude domain="database" path="app_errors.db-journal" />
+        <exclude domain="database" path="app_errors.db-wal" />
+        <exclude domain="database" path="app_errors.db-shm" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="onextbox_activation.xml" />
@@ -16,5 +20,9 @@
         <exclude domain="device_sharedpref" path="push_monitor.xml" />
         <exclude domain="device_sharedpref" path="lsposed_status_cache.xml" />
         <exclude domain="file" path="logs/" />
+        <exclude domain="database" path="app_errors.db" />
+        <exclude domain="database" path="app_errors.db-journal" />
+        <exclude domain="database" path="app_errors.db-wal" />
+        <exclude domain="database" path="app_errors.db-shm" />
     </device-transfer>
 </data-extraction-rules>

@@ -15,11 +15,13 @@ import android.widget.ImageView
 import com.mi.onextbox.R
 import com.mi.onextbox.lsp.LspConfig.KeyguardFeature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernMethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as Reflect
 import java.lang.ref.WeakReference
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Lockscreen entry after live face authentication, unsupported interfaces remain untouched. */
 internal object FaceTapUnlockHooker {
@@ -40,9 +42,10 @@ internal object FaceTapUnlockHooker {
     private var lastCaptureDiagnostic: String? = null
     private val feedback = NativeFingerprintFeedback()
     private val haptics = NativeFingerprintHaptics()
-    private val wake = FaceTapWakeHandoff()
+    private var wake = FaceTapWakeHandoff()
     private var pendingDismiss: Runnable? = null
     private var pendingHold: Runnable? = null
+    private val pendingOpticalEvents = AtomicInteger()
 
     private data class IconSnapshot(
         val drawable: Drawable,
@@ -53,7 +56,7 @@ internal object FaceTapUnlockHooker {
     )
 
     private val refresh = Runnable { guarded { reconcile() } }
-    private fun enabled() = !failed.get() &&
+    private fun enabled() = !HotReloadLifecycle.isRetiring && !failed.get() &&
         LspConfig.isKeyguardFeatureEnabledXposed(KeyguardFeature.FaceTapUnlock)
     private fun feedbackEnabled() = FaceTapFeedbackRules.enabled(
         enabled(), LspConfig.isKeyguardFeatureEnabledXposed(KeyguardFeature.FaceTapAnimation),
@@ -61,6 +64,37 @@ internal object FaceTapUnlockHooker {
     )
 
     fun hook(loader: ClassLoader) {
+        HotReloadLifecycle.register("face-tap:session",
+            canReload = {
+                // Never migrate an authorization or a press which might later dismiss keyguard.
+                sessionUser == null && pendingDismiss == null && pendingHold == null &&
+                    pendingOpticalEvents.get() == 0 && !feedback.isActive && !wake.running && !wake.busy
+            },
+            capture = { arrayOf(panel.get(), mech.get()) },
+            detach = {
+                sessionUser = null
+                cancelFeedbackAndDismiss()
+                feedback.clear()
+                wake.dispose()
+                main.removeCallbacksAndMessages(null)
+                tap?.invalidate()
+                tap = null
+                snapshot = null
+                removeButton()
+                panel.clear()
+                mech.clear()
+            },
+            restore = { saved ->
+                val values = saved as? Array<*>
+                val host = values?.getOrNull(0) as? FrameLayout
+                panel = WeakReference(host)
+                mech = WeakReference(values?.getOrNull(1))
+                wake = FaceTapWakeHandoff()
+                if (host != null) tap = FaceTapUnlockRules.Tap(ViewConfiguration.get(host.context).scaledTouchSlop.toFloat())
+                // A fresh native authentication event is required after the handover.
+                sessionUser = null
+            },
+            resumeAfterRejection = ::resumeAfterRejectedReload)
         if (!enabled()) return
         guarded {
             val monitor = Reflect.findClass("com.android.keyguard.KeyguardUpdateMonitor", loader)
@@ -179,8 +213,17 @@ internal object FaceTapUnlockHooker {
                     // The optical UI has its own Looper, keep all auth/UI actions on main.
                     // Stock onTouchEvent already returns true without an authentication action.
                     val copy = MotionEvent.obtain(event)
-                    main.post {
-                        try { guarded { handleTouch(copy) } } finally { copy.recycle() }
+                    pendingOpticalEvents.incrementAndGet()
+                    if (!main.post {
+                        try {
+                            if (!HotReloadLifecycle.isRetiring) guarded { handleTouch(copy) }
+                        } finally {
+                            copy.recycle()
+                            pendingOpticalEvents.decrementAndGet()
+                        }
+                    }) {
+                        copy.recycle()
+                        pendingOpticalEvents.decrementAndGet()
                     }
                 }
             }
@@ -281,6 +324,19 @@ internal object FaceTapUnlockHooker {
             main.removeCallbacks(refresh)
             gracePolls = 4
             main.post(refresh)
+        }
+    }
+
+    private fun resumeAfterRejectedReload() {
+        if (panel.get() == null && sessionUser == null && pendingHold == null && pendingDismiss == null) return
+        guarded {
+            // Never replay a press or delayed dismissal across a pause. Keep the native session,
+            // re-check its live eligibility, and require a fresh press for any dismissal action.
+            tap?.invalidate()
+            cancelFeedbackAndDismiss(hard = false)
+            main.removeCallbacks(refresh)
+            gracePolls = 4
+            reconcile()
         }
     }
 
@@ -563,12 +619,13 @@ internal object FaceTapUnlockHooker {
     }
 
     private fun onMain(action: () -> Unit) {
+        if (HotReloadLifecycle.isRetiring) return
         if (Looper.myLooper() == Looper.getMainLooper()) guarded(action)
         else main.post { guarded(action) }
     }
 
     private fun guarded(action: () -> Unit) {
-        if (failed.get()) return
+        if (failed.get() || HotReloadLifecycle.isRetiring) return
         runCatching(action).onFailure {
             if (failed.compareAndSet(false, true)) {
                 sessionUser = null

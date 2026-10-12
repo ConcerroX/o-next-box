@@ -15,6 +15,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernReflect
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
 import java.util.WeakHashMap
@@ -27,13 +28,32 @@ internal object ExpressCardHooker {
     private class Host(val packageName: String) {
         val query = ExpressQuerySession()
         val scheduledInputs = WeakHashMap<EditText, Long>()
+        val callbacks = WeakHashMap<EditText, Runnable>()
         @Volatile var context: Context? = null
     }
 
     fun hook(packageName: String, classLoader: ClassLoader) {
-        if (packageName !in ExpressCardRules.packages || !enabled()) return
-        val host = Host(packageName)
         val prefix = "$TAG:$packageName@${System.identityHashCode(classLoader)}"
+        if (packageName !in ExpressCardRules.packages ||
+            (!enabled() && HotReloadLifecycle.restoredState(prefix) == null)) return
+        val host = Host(packageName)
+        HotReloadLifecycle.register(prefix, capture = { arrayOf(host.context, host.query.exportReloadState()) },
+            canReload = { host.query.pending(SystemClock.uptimeMillis()) == null && !host.query.imeSuppressed(SystemClock.uptimeMillis()) },
+            detach = {
+                host.callbacks.entries.toList().forEach { (view, callback) -> view.removeCallbacks(callback) }
+                host.callbacks.clear()
+                host.scheduledInputs.clear()
+                host.context = null
+            }, restore = { state ->
+                val saved = state as? Array<*>
+                host.context = saved?.getOrNull(0) as? Context
+                host.query.importReloadState(saved?.getOrNull(1))
+            })
+        HotReloadLifecycle.afterCommit {
+            if (host.context == null) host.context = runCatching {
+                ModernReflect.callStaticMethod(Class.forName("android.app.ActivityThread"), "currentApplication") as? Application
+            }.getOrNull()?.takeIf { it.packageName == packageName }
+        }
         installMethods(classLoader, Application::class.java.name, prefix,
             { it.name == "attach" && it.parameterTypes.contentEquals(arrayOf(Context::class.java)) },
         ) { chain ->
@@ -196,12 +216,17 @@ internal object ExpressCardHooker {
     }
 
     private fun scheduleSearch(host: Host, input: EditText, pending: ExpressQuerySession.Pending) {
+        if (HotReloadLifecycle.isRetiring) return
         if (host.scheduledInputs[input] == pending.generation) return
         host.scheduledInputs[input] = pending.generation
-        input.postDelayed(object : Runnable {
+        host.callbacks.remove(input)?.let(input::removeCallbacks)
+        val callback = object : Runnable {
             override fun run() {
                 val now = SystemClock.uptimeMillis()
-                if (!enabled() || !input.isAttachedToWindow || !host.query.matches(pending, now)) return
+                if (HotReloadLifecycle.isRetiring || !enabled() || !input.isAttachedToWindow || !host.query.matches(pending, now)) {
+                    host.callbacks.remove(input)
+                    return
+                }
                 host.query.suppressIme(pending, now)
                 if (input.isShown && input.isEnabled && input.text?.toString() == pending.number) {
                     runCatching {
@@ -211,11 +236,14 @@ internal object ExpressCardHooker {
                         keyboard?.hideSoftInputFromWindow(input.windowToken, 0)
                     }.onFailure { HookLog.w(TAG, "Unable to submit express query", it) }
                     host.query.complete(pending, now)
+                    host.callbacks.remove(input)
                     return
                 }
                 input.postDelayed(this, 100L)
             }
-        }, 20L)
+        }
+        host.callbacks[input] = callback
+        input.postDelayed(callback, 20L)
     }
 
     private fun hookKeyboard(host: Host, loader: ClassLoader, prefix: String) {

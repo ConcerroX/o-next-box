@@ -340,6 +340,9 @@ private sealed interface RootRoute : NavKey {
     data object FeatureSystemUiFluidCloud : RootRoute
 
     @Serializable
+    data object FeatureSystemUiFluidCloudMediaBlacklist : RootRoute
+
+    @Serializable
     data object FeatureSystemUiNotificationCenter : RootRoute
 
     @Serializable
@@ -364,6 +367,9 @@ private sealed interface RootRoute : NavKey {
     data object FeatureAndroidSystem : RootRoute
 
     @Serializable
+    data object FeatureSideKey : RootRoute
+
+    @Serializable
     data object FeatureInstaller : RootRoute
 
     @Serializable
@@ -382,6 +388,15 @@ private sealed interface RootRoute : NavKey {
     data object FeatureTrafficManagement : RootRoute
 
     @Serializable
+    data object FeaturePhoneManager : RootRoute
+
+    @Serializable
+    data object FeatureSoftwareUpdate : RootRoute
+
+    @Serializable
+    data object FeatureKeyboard : RootRoute
+
+    @Serializable
     data object FeatureQuickAppServices : RootRoute
 
     @Serializable
@@ -392,6 +407,15 @@ private sealed interface RootRoute : NavKey {
 
     @Serializable
     data object FeatureSystemMessages : RootRoute
+
+    @Serializable
+    data object FeatureAppErrors : RootRoute
+
+    @Serializable
+    data object FeatureNotificationBatch : RootRoute
+
+    @Serializable
+    data class AppErrorDetail(val id: Long) : RootRoute
 
     @Serializable
     data object FeatureAthena : RootRoute
@@ -445,6 +469,9 @@ private sealed interface RootRoute : NavKey {
     data object AppSettings : RootRoute
 
     @Serializable
+    data object Logs : RootRoute
+
+    @Serializable
     data object DeveloperOptions : RootRoute
 
     @Serializable
@@ -475,6 +502,7 @@ private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
     FeaturePageMode.SystemUiDynamicColor -> RootRoute.FeatureSystemUiDynamicColor
     FeaturePageMode.SystemUiStatusBar -> RootRoute.FeatureSystemUiStatusBar
     FeaturePageMode.SystemUiFluidCloud -> RootRoute.FeatureSystemUiFluidCloud
+    FeaturePageMode.SystemUiFluidCloudMediaBlacklist -> RootRoute.FeatureSystemUiFluidCloudMediaBlacklist
     FeaturePageMode.SystemUiNotificationCenter -> RootRoute.FeatureSystemUiNotificationCenter
     FeaturePageMode.SystemUiControlCenter -> RootRoute.FeatureSystemUiControlCenter
     FeaturePageMode.SystemUiSmallWindow -> RootRoute.FeatureSystemUiSmallWindow
@@ -483,16 +511,22 @@ private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
     FeaturePageMode.NotificationRemoval -> RootRoute.FeatureNotificationRemoval
     FeaturePageMode.MobileNetwork -> RootRoute.FeatureMobileNetwork
     FeaturePageMode.AndroidSystem -> RootRoute.FeatureAndroidSystem
+    FeaturePageMode.SideKey -> RootRoute.FeatureSideKey
     FeaturePageMode.Installer -> RootRoute.FeatureInstaller
     FeaturePageMode.Esim -> RootRoute.FeatureEsim
     FeaturePageMode.EsimDiagnostics -> RootRoute.FeatureEsimDiagnostics
     FeaturePageMode.AppMarket -> RootRoute.FeatureAppMarket
     FeaturePageMode.Battery -> RootRoute.FeatureBattery
     FeaturePageMode.TrafficManagement -> RootRoute.FeatureTrafficManagement
+    FeaturePageMode.PhoneManager -> RootRoute.FeaturePhoneManager
+    FeaturePageMode.SoftwareUpdate -> RootRoute.FeatureSoftwareUpdate
+    FeaturePageMode.Keyboard -> RootRoute.FeatureKeyboard
     FeaturePageMode.QuickAppServices -> RootRoute.FeatureQuickAppServices
     FeaturePageMode.FileManager -> RootRoute.FeatureFileManager
     FeaturePageMode.GoogleMessages -> RootRoute.FeatureGoogleMessages
     FeaturePageMode.SystemMessages -> RootRoute.FeatureSystemMessages
+    FeaturePageMode.AppErrors -> RootRoute.FeatureAppErrors
+    FeaturePageMode.NotificationBatch -> RootRoute.FeatureNotificationBatch
     FeaturePageMode.Athena -> RootRoute.FeatureAthena
     FeaturePageMode.Settings -> RootRoute.FeatureSettings
     FeaturePageMode.SettingsRegion -> RootRoute.FeatureSettingsRegion
@@ -513,6 +547,7 @@ private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
 private fun AboutPageMode.toRootRoute(): RootRoute? = when (this) {
     AboutPageMode.Main -> null
     AboutPageMode.AppSettings -> RootRoute.AppSettings
+    AboutPageMode.Logs -> RootRoute.Logs
     AboutPageMode.DeveloperOptions -> RootRoute.DeveloperOptions
     AboutPageMode.Update -> RootRoute.SoftwareUpdate
     AboutPageMode.UpdateSettings -> RootRoute.SoftwareUpdateSettings
@@ -566,8 +601,7 @@ private data class RootUiState(
     val aodInitDarkBrightness: Int,
     val aodInitBrightBrightness: Int,
     val aodRunningBrightnessMultiplier: Float,
-    val aodPanoramicSupportEnabled: Boolean,
-    val aodSettingsSwitchEnabled: Boolean,
+    val aodAllDayUnlockEnabled: Boolean,
     val aodSingleClickBlockEnabled: Boolean,
     val assistantPowerMode: Int,
     val assistantGestureCircleEnabled: Boolean,
@@ -623,8 +657,7 @@ private data class RootActions(
     val onAodInitDarkBrightnessChange: (Int) -> Unit,
     val onAodInitBrightBrightnessChange: (Int) -> Unit,
     val onAodRunningBrightnessMultiplierChange: (Float) -> Unit,
-    val onAodPanoramicSupportEnabledChange: (Boolean) -> Unit,
-    val onAodSettingsSwitchEnabledChange: (Boolean) -> Unit,
+    val onAodAllDayUnlockEnabledChange: (Boolean) -> Unit,
     val onAodSingleClickBlockEnabledChange: (Boolean) -> Unit,
     val onAssistantPowerModeChange: (Int) -> Unit,
     val onAssistantGestureCircleEnabledChange: (Boolean) -> Unit,
@@ -636,6 +669,7 @@ private data class RootActions(
     val popRootRoute: () -> Unit,
     val popToMainRoute: () -> Unit,
     val openFeatureSubPage: (FeaturePageMode) -> Unit,
+    val openAppErrorDetail: (Long) -> Unit,
     val openFeatureSubPageFromMain: (FeaturePageMode, FeatureLaunchOrigin?) -> Unit,
     val openAboutSubPage: (AboutPageMode) -> Unit,
     val requestAboutAutoCheckUpdate: () -> Unit,
@@ -721,10 +755,8 @@ private fun RootFeatureEntry(
         onAodInitBrightBrightnessChange = actions.onAodInitBrightBrightnessChange,
         aodRunningBrightnessMultiplier = ui.aodRunningBrightnessMultiplier,
         onAodRunningBrightnessMultiplierChange = actions.onAodRunningBrightnessMultiplierChange,
-        aodPanoramicSupportEnabled = ui.aodPanoramicSupportEnabled,
-        onAodPanoramicSupportEnabledChange = actions.onAodPanoramicSupportEnabledChange,
-        aodSettingsSwitchEnabled = ui.aodSettingsSwitchEnabled,
-        onAodSettingsSwitchEnabledChange = actions.onAodSettingsSwitchEnabledChange,
+        aodAllDayUnlockEnabled = ui.aodAllDayUnlockEnabled,
+        onAodAllDayUnlockEnabledChange = actions.onAodAllDayUnlockEnabledChange,
         aodSingleClickBlockEnabled = ui.aodSingleClickBlockEnabled,
         onAodSingleClickBlockEnabledChange = actions.onAodSingleClickBlockEnabledChange,
         assistantPowerMode = ui.assistantPowerMode,
@@ -743,6 +775,7 @@ private fun RootFeatureEntry(
         transitionScrollState = transitionScrollState,
         onBack = actions.popRootRoute,
         onOpenSubPage = actions.openFeatureSubPage,
+        onOpenAppErrorDetail = actions.openAppErrorDetail,
     )
 }
 
@@ -879,10 +912,8 @@ fun Root(
     onAodInitBrightBrightnessChange: (Int) -> Unit,
     aodRunningBrightnessMultiplier: Float,
     onAodRunningBrightnessMultiplierChange: (Float) -> Unit,
-    aodPanoramicSupportEnabled: Boolean,
-    onAodPanoramicSupportEnabledChange: (Boolean) -> Unit,
-    aodSettingsSwitchEnabled: Boolean,
-    onAodSettingsSwitchEnabledChange: (Boolean) -> Unit,
+    aodAllDayUnlockEnabled: Boolean,
+    onAodAllDayUnlockEnabledChange: (Boolean) -> Unit,
     aodSingleClickBlockEnabled: Boolean,
     onAodSingleClickBlockEnabledChange: (Boolean) -> Unit,
     assistantPowerMode: Int,
@@ -978,6 +1009,7 @@ fun Root(
                     subclass(RootRoute.FeatureSystemUiDynamicColor::class)
                     subclass(RootRoute.FeatureSystemUiStatusBar::class)
                     subclass(RootRoute.FeatureSystemUiFluidCloud::class)
+                    subclass(RootRoute.FeatureSystemUiFluidCloudMediaBlacklist::class)
                     subclass(RootRoute.FeatureSystemUiNotificationCenter::class)
                     subclass(RootRoute.FeatureSystemUiControlCenter::class)
                     subclass(RootRoute.FeatureSystemUiSmallWindow::class)
@@ -986,16 +1018,23 @@ fun Root(
                     subclass(RootRoute.FeatureNotificationRemoval::class)
                     subclass(RootRoute.FeatureMobileNetwork::class)
                     subclass(RootRoute.FeatureAndroidSystem::class)
+                    subclass(RootRoute.FeatureSideKey::class)
                     subclass(RootRoute.FeatureInstaller::class)
                     subclass(RootRoute.FeatureEsim::class)
                     subclass(RootRoute.FeatureEsimDiagnostics::class)
                     subclass(RootRoute.FeatureAppMarket::class)
                     subclass(RootRoute.FeatureBattery::class)
                     subclass(RootRoute.FeatureTrafficManagement::class)
+                    subclass(RootRoute.FeaturePhoneManager::class)
+                    subclass(RootRoute.FeatureSoftwareUpdate::class)
+                    subclass(RootRoute.FeatureKeyboard::class)
                     subclass(RootRoute.FeatureQuickAppServices::class)
                     subclass(RootRoute.FeatureFileManager::class)
                     subclass(RootRoute.FeatureGoogleMessages::class)
                     subclass(RootRoute.FeatureSystemMessages::class)
+                    subclass(RootRoute.FeatureAppErrors::class)
+                    subclass(RootRoute.FeatureNotificationBatch::class)
+                    subclass(RootRoute.AppErrorDetail::class)
                     subclass(RootRoute.FeatureAthena::class)
                     subclass(RootRoute.FeatureSettings::class)
                     subclass(RootRoute.FeatureSettingsRegion::class)
@@ -1012,6 +1051,7 @@ fun Root(
                     subclass(RootRoute.FeatureScreenRecording::class)
                     subclass(RootRoute.FeatureAssistant::class)
                     subclass(RootRoute.AppSettings::class)
+                    subclass(RootRoute.Logs::class)
                     subclass(RootRoute.DeveloperOptions::class)
                     subclass(RootRoute.SoftwareUpdate::class)
                     subclass(RootRoute.SoftwareUpdateSettings::class)
@@ -1447,6 +1487,15 @@ fun Root(
                 suppressRootTransition = false
             }
             navigator.push(route)
+        }
+
+        fun openAppErrorDetail(id: Long) {
+            if (id <= 0 || featureLaunchAnimation != null || navigator.current() != RootRoute.FeatureAppErrors) return
+            parkedFeatureLaunchSession = featureLaunchSession ?: parkedFeatureLaunchSession
+            featureLaunchSession = null
+            featureRouteReadySession = null
+            suppressRootTransition = false
+            navigator.push(RootRoute.AppErrorDetail(id))
         }
 
         fun openFeatureSubPageFromMain(
@@ -1898,8 +1947,7 @@ fun Root(
             aodInitDarkBrightness = aodInitDarkBrightness,
             aodInitBrightBrightness = aodInitBrightBrightness,
             aodRunningBrightnessMultiplier = aodRunningBrightnessMultiplier,
-            aodPanoramicSupportEnabled = aodPanoramicSupportEnabled,
-            aodSettingsSwitchEnabled = aodSettingsSwitchEnabled,
+            aodAllDayUnlockEnabled = aodAllDayUnlockEnabled,
             aodSingleClickBlockEnabled = aodSingleClickBlockEnabled,
             assistantPowerMode = assistantPowerMode,
             assistantGestureCircleEnabled = assistantGestureCircleEnabled,
@@ -1956,8 +2004,7 @@ fun Root(
             onAodInitDarkBrightnessChange = onAodInitDarkBrightnessChange,
             onAodInitBrightBrightnessChange = onAodInitBrightBrightnessChange,
             onAodRunningBrightnessMultiplierChange = onAodRunningBrightnessMultiplierChange,
-            onAodPanoramicSupportEnabledChange = onAodPanoramicSupportEnabledChange,
-            onAodSettingsSwitchEnabledChange = onAodSettingsSwitchEnabledChange,
+            onAodAllDayUnlockEnabledChange = onAodAllDayUnlockEnabledChange,
             onAodSingleClickBlockEnabledChange = onAodSingleClickBlockEnabledChange,
             onAssistantPowerModeChange = onAssistantPowerModeChange,
             onAssistantGestureCircleEnabledChange = onAssistantGestureCircleEnabledChange,
@@ -1970,6 +2017,7 @@ fun Root(
             popRootRoute = { popRootRoute() },
             popToMainRoute = ::popToMainRoute,
             openFeatureSubPage = ::openFeatureSubPage,
+            openAppErrorDetail = ::openAppErrorDetail,
             openFeatureSubPageFromMain = { mode, origin ->
                 openFeatureSubPageFromMain(mode, origin, pressToken = null)
             },
@@ -2197,6 +2245,7 @@ fun Root(
                                             scrollResetKey = mainPagerState.scrollResetGeneration,
                                             onOpenAppSettings = { actions.openAboutSubPage(AboutPageMode.AppSettings) },
                                             onOpenSoftwareUpdate = { actions.openAboutSubPage(AboutPageMode.Update) },
+                                            onOpenLogs = { actions.openAboutSubPage(AboutPageMode.Logs) },
                                             onOpenContributors = { actions.openAboutSubPage(AboutPageMode.Contributors) },
                                             onOpenReferences = { actions.openAboutSubPage(AboutPageMode.References) },
                                         )
@@ -2252,6 +2301,9 @@ fun Root(
             entry<RootRoute.FeatureSystemUiFluidCloud> {
                 featureEntryContent(FeaturePageMode.SystemUiFluidCloud)
             }
+            entry<RootRoute.FeatureSystemUiFluidCloudMediaBlacklist> {
+                featureEntryContent(FeaturePageMode.SystemUiFluidCloudMediaBlacklist)
+            }
             entry<RootRoute.FeatureSystemUiNotificationCenter> {
                 featureEntryContent(FeaturePageMode.SystemUiNotificationCenter)
             }
@@ -2279,6 +2331,9 @@ fun Root(
             entry<RootRoute.FeatureAndroidSystem> {
                 featureEntryContent(FeaturePageMode.AndroidSystem)
             }
+            entry<RootRoute.FeatureSideKey> {
+                featureEntryContent(FeaturePageMode.SideKey)
+            }
             entry<RootRoute.FeatureEsim> {
                 featureEntryContent(FeaturePageMode.Esim)
             }
@@ -2294,6 +2349,15 @@ fun Root(
             entry<RootRoute.FeatureTrafficManagement> {
                 featureEntryContent(FeaturePageMode.TrafficManagement)
             }
+            entry<RootRoute.FeaturePhoneManager> {
+                featureEntryContent(FeaturePageMode.PhoneManager)
+            }
+            entry<RootRoute.FeatureSoftwareUpdate> {
+                featureEntryContent(FeaturePageMode.SoftwareUpdate)
+            }
+            entry<RootRoute.FeatureKeyboard> {
+                featureEntryContent(FeaturePageMode.Keyboard)
+            }
             entry<RootRoute.FeatureQuickAppServices> {
                 featureEntryContent(FeaturePageMode.QuickAppServices)
             }
@@ -2305,6 +2369,23 @@ fun Root(
             }
             entry<RootRoute.FeatureSystemMessages> {
                 featureEntryContent(FeaturePageMode.SystemMessages)
+            }
+            entry<RootRoute.FeatureAppErrors> {
+                featureEntryContent(FeaturePageMode.AppErrors)
+            }
+            entry<RootRoute.FeatureNotificationBatch> {
+                featureEntryContent(FeaturePageMode.NotificationBatch)
+            }
+            entry<RootRoute.AppErrorDetail> { route ->
+                val ui = LocalRootUiState.current
+                val actions = LocalRootActions.current
+                com.mi.onextbox.ui.screens.AppErrorTrackingRoute(
+                    modifier = Modifier.fillMaxSize(),
+                    blurBackdrop = rememberChromeBlurBackdrop(ui.blurEffectEnabled),
+                    onBack = actions.popRootRoute,
+                    onOpenDetail = actions.openAppErrorDetail,
+                    detailId = route.id,
+                )
             }
             entry<RootRoute.FeatureAthena> {
                 featureEntryContent(FeaturePageMode.Athena)
@@ -2352,6 +2433,7 @@ fun Root(
                 featureEntryContent(FeaturePageMode.Assistant)
             }
             entry<RootRoute.AppSettings> { RootAboutEntry(AboutPageMode.AppSettings) }
+            entry<RootRoute.Logs> { RootAboutEntry(AboutPageMode.Logs) }
             entry<RootRoute.DeveloperOptions> { RootAboutEntry(AboutPageMode.DeveloperOptions) }
             entry<RootRoute.SoftwareUpdate> { RootAboutEntry(AboutPageMode.Update) }
             entry<RootRoute.SoftwareUpdateSettings> { RootAboutEntry(AboutPageMode.UpdateSettings) }

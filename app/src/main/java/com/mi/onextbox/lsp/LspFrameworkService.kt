@@ -9,6 +9,7 @@ data class LspLoadedTarget(
     val uid: Int,
     val current: Boolean,
     val loadedVersionCode: Long,
+    val reloadFailed: Boolean = false,
 )
 
 data class LspFrameworkSnapshot(
@@ -92,6 +93,7 @@ object LspFrameworkService {
                         uid = target.uid,
                         current = target.state == HookedTarget.State.UP_TO_DATE,
                         loadedVersionCode = target.loadedVersionCode,
+                        reloadFailed = target.state == HookedTarget.State.FAILED,
                     )
                 }
             }.onFailure {

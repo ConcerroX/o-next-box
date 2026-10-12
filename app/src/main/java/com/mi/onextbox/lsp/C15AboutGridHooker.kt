@@ -10,6 +10,7 @@ import android.widget.TextView
 import com.mi.onextbox.lsp.compat.ModernHookBridge as XposedBridge
 import com.mi.onextbox.lsp.compat.ModernMethodHook as XC_MethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as XposedHelpers
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.lang.ref.WeakReference
 import java.util.Collections
 import java.util.WeakHashMap
@@ -55,6 +56,22 @@ internal object C15AboutGridHooker {
         Collections.synchronizedMap(WeakHashMap<Any, WeakReference<Any>>())
 
     fun hook(classLoader: ClassLoader) {
+        HotReloadLifecycle.registerReplay("settings:c15-span", capture = {
+            arrayOf<Any>(hookedSpanClasses.toTypedArray(), synchronized(fragmentBySpanLookup) {
+                fragmentBySpanLookup.entries.mapNotNull { (lookup, reference) ->
+                    reference.get()?.let { arrayOf(lookup, it) }
+                }.toTypedArray()
+            })
+        }, replay = { state ->
+            val saved = state as? Array<*>
+            (saved?.getOrNull(0) as? Array<*>)?.filterIsInstance<Class<*>>()?.forEach(::hookSpanLookup)
+            (saved?.getOrNull(1) as? Array<*>)?.forEach { row ->
+                val pair = row as? Array<*> ?: return@forEach
+                val lookup = pair.getOrNull(0) ?: return@forEach
+                val fragment = pair.getOrNull(1) ?: return@forEach
+                fragmentBySpanLookup[lookup] = WeakReference(fragment)
+            }
+        })
         val fragmentClass = XposedHelpers.findClassIfExists(FRAGMENT_CLASS, classLoader)
             ?: return
         if (!hookedLoaders.add(classLoader)) return

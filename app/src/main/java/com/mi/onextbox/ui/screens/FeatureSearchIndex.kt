@@ -2,6 +2,7 @@ package com.mi.onextbox.ui.screens
 
 import androidx.annotation.StringRes
 import com.mi.onextbox.R
+import com.mi.onextbox.lsp.SideKeyFeaturePolicy
 import java.text.Normalizer
 import java.util.Locale
 
@@ -13,14 +14,28 @@ internal object FeatureSearchIndex {
         @param:StringRes val description: Int = 0,
     )
 
-    val entries = listOf(
+    private val allEntries = listOf(
         FeaturePageMode.DesktopPages to LauncherFeatureItems.pages,
         FeaturePageMode.DesktopRecent to LauncherFeatureItems.recent,
         FeaturePageMode.DesktopIcons to (LauncherFeatureItems.badges + LauncherFeatureItems.folder),
         FeaturePageMode.DesktopLayout to LauncherFeatureItems.dock,
     ).flatMap { (page, items) -> items.map { Entry(page, it.title, it.summary) } } +
-        TrafficFeatureItems.all.map { Entry(FeaturePageMode.TrafficManagement, it.title, it.summary) } + listOf(
+        TrafficFeatureItems.all.map { Entry(FeaturePageMode.TrafficManagement, it.title, it.summary) } +
+        SoftwareUpdateFeatureItems.all.map { Entry(FeaturePageMode.SoftwareUpdate, it.title, it.summary) } +
+        SideKeyFeatureItems.actions.filterNot { it.first in setOf(com.mi.onextbox.lsp.SideKeyAction.Stock,
+            com.mi.onextbox.lsp.SideKeyAction.None) }.map { Entry(FeaturePageMode.SideKey, it.second) } + listOf(
         Entry(FeaturePageMode.TrafficManagement, R.string.traffic_page_title),
+        Entry(FeaturePageMode.PhoneManager, R.string.phone_manager_title),
+        Entry(FeaturePageMode.SoftwareUpdate, R.string.ota_page_title),
+        Entry(FeaturePageMode.PhoneManager, R.string.phone_manager_skip_countdown_title, R.string.phone_manager_skip_countdown_summary),
+        Entry(FeaturePageMode.Keyboard, R.string.keyboard_page_title),
+        Entry(FeaturePageMode.Keyboard, R.string.keyboard_material_group),
+        Entry(FeaturePageMode.Keyboard, R.string.keyboard_material_unlock_title, R.string.keyboard_material_unlock_summary),
+        Entry(FeaturePageMode.Keyboard, R.string.keyboard_emoji_group),
+        Entry(FeaturePageMode.Keyboard, R.string.keyboard_flag_emoji_title, R.string.keyboard_flag_emoji_summary),
+        Entry(FeaturePageMode.Keyboard, R.string.keyboard_layout_group),
+        Entry(FeaturePageMode.Keyboard, R.string.keyboard_bottom_lift_fix_title, R.string.keyboard_bottom_lift_fix_summary),
+        Entry(FeaturePageMode.Keyboard, R.string.keyboard_hide_dismiss_title, R.string.keyboard_hide_dismiss_summary),
         Entry(FeaturePageMode.TrafficManagement, R.string.traffic_network_group),
         Entry(FeaturePageMode.TrafficManagement, R.string.traffic_rules_group),
         Entry(FeaturePageMode.TrafficManagement, R.string.traffic_data_group),
@@ -35,6 +50,9 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.DesktopLayout, R.string.feature_launcher_taskbar_search_box_title, R.string.feature_launcher_taskbar_search_box_summary),
         Entry(FeaturePageMode.DesktopLayout, R.string.feature_launcher_search_compatibility_title, R.string.feature_launcher_search_compatibility_summary),
         Entry(FeaturePageMode.DesktopLayout, R.string.feature_launcher_layout_unlock_title, R.string.feature_launcher_layout_unlock_summary),
+        Entry(FeaturePageMode.DesktopLayout, R.string.launcher_custom_grid_title),
+        Entry(FeaturePageMode.DesktopLayout, R.string.launcher_custom_grid_columns),
+        Entry(FeaturePageMode.DesktopLayout, R.string.launcher_custom_grid_rows),
         Entry(FeaturePageMode.DesktopLayout, R.string.feature_launcher_hide_widget_labels_title, R.string.feature_launcher_hide_widget_labels_summary),
         Entry(FeaturePageMode.DesktopRecent, R.string.feature_recent_task_radius_title),
         Entry(FeaturePageMode.DesktopRecent, R.string.feature_recent_task_radius_label),
@@ -54,6 +72,7 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.SystemUiNative, R.string.feature_native_notify_icon_title, R.string.feature_native_notify_icon_summary),
         Entry(FeaturePageMode.SystemUiNative, R.string.feature_native_notification_bubbles_title, R.string.feature_native_notification_bubbles_summary),
         Entry(FeaturePageMode.SystemUiNative, R.string.feature_native_power_menu_title, R.string.feature_native_power_menu_summary),
+        Entry(FeaturePageMode.SystemUiNative, R.string.feature_aosp_back_panel_title, R.string.feature_aosp_back_panel_summary),
         Entry(FeaturePageMode.SystemUiNative, R.string.feature_force_native_clipboard_overlay_title, R.string.feature_force_native_clipboard_overlay_summary),
         Entry(FeaturePageMode.SystemUiLockScreen, R.string.keyguard_page_title, R.string.keyguard_page_entry_summary),
         Entry(FeaturePageMode.SystemUiLockScreen, R.string.keyguard_face_tap_title, R.string.keyguard_face_tap_summary),
@@ -81,6 +100,9 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.SystemUiFluidCloud, R.string.feature_fluid_cloud_title, R.string.feature_fluid_cloud_entry_summary),
         Entry(FeaturePageMode.SystemUiFluidCloud, R.string.feature_fluid_cloud_card_group),
         Entry(FeaturePageMode.SystemUiFluidCloud, R.string.feature_fluid_cloud_material_title),
+        Entry(FeaturePageMode.SystemUiFluidCloud, R.string.fluid_browser_title, R.string.fluid_browser_summary),
+        Entry(FeaturePageMode.SystemUiFluidCloud, R.string.fluid_media_blacklist_title, R.string.fluid_media_blacklist_summary),
+        Entry(FeaturePageMode.SystemUiFluidCloudMediaBlacklist, R.string.fluid_media_apps_title, R.string.fluid_media_search_hint),
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_international_network_display_title, R.string.feature_international_network_display_summary),
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_restore_c16_network_icon_order_title, R.string.feature_restore_c16_network_icon_order_summary),
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_hide_mobile_roaming_indicator_title, R.string.feature_hide_mobile_roaming_indicator_summary),
@@ -90,6 +112,7 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_permanent_clock_seconds_title, R.string.feature_permanent_clock_seconds_summary),
         Entry(FeaturePageMode.SystemUiNotificationCenter, R.string.feature_group_notification_center),
         Entry(FeaturePageMode.SystemUiNotificationCenter, R.string.feature_international_notification_style_title, R.string.feature_international_notification_style_summary),
+        Entry(FeaturePageMode.SystemUiNotificationCenter, R.string.feature_round_notification_clear_button_title, R.string.feature_round_notification_clear_button_summary),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.feature_group_control_center),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.feature_hide_qs_edit_title, R.string.feature_hide_qs_edit_summary),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.feature_hide_qs_settings_title, R.string.feature_hide_qs_settings_summary),
@@ -114,6 +137,11 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.MobileNetwork, R.string.feature_mobile_network_hide_roaming_service_title, R.string.feature_mobile_network_hide_roaming_service_summary),
         Entry(FeaturePageMode.MobileNetwork, R.string.feature_mobile_network_hide_high_data_sim_card_title, R.string.feature_mobile_network_hide_high_data_sim_card_summary),
         Entry(FeaturePageMode.AndroidSystem, R.string.feature_android_system_title),
+        Entry(FeaturePageMode.SideKey, R.string.side_key_title, R.string.side_key_entry_summary),
+        Entry(FeaturePageMode.SideKey, R.string.side_key_enable, R.string.side_key_enable_summary),
+        Entry(FeaturePageMode.SideKey, R.string.side_key_single),
+        Entry(FeaturePageMode.SideKey, R.string.side_key_double, R.string.side_key_double_summary),
+        Entry(FeaturePageMode.SideKey, R.string.side_key_long),
         Entry(FeaturePageMode.AndroidSystem, R.string.feature_group_system_root),
         Entry(FeaturePageMode.AndroidSystem, R.string.feature_system_root_detection_title, R.string.feature_system_root_detection_summary),
         Entry(FeaturePageMode.AndroidSystem, R.string.feature_settings_gms_region_bypass_title, R.string.feature_settings_gms_region_bypass_summary),
@@ -147,6 +175,12 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.FileManager, R.string.feature_file_manager_native_picker_title, R.string.feature_file_manager_native_picker_summary),
         Entry(FeaturePageMode.GoogleMessages, R.string.feature_google_messages_title),
         Entry(FeaturePageMode.SystemMessages, R.string.feature_system_messages_title, R.string.push_monitor_privacy),
+        Entry(FeaturePageMode.AppErrors, R.string.app_errors_title, R.string.app_errors_enable_summary),
+        Entry(FeaturePageMode.NotificationBatch, R.string.notification_batch_title, R.string.notification_batch_summary),
+        Entry(FeaturePageMode.NotificationBatch, R.string.notification_batch_notifications),
+        Entry(FeaturePageMode.NotificationBatch, R.string.notification_batch_banner),
+        Entry(FeaturePageMode.NotificationBatch, R.string.notification_batch_lock_screen),
+        Entry(FeaturePageMode.AppErrors, R.string.app_errors_enable, R.string.app_errors_enable_summary),
         Entry(FeaturePageMode.GoogleMessages, R.string.feature_google_messages_gemini_title, R.string.feature_google_messages_gemini_summary),
         Entry(FeaturePageMode.GoogleMessages, R.string.feature_google_messages_copy_otp_title, R.string.feature_google_messages_copy_otp_summary),
         Entry(FeaturePageMode.Athena, R.string.feature_group_athena),
@@ -196,8 +230,7 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.Aod, R.string.feature_aod_dark_brightness_label),
         Entry(FeaturePageMode.Aod, R.string.feature_aod_bright_brightness_label),
         Entry(FeaturePageMode.Aod, R.string.feature_aod_multiplier_label),
-        Entry(FeaturePageMode.Aod, R.string.feature_aod_panoramic_title),
-        Entry(FeaturePageMode.Aod, R.string.feature_aod_settings_switch_title),
+        Entry(FeaturePageMode.Aod, R.string.feature_aod_all_day_unlock_title),
         Entry(FeaturePageMode.Aod, R.string.feature_aod_single_click_block_title),
         Entry(FeaturePageMode.Assistant, R.string.feature_assistant_title),
         Entry(FeaturePageMode.Assistant, R.string.feature_assistant_native_combined_title, R.string.feature_assistant_native_combined_summary),
@@ -208,6 +241,11 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.Assistant, R.string.feature_assistant_gesture_title, R.string.feature_assistant_gesture_summary),
         Entry(FeaturePageMode.Assistant, R.string.feature_assistant_gesture_c17_title, R.string.feature_assistant_gesture_c17_summary),
     )
+
+    val entries = allEntries.filter { entry ->
+        (entry.page != FeaturePageMode.SideKey || SideKeyFeaturePolicy.available) &&
+            (entry.page != FeaturePageMode.Keyboard || KeyboardFeatureVisibility.isSearchEntryVisible(entry.title))
+    }
 }
 
 internal fun featureSearchScore(query: String, title: String, description: String): Int {

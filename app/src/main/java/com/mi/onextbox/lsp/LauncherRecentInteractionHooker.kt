@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import com.mi.onextbox.lsp.LspConfig.LauncherFeature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernReflect
 import io.github.libxposed.api.XposedInterface
@@ -23,16 +24,30 @@ internal object LauncherRecentInteractionHooker {
     private var installed = false
 
     fun hook(loader: ClassLoader) {
+        // Do not bootstrap or deoptimize OEM methods when neither feature is requested.
+        if (!enabled(LauncherFeature.DisablePreviousTaskAutoFocus) &&
+            !enabled(LauncherFeature.RecentIconAppDetails)
+        ) return
+
         install("startup") {
             val application = ModernReflect.findClass("com.android.common.LauncherApplication", loader)
+            fun installReadyHooks() {
+                if (installed || HotReloadLifecycle.isRetiring) return
+                installed = true
+                if (enabled(LauncherFeature.DisablePreviousTaskAutoFocus)) {
+                    install("auto-focus") { hookAutoFocus(loader) }
+                }
+                if (enabled(LauncherFeature.RecentIconAppDetails)) {
+                    install("app-details") { hookAppDetails(loader) }
+                }
+            }
+            HotReloadLifecycle.registerReplay("launcher:recent-bootstrap",
+                capture = { installed },
+                replay = { saved -> if (saved == true) installReadyHooks() })
             hook("startup", application.getDeclaredMethod("onCreate")) { chain ->
                 val result = chain.proceed()
                 // OEM feature classes must only be touched after the launcher context is initialized.
-                if (!installed) {
-                    installed = true
-                    install("auto-focus") { hookAutoFocus(loader) }
-                    install("app-details") { hookAppDetails(loader) }
-                }
+                installReadyHooks()
                 result
             }
         }
@@ -131,6 +146,9 @@ internal object LauncherRecentInteractionHooker {
             owner.removeCallbacks(it.timeout)
             it.press.cancel()
         }
+        HotReloadLifecycle.register("launcher:recent-long-press",
+            canReload = { pending.isEmpty() },
+            detach = { pending.keys.toList().forEach(::clear) })
 
         hook("app-details", dispatch) { chain ->
             val owner = chain.thisObject as? View ?: return@hook chain.proceed()
@@ -153,6 +171,10 @@ internal object LauncherRecentInteractionHooker {
                             target.timeout = Runnable {
                                 val view = ownerRef.get() ?: return@Runnable
                                 if (pending[view] !== target) return@Runnable
+                                if (HotReloadLifecycle.isRetiring) {
+                                    clear(view)
+                                    return@Runnable
+                                }
                                 runCatching {
                                     val source = target.icon.get() ?: return@runCatching
                                     val info = itemInfo.invoke(view, target.task) ?: return@runCatching

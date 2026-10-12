@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,11 +18,15 @@ import com.mi.onextbox.R
 import com.mi.onextbox.lsp.LspConfig.BatteryFeature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernReflect
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import io.github.libxposed.api.XposedInterface
 import java.io.File
 import java.lang.ref.WeakReference
 import java.text.NumberFormat
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.WeakHashMap
 
 internal object BatteryCycleCountHooker {
     private const val TAG = "ONextBox-BatteryCycles"
@@ -28,9 +34,12 @@ internal object BatteryCycleCountHooker {
     private const val HEALTH_ACTIVITY = "com.oplus.powermanager.fuelgaue.BatteryHealthActivity"
     private const val CAPACITY_PREFERENCE = "com.oplus.powermanager.fuelgaue.BatteryHealthDataPreference"
     private const val CACHE_MS = 30_000L
-    private val reader = Executors.newSingleThreadExecutor { job ->
+    private fun newReader() = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, LinkedBlockingQueue()) { job ->
         Thread(job, "ONextBox-BatteryCycles").apply { isDaemon = true }
     }
+    private var reader = newReader()
+    private val main = Handler(Looper.getMainLooper())
+    private val roots = WeakHashMap<ViewGroup, Boolean>()
     private data class Reading(val count: Int?, val timestamp: Long)
     @Volatile private var cached: Reading? = null
 
@@ -39,11 +48,22 @@ internal object BatteryCycleCountHooker {
         val value: TextView,
         val children: List<Pair<View, ViewGroup.LayoutParams>>,
     ) {
-        var generation = 0
-        var pending = false
+        val readState = BatteryCycleReadState()
     }
 
     fun hook(loader: ClassLoader) {
+        HotReloadLifecycle.register("battery:cycle-cards", capture = { roots.keys.toTypedArray() },
+            canReload = { reader.activeCount == 0 && reader.queue.isEmpty() }, detach = {
+            roots.keys.toList().forEach { root -> card(root)?.let { restore(root, it) } }
+            reader.shutdownNow()
+            check(reader.awaitTermination(250, TimeUnit.MILLISECONDS)) { "Battery cycle reader is busy" }
+            main.removeCallbacksAndMessages(null)
+        }, restore = { state ->
+            if (reader.isShutdown) reader = newReader()
+            (state as? Array<*>)?.filterIsInstance<ViewGroup>()?.forEach(::update)
+        }, resumeAfterRejection = {
+            roots.keys.toList().forEach(::update)
+        })
         val prefix = "$TAG@${System.identityHashCode(loader)}:"
         runCatching {
             val preference = ModernReflect.findClass(CAPACITY_PREFERENCE, loader)
@@ -92,6 +112,8 @@ internal object BatteryCycleCountHooker {
     }
 
     private fun update(root: ViewGroup) {
+        if (HotReloadLifecycle.isRetiring) return
+        roots[root] = true
         var state = card(root)
         if (!enabled()) {
             if (state != null) restore(root, state)
@@ -100,24 +122,56 @@ internal object BatteryCycleCountHooker {
         if (state == null) state = append(root)
         val current = state
         cached?.let { show(current.value, it.count) }
-        if (current.pending) return
-        val generation = ++current.generation
-        current.pending = true
+        val generation = current.readState.begin() ?: return
         val host = root.context.applicationContext
         val rootRef = WeakReference(root)
         val cardRef = WeakReference(current)
-        reader.execute {
-            val previous = cached
-            val reading = if (previous != null && SystemClock.elapsedRealtime() - previous.timestamp < CACHE_MS) {
-                previous
-            } else Reading(read(host), SystemClock.elapsedRealtime()).also { cached = it }
-            rootRef.get()?.post {
-                val target = rootRef.get() ?: return@post
-                val row = cardRef.get() ?: return@post
-                if (row.generation != generation || card(target) !== row) return@post
-                row.pending = false
+        fun complete(reading: Reading?, retryAfterRejection: Boolean = false) {
+            val completion = Runnable {
+                val row = cardRef.get() ?: return@Runnable
+                // A vetoed update can retire a reader without detaching its card. Always
+                // release this request on the main thread, even when UI work is forbidden.
+                if (!row.readState.complete(generation)) return@Runnable
+                if (HotReloadLifecycle.isRetiring) return@Runnable
+                val target = rootRef.get() ?: return@Runnable
+                if (card(target) !== row) return@Runnable
+                if (reading == null) {
+                    // The rejection resumer may have run while this reader was still
+                    // busy. In that ordering its canceled completion owns the retry.
+                    if (retryAfterRejection) update(target)
+                    return@Runnable
+                }
                 if (enabled()) show(row.value, reading.count) else restore(target, row)
             }
+            if (Looper.myLooper() == Looper.getMainLooper()) completion.run() else main.post(completion)
+        }
+        try {
+            reader.execute {
+                var result: Reading? = null
+                var retryAfterRejection = false
+                try {
+                    if (HotReloadLifecycle.isRetiring) {
+                        retryAfterRejection = true
+                        return@execute
+                    }
+                    val previous = cached
+                    val reading = if (previous != null && SystemClock.elapsedRealtime() - previous.timestamp < CACHE_MS) {
+                        previous
+                    } else Reading(read(host), SystemClock.elapsedRealtime()).also { cached = it }
+                    if (HotReloadLifecycle.isRetiring) {
+                        retryAfterRejection = true
+                        return@execute
+                    }
+                    result = reading
+                } catch (error: Throwable) {
+                    HookLog.w(TAG, "Cycle count read failed", error)
+                } finally {
+                    complete(result, retryAfterRejection)
+                }
+            }
+        } catch (error: Throwable) {
+            complete(null)
+            HookLog.w(TAG, "Cycle count reader unavailable", error)
         }
     }
 
@@ -172,8 +226,8 @@ internal object BatteryCycleCountHooker {
     }
 
     private fun restore(root: ViewGroup, state: Card) {
-        ++state.generation
-        state.pending = false
+        state.readState.invalidate()
+        state.column.tag = null
         root.removeView(state.column)
         state.children.forEach { (child, params) ->
             (child.parent as? ViewGroup)?.removeView(child)
@@ -221,4 +275,28 @@ internal object BatteryCycleCountHooker {
         context.createPackageContext("com.mi.onextbox", 0)
             .createConfigurationContext(context.resources.configuration).getString(id)
     }.getOrDefault(fallback)
+}
+
+/** Main-thread request ownership; canceled reads must not leave an attached card busy. */
+internal class BatteryCycleReadState {
+    private var generation = 0
+    var pending = false
+        private set
+
+    fun begin(): Int? {
+        if (pending) return null
+        pending = true
+        return ++generation
+    }
+
+    fun complete(request: Int): Boolean {
+        if (!pending || request != generation) return false
+        pending = false
+        return true
+    }
+
+    fun invalidate() {
+        ++generation
+        pending = false
+    }
 }

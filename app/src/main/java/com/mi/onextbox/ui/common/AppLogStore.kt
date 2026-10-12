@@ -15,6 +15,9 @@ import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 enum class AppLogLevel {
     DEBUG,
@@ -64,6 +67,8 @@ object AppLogStore {
     private val nextId = AtomicLong(1L)
     @Volatile
     private var entriesSnapshot: List<AppLogEntry> = emptyList()
+    private val mutableEntries = MutableStateFlow<List<AppLogEntry>>(emptyList())
+    val entries: StateFlow<List<AppLogEntry>> = mutableEntries.asStateFlow()
 
     private sealed interface PersistenceCommand {
         data class Append(val entries: List<AppLogEntry>) : PersistenceCommand
@@ -83,6 +88,7 @@ object AppLogStore {
                     .filterNot { it.tag.startsWith(LEGACY_HOOK_TAG_PREFIX) }
                     .takeLast(MAX_ENTRIES)
                 entriesSnapshot = retained
+                mutableEntries.value = retained
                 nextId.set((retained.maxOfOrNull { it.id } ?: 0L) + 1L)
                 if (retained.size != loaded.size) enqueueRewrite()
             }
@@ -97,6 +103,15 @@ object AppLogStore {
     fun removeByTagPrefix(prefix: String) {
         synchronized(lock) {
             entriesSnapshot = entriesSnapshot.filterNot { entry -> entry.tag.startsWith(prefix) }
+            mutableEntries.value = entriesSnapshot
+            enqueueRewrite()
+        }
+    }
+
+    fun clear() {
+        synchronized(lock) {
+            entriesSnapshot = emptyList()
+            mutableEntries.value = emptyList()
             enqueueRewrite()
         }
     }
@@ -139,6 +154,7 @@ object AppLogStore {
         synchronized(lock) {
             val merged = entriesSnapshot + newEntries
             entriesSnapshot = if (merged.size <= MAX_ENTRIES) merged else merged.takeLast(MAX_ENTRIES)
+            mutableEntries.value = entriesSnapshot
             enqueuePersistence(PersistenceCommand.Append(newEntries))
         }
         if (mirrorToLogcat) {

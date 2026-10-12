@@ -5,8 +5,11 @@ import android.content.SharedPreferences
 import android.net.Uri
 import com.mi.onextbox.BuildConfig
 import com.mi.onextbox.lsp.GoogleMessagesConfig
+import com.mi.onextbox.lsp.LauncherGridSettings
 import com.mi.onextbox.lsp.LspConfig
 import com.mi.onextbox.lsp.LspPreferenceStore
+import com.mi.onextbox.lsp.SideKeyFeaturePolicy
+import com.mi.onextbox.lsp.SideKeySettings
 import com.mi.onextbox.lsp.launcherSearchBarModeValue
 import com.mi.onextbox.refresh.RefreshRatePreferences
 import com.mi.onextbox.refresh.RefreshRateControllerClient
@@ -105,8 +108,10 @@ object ConfigBackup {
         val groups = supportedPrefs.filter { prefsRoot.has(it) }.associateWith { name ->
             val values = decodePreferences(prefsRoot.getJSONObject(name))
             if (name == LSP_PREFS_NAME) {
-                values.mapValues { (key, value) ->
-                    if (key == "launcher_taskbar_search_box" && value is Boolean) {
+                values.filterKeys { it != LauncherGridSettings.REQUEST }.mapValues { (key, value) ->
+                    if (key == SideKeySettings.ENABLED && value is Boolean) {
+                        SideKeyFeaturePolicy.enabled(value)
+                    } else if (key == "launcher_taskbar_search_box" && value is Boolean) {
                         launcherSearchBarModeValue(value)
                     } else value
                 }
@@ -186,6 +191,7 @@ object ConfigBackup {
     private fun prefsToJson(prefs: SharedPreferences): JSONObject {
         val json = JSONObject()
         prefs.all.forEach { (key, value) ->
+            if (key == LauncherGridSettings.REQUEST) return@forEach
             json.put(key, prefValueToJson(value))
         }
         return json

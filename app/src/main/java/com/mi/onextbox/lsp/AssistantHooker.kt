@@ -32,6 +32,7 @@ import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -85,17 +86,18 @@ object AssistantHooker {
     private const val KEYBOARD_DEVICE_ID_SYSTEM = -1
 
     private val installedHooks = ConcurrentHashMap.newKeySet<String>()
-    private val assistantExecutor by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        Executors.newSingleThreadExecutor { runnable ->
-            Thread(runnable, "ONextBox-Assistant").apply { isDaemon = true }
-        }
-    }
+    private var assistantExecutor: java.util.concurrent.ExecutorService? = null
+    private val assistantHandler by lazy { Handler(Looper.getMainLooper()) }
+    private val runtimeLoaders = ConcurrentHashMap<String, MutableSet<ClassLoader>>()
     private val assistantLaunchInProgress = AtomicBoolean(false)
     private val nativeAssistantRouteDepth = ThreadLocal<Int>()
     private val nativeAssistantRouteFrames = ThreadLocal<ArrayDeque<Boolean>>()
 
     @Volatile
     private var powerSettingBridgeObservers: List<ContentObserver>? = null
+    private var powerSettingBridgeContext: Context? = null
+    private var powerSettingBridgeSource: Any? = null
+    private var powerBridgeNeedsRebind = false
 
     @Volatile
     private var voiceInteractionManagerStub: Any? = null
@@ -113,12 +115,67 @@ object AssistantHooker {
     private var contextualSearchConfigId: Int? = null
 
     fun hook(packageName: String, classLoader: ClassLoader) {
+        registerHotReload()
         when (packageName) {
             SYSTEM_PACKAGE, ANDROID_PACKAGE -> hookSystem(packageName, classLoader)
             SYSTEM_UI_PACKAGE -> hookSystemUi(classLoader)
             LAUNCHER_PACKAGE -> hookLauncher(classLoader)
             SETTINGS_PACKAGE -> hookSettings(classLoader)
         }
+    }
+
+    private fun registerHotReload() {
+        NativeAssistantSessionRecovery.registerHotReload()
+        HotReloadLifecycle.register("assistant-runtime",
+            canReload = { !assistantLaunchInProgress.get() },
+            capture = { arrayOf(systemContext, powerSettingBridgeContext, powerSettingBridgeSource,
+                voiceInteractionManagerStub, lastObservedPowerAssistantChoice) },
+            detach = {
+                powerBridgeNeedsRebind = true
+                unregisterPowerSettingBridge()
+                assistantHandler.removeCallbacksAndMessages(null)
+                synchronized(this) {
+                    assistantExecutor?.let { executor ->
+                        executor.shutdownNow()
+                        check(executor.awaitTermination(1, TimeUnit.SECONDS)) { "Assistant worker is busy" }
+                    }
+                    assistantExecutor = null
+                }
+            },
+            restore = { value ->
+                val state = value as? Array<*>
+                systemContext = state?.getOrNull(0) as? Context
+                val context = state?.getOrNull(1) as? Context
+                val source = state?.getOrNull(2)
+                voiceInteractionManagerStub = state?.getOrNull(3)
+                lastObservedPowerAssistantChoice = state?.getOrNull(4) as? Boolean
+                if (context != null && source != null) registerPowerSettingBridge(source, context)
+            },
+        )
+        HotReloadLifecycle.registerReplay("assistant-runtime-loaders",
+            capture = { runtimeLoaders.flatMap { (name, loaders) -> loaders.map { arrayOf(name, it) } }.toTypedArray() },
+            replay = { value ->
+                (value as? Array<*>)?.forEach { item ->
+                    val state = item as? Array<*> ?: return@forEach
+                    val name = state.getOrNull(0) as? String ?: return@forEach
+                    val loader = state.getOrNull(1) as? ClassLoader ?: return@forEach
+                    rememberRuntimeLoader(name, loader)
+                    when (name) {
+                        SYSTEM_UI_PACKAGE -> {
+                            hookSystemUiExperimentalRoutes(loader)
+                            if (isLegacyGestureCircleEnabled() && !LspConfig.isAssistantNativeCircleEnabledXposed()) {
+                                hookGestureBar(loader)
+                            }
+                        }
+                        SYSTEM_PACKAGE, ANDROID_PACKAGE -> retrySystemHooks(name, loader)
+                    }
+                }
+            },
+        )
+    }
+
+    private fun rememberRuntimeLoader(packageName: String, loader: ClassLoader) {
+        runtimeLoaders.getOrPut(packageName) { ConcurrentHashMap.newKeySet() }.add(loader)
     }
 
     private fun hookSystem(packageName: String, classLoader: ClassLoader) {
@@ -1125,6 +1182,8 @@ object AssistantHooker {
                             param.thisObject?.javaClass?.classLoader,
                             Thread.currentThread().contextClassLoader
                         ).filterNotNull().distinct().forEach { classLoader ->
+                            if (HotReloadLifecycle.isRetiring) return@forEach
+                            rememberRuntimeLoader(SYSTEM_UI_PACKAGE, classLoader)
                             hookSystemUiExperimentalRoutes(classLoader)
                             if (isLegacyGestureCircleEnabled() &&
                                 !LspConfig.isAssistantNativeCircleEnabledXposed()
@@ -1179,6 +1238,8 @@ object AssistantHooker {
     }
 
     private fun retrySystemHooks(packageName: String, classLoader: ClassLoader) {
+        if (HotReloadLifecycle.isRetiring) return
+        rememberRuntimeLoader(packageName, classLoader)
         if (isAnyGestureCircleEnabled()) {
             hookContextualSearch(packageName, classLoader)
         }
@@ -1538,10 +1599,11 @@ object AssistantHooker {
     }
 
     private fun scheduleAssistantRoleReconciliation(context: Context, userId: Int) {
-        val handler = Handler(Looper.getMainLooper())
+        if (HotReloadLifecycle.isRetiring) return
+        val handler = assistantHandler
         listOf(1_000L, 5_000L, 15_000L, 30_000L).forEach { delayMs ->
             handler.postDelayed(
-                { reconcileAssistantRoleState(context, userId) },
+                { if (!HotReloadLifecycle.isRetiring) reconcileAssistantRoleState(context, userId) },
                 delayMs,
             )
         }
@@ -1607,21 +1669,31 @@ object AssistantHooker {
     }
 
     private fun registerPowerSettingBridge(source: Any, context: Context) {
+        if (HotReloadLifecycle.isRetiring) return
+        if (powerBridgeNeedsRebind) {
+            unregisterPowerSettingBridge()
+            powerBridgeNeedsRebind = false
+        }
         if (powerSettingBridgeObservers != null) return
         synchronized(this) {
             if (powerSettingBridgeObservers != null) return
             val resolver = context.contentResolver
-            val handler = Handler(Looper.getMainLooper())
+            val handler = assistantHandler
             val domesticObserver = object : ContentObserver(handler) {
                 override fun onChange(selfChange: Boolean) {
+                    if (HotReloadLifecycle.isRetiring) return
                     syncPowerChoiceFromDomesticSetting(source, context)
                 }
             }
             val internationalObserver = object : ContentObserver(handler) {
                 override fun onChange(selfChange: Boolean) {
+                    if (HotReloadLifecycle.isRetiring) return
                     syncPowerChoiceFromInternationalSetting(source, context)
                 }
             }
+            powerSettingBridgeContext = context
+            powerSettingBridgeSource = source
+            powerSettingBridgeObservers = listOf(domesticObserver, internationalObserver)
             resolver.registerContentObserver(
                 Settings.System.getUriFor(SYSTEM_QUICK_TURN_ON_VOICE_ASSISTANT),
                 false,
@@ -1651,6 +1723,20 @@ object AssistantHooker {
             }
             log("Connected the ColorOS power-button UI to the international assistant setting")
         }
+    }
+
+    private fun unregisterPowerSettingBridge() {
+        val failed = ArrayList<ContentObserver>()
+        var failure: Throwable? = null
+        powerSettingBridgeObservers?.forEach { observer ->
+            runCatching { powerSettingBridgeContext?.contentResolver?.unregisterContentObserver(observer) }
+                .onFailure {
+                    failed.add(observer)
+                    if (failure == null) failure = it else failure?.addSuppressed(it)
+                }
+        }
+        powerSettingBridgeObservers = failed.takeIf { it.isNotEmpty() }
+        failure?.let { throw it }
     }
 
     private fun syncPowerChoiceFromDomesticSetting(source: Any, context: Context) {
@@ -1684,8 +1770,10 @@ object AssistantHooker {
 
     /** Refresh the active assistant binding. */
     private fun refreshLiveAssistantBinding(context: Context, userId: Int) {
-        val handler = Handler(Looper.getMainLooper())
+        if (HotReloadLifecycle.isRetiring) return
+        val handler = assistantHandler
         handler.post {
+            if (HotReloadLifecycle.isRetiring) return@post
             reconcileAssistantRoleState(context, userId)
             val stub = voiceInteractionManagerStub
             if (stub == null) {
@@ -2005,11 +2093,18 @@ object AssistantHooker {
 
     /** Keep service binding off the system input thread. */
     private fun launchDefaultAssistantAsync(context: Context?) {
+        if (HotReloadLifecycle.isRetiring) return
         if (!assistantLaunchInProgress.compareAndSet(false, true)) return
         val safeContext = context?.applicationContext ?: context
         runCatching {
-            assistantExecutor.execute {
+            val executor = synchronized(this) {
+                assistantExecutor?.takeUnless { it.isShutdown } ?: Executors.newSingleThreadExecutor { runnable ->
+                    Thread(runnable, "ONextBox-Assistant").apply { isDaemon = true }
+                }.also { assistantExecutor = it }
+            }
+            executor.execute {
                 try {
+                    if (HotReloadLifecycle.isRetiring) return@execute
                     if (safeContext != null) {
                         triggerDefaultAssistant(safeContext)
                     } else {

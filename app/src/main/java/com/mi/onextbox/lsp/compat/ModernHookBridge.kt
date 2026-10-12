@@ -17,10 +17,9 @@ internal object ModernHookBridge {
         hooker: XposedInterface.Hooker,
     ): XposedInterface.HookHandle {
         executable.isAccessible = true
-        return ModernHookRuntime.requireModule()
-            .hook(executable)
-            .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-            .intercept(hooker)
+        return ModernHotReloadSession.install(executable) { chain ->
+            HotReloadLifecycle.withHook({ chain.proceed() }) { hooker.intercept(chain) }
+        }
     }
 
     fun hookMethod(
@@ -28,11 +27,9 @@ internal object ModernHookBridge {
         callback: ModernMethodHook,
     ): XposedInterface.HookHandle {
         executable.isAccessible = true
-        val module = ModernHookRuntime.requireModule()
-        return module
-            .hook(executable)
-            .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
-            .intercept { chain -> intercept(chain, callback) }
+        return ModernHotReloadSession.install(executable) { chain ->
+            HotReloadLifecycle.withHook({ chain.proceed() }) { intercept(chain, callback) }
+        }
     }
 
     fun hookAllMethods(

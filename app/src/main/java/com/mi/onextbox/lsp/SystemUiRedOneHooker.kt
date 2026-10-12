@@ -10,6 +10,7 @@ import android.widget.TextView
 import com.mi.onextbox.lsp.compat.ModernMethodHook as XC_MethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as XposedHelpers
 import com.mi.onextbox.lsp.compat.ModernHookBridge
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -41,8 +42,34 @@ object SystemUiRedOneHooker {
     private val tickDiagnostics = AtomicInteger()
     private val sceneColorAppliedLogged = AtomicBoolean(false)
     private val glassTargetAppliedLogged = AtomicBoolean(false)
+    private var lifecycleRegistered = false
+
+    private fun registerReloadLifecycle() {
+        if (lifecycleRegistered) return
+        lifecycleRegistered = true
+        HotReloadLifecycle.registerReplay("red-one:plugins",
+            capture = { synchronized(hookedPluginClasses) {
+                hookedPluginClasses.mapNotNull { it.classLoader }.distinct().toTypedArray()
+            } },
+            replay = { saved ->
+                (saved as? Array<*>)?.filterIsInstance<ClassLoader>()?.forEach(::installPersonalityClockHooks)
+            })
+        // The listeners are OEM objects, not module callbacks. Transfer ownership of their
+        // registration rather than adding a second listener or briefly interrupting clock ticks.
+        HotReloadLifecycle.register("red-one:clocks",
+            capture = { arrayOf(
+                synchronized(registeredClocks) { registeredClocks.keys.toTypedArray() },
+                synchronized(registeredPluginClocks) { registeredPluginClocks.keys.toTypedArray() },
+            ) },
+            restore = { saved ->
+                val values = saved as? Array<*> ?: return@register
+                (values.getOrNull(0) as? Array<*>)?.filterIsInstance<View>()?.forEach { registeredClocks[it] = true }
+                (values.getOrNull(1) as? Array<*>)?.filterNotNull()?.forEach { registeredPluginClocks[it] = true }
+            })
+    }
 
     fun hook(classLoader: ClassLoader?) {
+        registerReloadLifecycle()
         if (!LspConfig.isWallpapersRedOneEntryEnabledXposed()) return
         if (Build.BRAND.equals("oneplus", ignoreCase = true)) return
 
@@ -59,6 +86,7 @@ object SystemUiRedOneHooker {
     }
 
     fun hookLauncherClock() {
+        registerReloadLifecycle()
         if (!LspConfig.isWallpapersRedOneEntryEnabledXposed()) return
         if (Build.BRAND.equals("oneplus", ignoreCase = true)) return
         hookPersonalityClockImplementations()
@@ -119,6 +147,7 @@ object SystemUiRedOneHooker {
     }
 
     private fun installPersonalityClockHooks(classLoader: ClassLoader) {
+        if (HotReloadLifecycle.isRetiring) return
         runCatching {
             var hooks = 0
             for (name in arrayOf(BASE_CLOCK_IMPL_CLASS, DIGITAL_CLOCK_IMPL_CLASS)) {
@@ -276,6 +305,7 @@ object SystemUiRedOneHooker {
     }
 
     private fun attachPluginClock(clock: Any?) {
+        if (HotReloadLifecycle.isRetiring) return
         if (clock == null) return
         runCatching {
             if (registeredPluginClocks.containsKey(clock)) return@runCatching
@@ -305,6 +335,7 @@ object SystemUiRedOneHooker {
                 override fun afterHookedMethod(param: MethodHookParam) {
                     if (param.throwable != null) return
                     val clock = param.thisObject as? View ?: return
+                    if (HotReloadLifecycle.isRetiring) return
                     if (registeredClocks.containsKey(clock)) return
                     runCatching {
                         val observer = XposedHelpers.callStaticMethod(observerClass, "getInstance")

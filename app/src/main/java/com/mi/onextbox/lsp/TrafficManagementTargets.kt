@@ -2,9 +2,32 @@ package com.mi.onextbox.lsp
 
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.MethodData
+import java.lang.reflect.Method
 
 /** Strict, independently verifiable lookups for obfuscated OEM methods. */
 internal class TrafficManagementTargets(private val dex: DexKitBridge) {
+    /** Only host reflection objects survive a module reload; no DexKit/JNI object is exported. */
+    fun resolve(loader: ClassLoader): Map<String, Array<Method>> {
+        val resolved = linkedMapOf<String, Array<Method>>()
+        val lookups: Map<String, () -> List<MethodData>> = linkedMapOf(
+            "google" to { listOf(google()) }, "ota" to ::ota, "preinstalled" to ::preinstalled,
+            "cloud" to ::cloud, "hidden" to ::hidden, "limit" to { listOf(limit()) }, "roaming" to ::roaming,
+        )
+        lookups.forEach { (key, lookup) ->
+            runCatching {
+                val data = lookup()
+                val methods = data.map { it.getMethodInstance(loader) }
+                data.zip(methods).forEach { (target, method) ->
+                    resolved["callers:${method.toGenericString()}"] = runCatching {
+                        (target.callers + target.callers.flatMap { it.callers }).distinctBy { it.descriptor }
+                            .map { it.getMethodInstance(loader) }.toTypedArray()
+                    }.getOrDefault(emptyArray())
+                }
+                resolved[key] = methods.toTypedArray()
+            }.onFailure { HookLog.w("ONextBox-Traffic", "Target lookup unavailable: $key", it) }
+        }
+        return resolved
+    }
     private fun anchored(text: String, result: String, vararg parameters: String): MethodData =
         dex.findMethod {
             matcher { usingStrings(text); returnType = result; paramTypes(parameters.toList()) }

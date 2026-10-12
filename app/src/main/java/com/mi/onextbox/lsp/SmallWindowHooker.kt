@@ -20,6 +20,7 @@ import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import com.mi.onextbox.lsp.LspConfig.SmallWindowFeature as Feature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernMethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as Reflect
 import java.lang.ref.WeakReference
@@ -32,8 +33,10 @@ internal object SmallWindowHooker {
     private const val TAG = "ONextBox-SmallWindow"
     private val styles = WeakHashMap<FrameLayout, AnimatedStyle>()
     private val nativeDepths = WeakHashMap<View, Int>()
-    private val observedLayouts = WeakHashMap<FrameLayout, Boolean>()
-    private val pendingStyles = WeakHashMap<View, Boolean>()
+    private val observedLayouts = WeakHashMap<FrameLayout, View.OnLayoutChangeListener>()
+    private val pendingStyles = WeakHashMap<View, Runnable>()
+    private val observedAnimations = WeakHashMap<Animator, Animator.AnimatorListener>()
+    private val styledHosts = WeakHashMap<View, String>()
     private val visualFailed = AtomicBoolean(false)
 
     private enum class Variant(val viewClass: String, val controllerClass: String) {
@@ -56,6 +59,37 @@ internal object SmallWindowHooker {
     private fun enabled(feature: Feature): Boolean = LspConfig.isSmallWindowFeatureEnabledXposed(feature)
 
     private fun install(loader: ClassLoader, variant: Variant) {
+        HotReloadLifecycle.register("small-window-visuals",
+            capture = {
+                synchronized(styledHosts) { styledHosts.map { (host, kind) -> arrayOf(host, kind) }.toTypedArray() }
+            },
+            canReload = { synchronized(nativeDepths) { nativeDepths.isEmpty() } },
+            detach = {
+                synchronized(pendingStyles) {
+                    pendingStyles.forEach { (view, task) -> view.removeCallbacks(task) }
+                    pendingStyles.clear()
+                }
+                synchronized(observedLayouts) {
+                    observedLayouts.forEach { (view, listener) -> view.removeOnLayoutChangeListener(listener) }
+                    observedLayouts.clear()
+                }
+                synchronized(observedAnimations) {
+                    observedAnimations.forEach { (animator, listener) -> animator.removeListener(listener) }
+                    observedAnimations.clear()
+                }
+                val active = synchronized(styles) { styles.values.toList() }
+                active.forEach(::finishStyle)
+                synchronized(styledHosts) { styledHosts.clear() }
+            },
+            restore = { state ->
+                (state as? Array<*>)?.forEach { item ->
+                    val saved = item as? Array<*> ?: return@forEach
+                    val host = saved.getOrNull(0) as? View ?: return@forEach
+                    val kind = Variant.entries.firstOrNull { it.name == saved.getOrNull(1) } ?: return@forEach
+                    if (host.isAttachedToWindow) applyStyle(host, kind)
+                }
+            },
+        )
         if (!enabled(Feature.WhiteBar) && !enabled(Feature.SafeEdgeInset)) return
         val target = Reflect.findClassIfExists(variant.viewClass, loader) ?: return
         val controller = Reflect.findClassIfExists(variant.controllerClass, loader) ?: return
@@ -202,24 +236,35 @@ internal object SmallWindowHooker {
     }
 
     private fun observeAnimationEnd(animator: Animator, receiver: Any?, variant: Variant) {
+        if (HotReloadLifecycle.isRetiring) return
         val host = WeakReference(receiver as? View ?: return)
-        animator.addListener(object : AnimatorListenerAdapter() {
+        val listener = object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
-                host.get()?.post { guarded { applyStyle(host.get(), variant) } }
+                if (!HotReloadLifecycle.isRetiring) scheduleStyle(host.get(), variant)
                 animation.removeListener(this)
+                synchronized(observedAnimations) { observedAnimations.remove(animation) }
             }
-        })
+        }
+        synchronized(observedAnimations) {
+            observedAnimations.put(animator, listener)?.let(animator::removeListener)
+        }
+        animator.addListener(listener)
     }
 
     private fun scheduleStyle(receiver: Any?, variant: Variant) {
+        if (HotReloadLifecycle.isRetiring) return
         val view = receiver as? View ?: return
-        if (synchronized(pendingStyles) { pendingStyles.put(view, true) != null }) return
         val weak = WeakReference(view)
-        view.post {
-            val host = weak.get() ?: return@post
+        val task = Runnable {
+            val host = weak.get() ?: return@Runnable
             synchronized(pendingStyles) { pendingStyles.remove(host) }
             guarded { applyStyle(host, variant) }
         }
+        synchronized(pendingStyles) {
+            if (pendingStyles.containsKey(view)) return
+            pendingStyles[view] = task
+        }
+        view.post(task)
     }
 
     private fun isPhone(context: Context): Boolean = context.resources.configuration.smallestScreenWidthDp in 1..599
@@ -252,17 +297,20 @@ internal object SmallWindowHooker {
     }
 
     private fun applyStyle(receiver: Any?, variant: Variant, forceNative: Boolean = false) {
+        if (HotReloadLifecycle.isRetiring) return
         if (receiver == null) return
+        if (receiver is View) synchronized(styledHosts) { styledHosts[receiver] = variant.name }
         if (visualFailed.get()) { restore(receiver); return }
         if (receiver is View && synchronized(nativeDepths) { (nativeDepths[receiver] ?: 0) > 0 }) return
         val container = Reflect.getObjectField(receiver, "mFloatHandleViewContainer") as? FrameLayout ?: return
         if (!isPhone(container.context)) { restore(receiver); return }
-        val observeLayout = synchronized(observedLayouts) { observedLayouts.put(container, true) == null }
-        if (observeLayout) {
+        if (synchronized(observedLayouts) { !observedLayouts.containsKey(container) }) {
             val host = WeakReference(receiver)
-            container.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            val listener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 guarded { applyStyle(host.get(), variant) }
             }
+            synchronized(observedLayouts) { observedLayouts[container] = listener }
+            container.addOnLayoutChangeListener(listener)
         }
         if (!container.isAttachedToWindow) { restore(receiver); return }
         val mode = Reflect.getObjectField(receiver, "mCurrentMode") as Int
@@ -452,6 +500,7 @@ internal object SmallWindowHooker {
     }
 
     private inline fun guarded(block: () -> Unit) {
+        if (HotReloadLifecycle.isRetiring) return
         runCatching(block).onFailure {
             if (visualFailed.compareAndSet(false, true)) {
                 val active = synchronized(styles) { styles.values.toList().also { styles.clear() } }

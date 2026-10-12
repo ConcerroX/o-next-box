@@ -61,7 +61,7 @@ object UpdateNotificationScheduler {
             cancel(appContext)
             return
         }
-        if (!UpdateChannelPreference.getUpdateNotificationsEnabled(appContext)) {
+        if (!AppUpdatePreferences.getUpdateNotificationsEnabled(appContext)) {
             cancel(appContext)
             return
         }
@@ -112,13 +112,14 @@ object UpdateNotificationScheduler {
             cancel(appContext)
             return
         }
-        if (!UpdateChannelPreference.getUpdateNotificationsEnabled(appContext)) return
+        if (!AppUpdatePreferences.getUpdateNotificationsEnabled(appContext)) return
         if (!checking.compareAndSet(false, true)) return
         try {
+            val includeBeta = AppUpdatePreferences.getBetaPlanEnabled(appContext)
             val update = AppUpdater.checkForUpdate(
-                channel = UpdateChannelPreference.get(appContext),
-                buildType = UpdateChannelPreference.getBuildType(appContext),
+                includeBeta = includeBeta,
             ) ?: return
+            if (includeBeta != AppUpdatePreferences.getBetaPlanEnabled(appContext)) return
             val prefs = appContext.getSharedPreferences(RUNTIME_PREFS, Context.MODE_PRIVATE)
             if (prefs.getString(KEY_LAST_NOTIFIED_VERSION, null) == update.versionName) return
             if (!canPostNotifications(appContext)) return

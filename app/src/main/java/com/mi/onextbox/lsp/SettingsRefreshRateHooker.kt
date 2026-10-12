@@ -6,7 +6,7 @@ import com.mi.onextbox.lsp.compat.ModernReflect as XposedHelpers
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Enables ColorOS's own extreme refresh-rate setting without changing its UI or choices. */
+/** Unlocks native refresh-rate choices while retaining the ColorOS preference UI and writer. */
 internal object SettingsRefreshRateHooker {
     private const val TAG = "SettingsRefreshRate"
     private const val UTILS_CLASS = "com.oplus.settings.feature.display.ScreenRefreshUtils"
@@ -23,6 +23,8 @@ internal object SettingsRefreshRateHooker {
             HookLog.w(TAG, "ColorOS refresh-rate utility unavailable")
             return
         }
+        runCatching { SettingsRefreshRateSelectionHooker.hook(classLoader, utils) }
+            .onFailure { HookLog.w(TAG, "native default-high selection guards unavailable", it) }
         runCatching {
             val hooks = XposedBridge.hookAllMethods(
                 utils,
@@ -57,5 +59,7 @@ internal object SettingsRefreshRateHooker {
             hookedLoaders.remove(loaderId)
             HookLog.w(TAG, "native refresh-rate hook registration failed", it)
         }
+        runCatching { SettingsNativeRefreshRateMenu.hook(classLoader, utils) }
+            .onFailure { HookLog.w(TAG, "native 90 Hz menu hooks unavailable", it) }
     }
 }

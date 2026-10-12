@@ -19,6 +19,19 @@ internal class FluidCloudExpandedMaterialHooks(
     private val scope = FluidCloudExpandedBuildScope()
     private val backgrounds = WeakHashMap<View, WeakReference<Drawable>>()
 
+    fun captureReloadState(): Array<Array<Any>> = backgrounds.mapNotNull { (view, drawable) ->
+        drawable.get()?.let { arrayOf<Any>(view, it) }
+    }.toTypedArray()
+
+    fun restoreReloadState(saved: Any?) {
+        (saved as? Array<*>)?.forEach { item ->
+            val values = item as? Array<*> ?: return@forEach
+            val view = values.getOrNull(0) as? View ?: return@forEach
+            val background = values.getOrNull(1) as? Drawable ?: return@forEach
+            backgrounds[view] = WeakReference(background)
+        }
+    }
+
     fun install(loader: ClassLoader, prefix: String) = runCatching {
         val params = Reflect.findClass("com.oplus.graphics.OplusBlurParam", loader)
             .getDeclaredMethod("setMaterialParams", Int::class.javaPrimitiveType,

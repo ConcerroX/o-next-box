@@ -1,11 +1,14 @@
 package com.mi.onextbox.ui.settings
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.key as contentKey
 import androidx.compose.ui.Modifier
@@ -20,6 +23,46 @@ import com.mi.onextbox.ui.common.colorOsScrollEntrance
 import io.github.suqi8.coui.kmp.basic.CardDefaults
 import io.github.suqi8.coui.kmp.squircle.squircleSurface
 import io.github.suqi8.coui.kmp.theme.LocalContentColor
+
+@Composable
+internal fun SettingsLazyGroupItem(
+    index: Int,
+    count: Int,
+    modifier: Modifier = Modifier,
+    bottomPadding: Dp = 16.dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val last = index == count - 1
+    val material = LocalAppUiStyle.current == AppUiStyle.Material3Expressive
+    val groupBottom = if (material && bottomPadding == 16.dp) 13.dp else bottomPadding
+    val rowModifier = modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp)
+        .padding(bottom = if (last) groupBottom else if (material) 2.dp else 0.dp)
+    if (material) {
+        Material3ExpressiveAnimatedSegmentPosition(index, count, durationMillis = 280) {
+            Column(modifier = rowModifier, content = content)
+        }
+        return
+    }
+    val colors = CardDefaults.defaultColors()
+    val top by animateDpAsState(
+        targetValue = if (index == 0) AppUiTokens.CardCornerRadius else 0.dp,
+        animationSpec = spring(dampingRatio = 1f, stiffness = 800f),
+        label = "settingsLazyGroupTopCorner",
+    )
+    val bottom by animateDpAsState(
+        targetValue = if (last) AppUiTokens.CardCornerRadius else 0.dp,
+        animationSpec = spring(dampingRatio = 1f, stiffness = 800f),
+        label = "settingsLazyGroupBottomCorner",
+    )
+    CompositionLocalProvider(LocalContentColor provides colors.contentColor) {
+        Column(modifier = rowModifier.squircleSurface(colors.color, top, top, bottom, bottom)) {
+            content()
+            if (!last) SettingsDivider()
+        }
+    }
+}
 
 /** Joined list cards with independent scroll entry motion. */
 @Composable

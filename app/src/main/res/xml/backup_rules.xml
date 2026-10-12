@@ -7,4 +7,8 @@
     <exclude domain="device_sharedpref" path="push_monitor.xml" />
     <exclude domain="device_sharedpref" path="lsposed_status_cache.xml" />
     <exclude domain="file" path="logs/" />
+    <exclude domain="database" path="app_errors.db" />
+    <exclude domain="database" path="app_errors.db-journal" />
+    <exclude domain="database" path="app_errors.db-wal" />
+    <exclude domain="database" path="app_errors.db-shm" />
 </full-backup-content>

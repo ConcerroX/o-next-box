@@ -4,9 +4,11 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
 import android.view.View
+import android.view.ViewTreeObserver
 import android.widget.TextView
 import com.mi.onextbox.lsp.compat.ModernHookBridge as XposedBridge
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernMethodHook as XC_MethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as XposedHelpers
 import io.github.libxposed.api.XposedInterface
@@ -83,12 +85,44 @@ object SystemUiHooker {
     private val c16NetworkIconOrderApplied = AtomicBoolean(false)
     private val internationalNotificationStyleScope = ThreadLocal<Int>()
     private val nativePowerMenuLock = Any()
-    private val guardedWifiActivityRoots = Collections.synchronizedMap(WeakHashMap<View, Boolean>())
+    private data class WifiGuard(
+        val layout: View.OnLayoutChangeListener,
+        val drawing: ViewTreeObserver.OnPreDrawListener,
+        val observer: ViewTreeObserver,
+    )
+    private val guardedWifiActivityRoots = Collections.synchronizedMap(WeakHashMap<View, WifiGuard>())
     @Volatile private var nativePowerMenuProvider: Any? = null
     @Volatile private var nativePowerMenuDialog: Any? = null
     @Volatile private var observedNativePowerMenuDialog: Any? = null
 
     fun hook(packageName: String, classLoader: ClassLoader?) {
+        HotReloadLifecycle.register("systemui:views",
+            capture = { arrayOf(synchronized(guardedWifiActivityRoots) { guardedWifiActivityRoots.keys.toTypedArray() },
+                nativePowerMenuProvider, nativePowerMenuDialog, observedNativePowerMenuDialog) },
+            detach = {
+                synchronized(guardedWifiActivityRoots) {
+                    guardedWifiActivityRoots.toMap().forEach { (view, guard) ->
+                        view.removeOnLayoutChangeListener(guard.layout)
+                        if (guard.observer.isAlive) guard.observer.removeOnPreDrawListener(guard.drawing)
+                        if (view.viewTreeObserver !== guard.observer && view.viewTreeObserver.isAlive) {
+                            view.viewTreeObserver.removeOnPreDrawListener(guard.drawing)
+                        }
+                    }
+                    guardedWifiActivityRoots.clear()
+                }
+                nativePowerMenuProvider = null
+                nativePowerMenuDialog = null
+                observedNativePowerMenuDialog = null
+            },
+            restore = { saved ->
+                val values = saved as? Array<*>
+                nativePowerMenuProvider = values?.getOrNull(1)
+                nativePowerMenuDialog = values?.getOrNull(2)
+                observedNativePowerMenuDialog = values?.getOrNull(3)
+                if (LspConfig.isSystemUiHideNetworkActivityIndicatorEnabledXposed()) {
+                    (values?.getOrNull(0) as? Array<*>)?.filterIsInstance<View>()?.forEach(::guardWifiActivityViews)
+                }
+            })
         if (LspConfig.isSystemUiInternationalNetworkDisplayEnabledXposed()) {
             hookInternationalNetworkDisplayResource()
         }
@@ -135,7 +169,7 @@ object SystemUiHooker {
         }
         if (
             LspConfig.isAodEnhanceEnabledXposed() ||
-            LspConfig.isAodPanoramicSupportEnabledXposed() ||
+            LspConfig.isAodAllDayUnlockEnabledXposed() ||
             LspConfig.isAodSingleClickBlockEnabledXposed()
         ) {
             SystemUiAodHooker.hook(classLoader, packageName)
@@ -482,6 +516,7 @@ object SystemUiHooker {
     }
 
     private fun guardWifiActivityViews(root: View) {
+        if (HotReloadLifecycle.isRetiring) return
         val activityViews = mutableListOf<View>()
         intArrayOf(
             WIFI_ACTIVITY_CONTAINER_VIEW_ID,
@@ -502,12 +537,18 @@ object SystemUiHooker {
         }
 
         hideActivityViews()
-        if (guardedWifiActivityRoots.put(root, true) != null) return
-        root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> hideActivityViews() }
-        root.viewTreeObserver.addOnPreDrawListener {
-            hideActivityViews()
+        if (guardedWifiActivityRoots.containsKey(root)) return
+        val layout = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            if (!HotReloadLifecycle.isRetiring) hideActivityViews()
+        }
+        val drawing = ViewTreeObserver.OnPreDrawListener {
+            if (!HotReloadLifecycle.isRetiring) hideActivityViews()
             true
         }
+        val observer = root.viewTreeObserver
+        guardedWifiActivityRoots[root] = WifiGuard(layout, drawing, observer)
+        root.addOnLayoutChangeListener(layout)
+        observer.addOnPreDrawListener(drawing)
     }
 
     private fun logNetworkActivityIndicatorHidden(binding: String) {

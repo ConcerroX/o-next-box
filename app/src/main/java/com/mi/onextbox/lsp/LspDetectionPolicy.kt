@@ -54,6 +54,9 @@ internal object LspDetectionPolicy {
         if ("com.android.systemui" in scopes && scoped.none { it.processName == "com.android.systemui" }) {
             return result(LspStatus.WAITING_RESTART, "systemui_not_loaded")
         }
+        if (scoped.any { it.reloadFailed }) {
+            return result(LspStatus.WAITING_RESTART, "target_reload_failed")
+        }
         if (scoped.any { !it.current }) {
             return result(LspStatus.WAITING_RESTART, "target_stale")
         }

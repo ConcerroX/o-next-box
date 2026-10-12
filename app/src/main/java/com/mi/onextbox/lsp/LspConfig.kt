@@ -3,6 +3,7 @@ package com.mi.onextbox.lsp
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
+import android.provider.Settings
 import com.mi.onextbox.ui.common.ShellLogger
 import com.mi.onextbox.lsp.LspPreferenceStore.readSystemPropertyValue
 import com.mi.onextbox.lsp.LspPreferenceStore.readFlagFile
@@ -85,6 +86,43 @@ object LspConfig {
         SETTINGS_APP_INFO_CARD, KEY_SETTINGS_APP_INFO_CARD, false,
     )
 
+    private const val KEY_AOSP_BACK_PANEL = "systemui_aosp_back_panel"
+    private const val PROP_AOSP_BACK_PANEL = "oost.$KEY_AOSP_BACK_PANEL"
+    private const val PERSIST_PROP_AOSP_BACK_PANEL = "persist.sys.$PROP_AOSP_BACK_PANEL"
+    private const val SETTINGS_AOSP_BACK_PANEL = "oost_$KEY_AOSP_BACK_PANEL"
+
+    fun isAospBackPanelEnabled(context: Context): Boolean =
+        LspPreferenceStore.readBoolean(context, KEY_AOSP_BACK_PANEL, false)
+
+    fun setAospBackPanelEnabled(context: Context, enabled: Boolean) {
+        setSyncedBooleanPreference(context, KEY_AOSP_BACK_PANEL, enabled,
+            listOf(PERSIST_PROP_AOSP_BACK_PANEL, PROP_AOSP_BACK_PANEL), SETTINGS_AOSP_BACK_PANEL)
+    }
+
+    fun isAospBackPanelEnabledXposed(): Boolean = readXposedBoolean(
+        PERSIST_PROP_AOSP_BACK_PANEL, PROP_AOSP_BACK_PANEL,
+        SETTINGS_AOSP_BACK_PANEL, KEY_AOSP_BACK_PANEL, false,
+    )
+
+    private const val KEY_ROUND_NOTIFICATION_CLEAR_BUTTON = "systemui_round_notification_clear_button"
+    private const val PROP_ROUND_NOTIFICATION_CLEAR_BUTTON = "oost.$KEY_ROUND_NOTIFICATION_CLEAR_BUTTON"
+    private const val PERSIST_PROP_ROUND_NOTIFICATION_CLEAR_BUTTON = "persist.sys.$PROP_ROUND_NOTIFICATION_CLEAR_BUTTON"
+    private const val SETTINGS_ROUND_NOTIFICATION_CLEAR_BUTTON = "oost_$KEY_ROUND_NOTIFICATION_CLEAR_BUTTON"
+
+    fun isRoundNotificationClearButtonEnabled(context: Context): Boolean =
+        LspPreferenceStore.readBoolean(context, KEY_ROUND_NOTIFICATION_CLEAR_BUTTON, false)
+
+    fun setRoundNotificationClearButtonEnabled(context: Context, enabled: Boolean) {
+        setSyncedBooleanPreference(context, KEY_ROUND_NOTIFICATION_CLEAR_BUTTON, enabled,
+            listOf(PERSIST_PROP_ROUND_NOTIFICATION_CLEAR_BUTTON, PROP_ROUND_NOTIFICATION_CLEAR_BUTTON),
+            SETTINGS_ROUND_NOTIFICATION_CLEAR_BUTTON)
+    }
+
+    fun isRoundNotificationClearButtonEnabledXposed(): Boolean = readXposedBoolean(
+        PERSIST_PROP_ROUND_NOTIFICATION_CLEAR_BUTTON, PROP_ROUND_NOTIFICATION_CLEAR_BUTTON,
+        SETTINGS_ROUND_NOTIFICATION_CLEAR_BUTTON, KEY_ROUND_NOTIFICATION_CLEAR_BUTTON, false,
+    )
+
     private const val KEY_FLUID_CLOUD_BATTERY = "systemui_fluid_cloud_battery"
     private const val PROP_FLUID_CLOUD_BATTERY = "oost.$KEY_FLUID_CLOUD_BATTERY"
     private const val PERSIST_PROP_FLUID_CLOUD_BATTERY = "persist.sys.$PROP_FLUID_CLOUD_BATTERY"
@@ -121,6 +159,78 @@ object LspConfig {
     fun isFluidCloudMaterialEnabledXposed(): Boolean = readXposedBoolean(
         PERSIST_PROP_FLUID_CLOUD_MATERIAL, PROP_FLUID_CLOUD_MATERIAL,
         SETTINGS_FLUID_CLOUD_MATERIAL, KEY_FLUID_CLOUD_MATERIAL, false,
+    )
+
+    private const val KEY_KEYBOARD_MATERIAL_UNLOCK = "keyboard_material_unlock"
+    private const val PROP_KEYBOARD_MATERIAL_UNLOCK = "oost.$KEY_KEYBOARD_MATERIAL_UNLOCK"
+    private const val PERSIST_PROP_KEYBOARD_MATERIAL_UNLOCK = "persist.sys.$PROP_KEYBOARD_MATERIAL_UNLOCK"
+    private const val SETTINGS_KEYBOARD_MATERIAL_UNLOCK = "oost_$KEY_KEYBOARD_MATERIAL_UNLOCK"
+
+    fun isKeyboardMaterialUnlocked(context: Context): Boolean =
+        LspPreferenceStore.readBoolean(context, KEY_KEYBOARD_MATERIAL_UNLOCK, false)
+
+    fun setKeyboardMaterialUnlocked(context: Context, enabled: Boolean) {
+        setSyncedBooleanPreference(context, KEY_KEYBOARD_MATERIAL_UNLOCK, enabled,
+            listOf(PERSIST_PROP_KEYBOARD_MATERIAL_UNLOCK, PROP_KEYBOARD_MATERIAL_UNLOCK), SETTINGS_KEYBOARD_MATERIAL_UNLOCK)
+    }
+
+    fun isKeyboardMaterialUnlockedXposed(): Boolean = readXposedBoolean(
+        PERSIST_PROP_KEYBOARD_MATERIAL_UNLOCK, PROP_KEYBOARD_MATERIAL_UNLOCK,
+        SETTINGS_KEYBOARD_MATERIAL_UNLOCK, KEY_KEYBOARD_MATERIAL_UNLOCK, false,
+    )
+
+    private const val KEY_KEYBOARD_FLAG_EMOJI = "keyboard_flag_emoji"
+    private const val PROP_KEYBOARD_FLAG_EMOJI = "oost.$KEY_KEYBOARD_FLAG_EMOJI"
+    private const val PERSIST_PROP_KEYBOARD_FLAG_EMOJI = "persist.sys.$PROP_KEYBOARD_FLAG_EMOJI"
+    private const val SETTINGS_KEYBOARD_FLAG_EMOJI = "oost_$KEY_KEYBOARD_FLAG_EMOJI"
+
+    fun isKeyboardFlagEmojiEnabled(context: Context): Boolean =
+        LspPreferenceStore.readBoolean(context, KEY_KEYBOARD_FLAG_EMOJI, false)
+
+    fun setKeyboardFlagEmojiEnabled(context: Context, enabled: Boolean) {
+        setSyncedBooleanPreference(context, KEY_KEYBOARD_FLAG_EMOJI, enabled,
+            listOf(PERSIST_PROP_KEYBOARD_FLAG_EMOJI, PROP_KEYBOARD_FLAG_EMOJI), SETTINGS_KEYBOARD_FLAG_EMOJI)
+    }
+
+    fun isKeyboardFlagEmojiEnabledXposed(): Boolean = readXposedBoolean(
+        PERSIST_PROP_KEYBOARD_FLAG_EMOJI, PROP_KEYBOARD_FLAG_EMOJI,
+        SETTINGS_KEYBOARD_FLAG_EMOJI, KEY_KEYBOARD_FLAG_EMOJI, false,
+    )
+
+    private const val KEY_KEYBOARD_BOTTOM_LIFT_FIX = "keyboard_bottom_lift_fix"
+    private const val PROP_KEYBOARD_BOTTOM_LIFT_FIX = "oost.$KEY_KEYBOARD_BOTTOM_LIFT_FIX"
+    private const val PERSIST_PROP_KEYBOARD_BOTTOM_LIFT_FIX = "persist.sys.$PROP_KEYBOARD_BOTTOM_LIFT_FIX"
+    private const val SETTINGS_KEYBOARD_BOTTOM_LIFT_FIX = "oost_$KEY_KEYBOARD_BOTTOM_LIFT_FIX"
+
+    fun isKeyboardBottomLiftFixEnabled(context: Context): Boolean =
+        LspPreferenceStore.readBoolean(context, KEY_KEYBOARD_BOTTOM_LIFT_FIX, false)
+
+    fun setKeyboardBottomLiftFixEnabled(context: Context, enabled: Boolean) {
+        setSyncedBooleanPreference(context, KEY_KEYBOARD_BOTTOM_LIFT_FIX, enabled,
+            listOf(PERSIST_PROP_KEYBOARD_BOTTOM_LIFT_FIX, PROP_KEYBOARD_BOTTOM_LIFT_FIX), SETTINGS_KEYBOARD_BOTTOM_LIFT_FIX)
+    }
+
+    fun isKeyboardBottomLiftFixEnabledXposed(): Boolean = readXposedBoolean(
+        PERSIST_PROP_KEYBOARD_BOTTOM_LIFT_FIX, PROP_KEYBOARD_BOTTOM_LIFT_FIX,
+        SETTINGS_KEYBOARD_BOTTOM_LIFT_FIX, KEY_KEYBOARD_BOTTOM_LIFT_FIX, false,
+    )
+
+    private const val KEY_KEYBOARD_HIDE_DISMISS = "keyboard_hide_dismiss"
+    private const val PROP_KEYBOARD_HIDE_DISMISS = "oost.$KEY_KEYBOARD_HIDE_DISMISS"
+    private const val PERSIST_PROP_KEYBOARD_HIDE_DISMISS = "persist.sys.$PROP_KEYBOARD_HIDE_DISMISS"
+    private const val SETTINGS_KEYBOARD_HIDE_DISMISS = "oost_$KEY_KEYBOARD_HIDE_DISMISS"
+
+    fun isKeyboardDismissHidden(context: Context): Boolean =
+        LspPreferenceStore.readBoolean(context, KEY_KEYBOARD_HIDE_DISMISS, false)
+
+    fun setKeyboardDismissHidden(context: Context, enabled: Boolean) {
+        setSyncedBooleanPreference(context, KEY_KEYBOARD_HIDE_DISMISS, enabled,
+            listOf(PERSIST_PROP_KEYBOARD_HIDE_DISMISS, PROP_KEYBOARD_HIDE_DISMISS), SETTINGS_KEYBOARD_HIDE_DISMISS)
+    }
+
+    fun isKeyboardDismissHiddenXposed(): Boolean = readXposedBoolean(
+        PERSIST_PROP_KEYBOARD_HIDE_DISMISS, PROP_KEYBOARD_HIDE_DISMISS,
+        SETTINGS_KEYBOARD_HIDE_DISMISS, KEY_KEYBOARD_HIDE_DISMISS, false,
     )
 
     enum class TrafficFeature(val key: String) {
@@ -1194,8 +1304,7 @@ object LspConfig {
         val aodInitDarkBrightness: Int,
         val aodInitBrightBrightness: Int,
         val aodRunningBrightnessMultiplier: Float,
-        val aodPanoramicSupportEnabled: Boolean,
-        val aodSettingsSwitchEnabled: Boolean,
+        val aodAllDayUnlockEnabled: Boolean,
         val aodSingleClickBlockEnabled: Boolean,
         val systemUiInternationalNetworkDisplayEnabled: Boolean,
         val systemUiHideMobileRoamingIndicatorEnabled: Boolean,
@@ -1243,11 +1352,10 @@ object LspConfig {
                 KEY_AOD_RUNNING_BRIGHTNESS_MULTIPLIER,
                 DEFAULT_AOD_RUNNING_BRIGHTNESS_MULTIPLIER
             )),
-            aodPanoramicSupportEnabled = prefs.getBoolean(
+            aodAllDayUnlockEnabled = prefs.getBoolean(
                 KEY_AOD_PANORAMIC_SUPPORT,
                 DEFAULT_AOD_PANORAMIC_SUPPORT
-            ),
-            aodSettingsSwitchEnabled = prefs.getBoolean(
+            ) && prefs.getBoolean(
                 KEY_AOD_SETTINGS_SWITCH,
                 DEFAULT_AOD_SETTINGS_SWITCH
             ),
@@ -1337,8 +1445,7 @@ object LspConfig {
             aodInitDarkBrightness = getAodInitDarkBrightness(context),
             aodInitBrightBrightness = getAodInitBrightBrightness(context),
             aodRunningBrightnessMultiplier = getAodRunningBrightnessMultiplier(context),
-            aodPanoramicSupportEnabled = isAodPanoramicSupportEnabled(context),
-            aodSettingsSwitchEnabled = isAodSettingsSwitchEnabled(context),
+            aodAllDayUnlockEnabled = isAodAllDayUnlockEnabled(context),
             aodSingleClickBlockEnabled = isAodSingleClickBlockEnabled(context),
             systemUiInternationalNetworkDisplayEnabled =
                 isSystemUiInternationalNetworkDisplayEnabled(context),
@@ -1623,12 +1730,19 @@ object LspConfig {
         )
     }
 
-    fun isAodPanoramicSupportEnabled(context: Context): Boolean {
-        return prefs(context).getBoolean(KEY_AOD_PANORAMIC_SUPPORT, DEFAULT_AOD_PANORAMIC_SUPPORT)
+    fun isAodAllDayUnlockEnabled(context: Context): Boolean {
+        val preferences = prefs(context)
+        return preferences.getBoolean(KEY_AOD_PANORAMIC_SUPPORT, DEFAULT_AOD_PANORAMIC_SUPPORT) &&
+            preferences.getBoolean(KEY_AOD_SETTINGS_SWITCH, DEFAULT_AOD_SETTINGS_SWITCH)
     }
 
-    fun setAodPanoramicSupportEnabled(context: Context, enabled: Boolean) {
-        if (!prefs(context).edit().putBoolean(KEY_AOD_PANORAMIC_SUPPORT, enabled).commitOrReport()) return
+    fun setAodAllDayUnlockEnabled(context: Context, enabled: Boolean) {
+        // Keep both legacy keys in one transaction for existing configs and resident generations.
+        if (!prefs(context).edit()
+                .putBoolean(KEY_AOD_PANORAMIC_SUPPORT, enabled)
+                .putBoolean(KEY_AOD_SETTINGS_SWITCH, enabled)
+                .commitOrReport()
+        ) return
         syncReadableState(context)
         syncScalarState(
             value = if (enabled) "1" else "0",
@@ -1638,15 +1752,6 @@ object LspConfig {
             ),
             settingsGlobalKey = SETTINGS_KEY_AOD_PANORAMIC_SUPPORT
         )
-    }
-
-    fun isAodSettingsSwitchEnabled(context: Context): Boolean {
-        return prefs(context).getBoolean(KEY_AOD_SETTINGS_SWITCH, DEFAULT_AOD_SETTINGS_SWITCH)
-    }
-
-    fun setAodSettingsSwitchEnabled(context: Context, enabled: Boolean) {
-        if (!prefs(context).edit().putBoolean(KEY_AOD_SETTINGS_SWITCH, enabled).commitOrReport()) return
-        syncReadableState(context)
         syncScalarState(
             value = if (enabled) "1" else "0",
             propertyKeys = listOf(
@@ -2065,7 +2170,26 @@ object LspConfig {
         return LspPreferenceStore.readBoolean(context, KEY_SETTINGS_UNLOCK_REFRESH_RATE, DEFAULT_SETTINGS_UNLOCK_REFRESH_RATE)
     }
 
+    @Synchronized
     fun setSettingsRefreshRateUnlocked(context: Context, enabled: Boolean) {
+        val wasEnabled = isSettingsRefreshRateUnlocked(context)
+        val initialization = if (enabled && !wasEnabled) {
+            runCatching {
+                SettingsRefreshRateSelectionRules.initializeOnEnable(
+                    wasEnabled = wasEnabled,
+                    enabled = enabled,
+                    currentMode = Settings.Secure.getInt(
+                        context.contentResolver, SettingsRefreshRateSelectionRules.MODE_KEY, -1,
+                    ),
+                    currentChoice = Settings.Secure.getInt(
+                        context.contentResolver, SettingsRefreshRateSelectionRules.CHOICE_KEY, -1,
+                    ),
+                )
+            }.getOrElse {
+                ConfigSyncStatus.failed("read native refresh-rate selection")
+                return
+            }
+        } else null
         setSyncedBooleanPreference(
             context = context,
             prefsKey = KEY_SETTINGS_UNLOCK_REFRESH_RATE,
@@ -2076,6 +2200,17 @@ object LspConfig {
             ),
             settingsGlobalKey = SETTINGS_KEY_SETTINGS_UNLOCK_REFRESH_RATE,
         )
+        // Do this only on an actual off -> on transition, never at boot synchronization or
+        // while disabling. Later 90/120/extreme selections remain exclusively OEM menu actions.
+        if (initialization != null && isSettingsRefreshRateUnlocked(context)) {
+            val commands = buildList {
+                add("settings --user 0 put secure ${SettingsRefreshRateSelectionRules.CHOICE_KEY} ${initialization.choiceHertz}")
+                initialization.mode?.let { mode ->
+                    add("settings --user 0 put secure ${SettingsRefreshRateSelectionRules.MODE_KEY} $mode")
+                }
+            }
+            executeSyncCommands("initialize unlocked refresh-rate selection", commands)
+        }
     }
 
     fun isSettingsForceGlobalExtremeRefreshRateEnabled(context: Context): Boolean {
@@ -2590,6 +2725,7 @@ object LspConfig {
         val batchedCommands = mutableListOf<String>()
         syncCommandBatch.set(batchedCommands)
         try {
+            SideKeySettings.save(context, false, SideKeyConfig())
             setImmersiveNavigationEnabled(context, false)
             setNavigationHandleCustomLengthEnabled(context, false)
             setNavigationHandleLengthDp(context, ImmersiveNavigationRules.SYSTEM_DEFAULT)
@@ -2601,6 +2737,8 @@ object LspConfig {
             setExpressNoMiniProgramEnabled(context, false)
             setFluidCloudBatteryEnabled(context, false)
             setFluidCloudMaterialEnabled(context, false)
+            setRoundNotificationClearButtonEnabled(context, false)
+            setAospBackPanelEnabled(context, false)
             setHideDisconnectedBluetoothEnabled(context, false)
             StatusBarInteractionFeature.entries.forEach { setStatusBarInteractionFeatureEnabled(context, it, false) }
             BatteryFeature.entries.forEach { setBatteryFeatureEnabled(context, it, false) }
@@ -2626,8 +2764,7 @@ object LspConfig {
             setAodInitDarkBrightness(context, DEFAULT_AOD_INIT_DARK_BRIGHTNESS)
             setAodInitBrightBrightness(context, DEFAULT_AOD_INIT_BRIGHT_BRIGHTNESS)
             setAodRunningBrightnessMultiplier(context, DEFAULT_AOD_RUNNING_BRIGHTNESS_MULTIPLIER)
-            setAodPanoramicSupportEnabled(context, DEFAULT_AOD_PANORAMIC_SUPPORT)
-            setAodSettingsSwitchEnabled(context, DEFAULT_AOD_SETTINGS_SWITCH)
+            setAodAllDayUnlockEnabled(context, DEFAULT_AOD_PANORAMIC_SUPPORT)
             setAodSingleClickBlockEnabled(context, DEFAULT_AOD_SINGLE_CLICK_BLOCK)
             setNativeNotificationBubblesEnabled(context, DEFAULT_NATIVE_NOTIFICATION_BUBBLES)
             setSystemUiInternationalNetworkDisplayEnabled(
@@ -2748,6 +2885,10 @@ object LspConfig {
             )
             setFileManagerHideSecureAccessTipEnabled(context, false)
             setFileManagerNativePickerEnabled(context, false)
+            setKeyboardMaterialUnlocked(context, false)
+            setKeyboardFlagEmojiEnabled(context, false)
+            setKeyboardBottomLiftFixEnabled(context, false)
+            setKeyboardDismissHidden(context, false)
             setAthenaC17SwipeUpProtectionEnabled(
                 context,
                 DEFAULT_ATHENA_C17_SWIPE_UP_PROTECTION,
@@ -2778,8 +2919,7 @@ object LspConfig {
         val aodInitDarkBrightness = getAodInitDarkBrightness(context)
         val aodInitBrightBrightness = getAodInitBrightBrightness(context)
         val aodRunningMultiplier = getAodRunningBrightnessMultiplier(context)
-        val aodPanoramicSupport = isAodPanoramicSupportEnabled(context)
-        val aodSettingsSwitch = isAodSettingsSwitchEnabled(context)
+        val aodAllDayUnlock = isAodAllDayUnlockEnabled(context)
         val aodSingleClickBlock = isAodSingleClickBlockEnabled(context)
         val nativeNotificationBubbles = isNativeNotificationBubblesEnabled(context)
         val systemUiInternationalNetworkDisplay =
@@ -2916,11 +3056,41 @@ object LspConfig {
             settingsGlobalKey = SETTINGS_FLUID_CLOUD_MATERIAL,
         )
         syncScalarState(
+            value = if (isRoundNotificationClearButtonEnabled(context)) "1" else "0",
+            propertyKeys = listOf(PERSIST_PROP_ROUND_NOTIFICATION_CLEAR_BUTTON, PROP_ROUND_NOTIFICATION_CLEAR_BUTTON),
+            settingsGlobalKey = SETTINGS_ROUND_NOTIFICATION_CLEAR_BUTTON,
+        )
+        syncScalarState(
+            value = if (isAospBackPanelEnabled(context)) "1" else "0",
+            propertyKeys = listOf(PERSIST_PROP_AOSP_BACK_PANEL, PROP_AOSP_BACK_PANEL),
+            settingsGlobalKey = SETTINGS_AOSP_BACK_PANEL,
+        )
+        syncScalarState(
             value = if (isHideDisconnectedBluetoothEnabled(context)) "1" else "0",
             propertyKeys = listOf(PERSIST_PROP_HIDE_DISCONNECTED_BLUETOOTH, PROP_HIDE_DISCONNECTED_BLUETOOTH),
             settingsGlobalKey = SETTINGS_HIDE_DISCONNECTED_BLUETOOTH,
         )
         syncKeyguardFeatures(context)
+        syncScalarState(
+            value = if (isKeyboardMaterialUnlocked(context)) "1" else "0",
+            propertyKeys = listOf(PERSIST_PROP_KEYBOARD_MATERIAL_UNLOCK, PROP_KEYBOARD_MATERIAL_UNLOCK),
+            settingsGlobalKey = SETTINGS_KEYBOARD_MATERIAL_UNLOCK,
+        )
+        syncScalarState(
+            value = if (isKeyboardFlagEmojiEnabled(context)) "1" else "0",
+            propertyKeys = listOf(PERSIST_PROP_KEYBOARD_FLAG_EMOJI, PROP_KEYBOARD_FLAG_EMOJI),
+            settingsGlobalKey = SETTINGS_KEYBOARD_FLAG_EMOJI,
+        )
+        syncScalarState(
+            value = if (isKeyboardBottomLiftFixEnabled(context)) "1" else "0",
+            propertyKeys = listOf(PERSIST_PROP_KEYBOARD_BOTTOM_LIFT_FIX, PROP_KEYBOARD_BOTTOM_LIFT_FIX),
+            settingsGlobalKey = SETTINGS_KEYBOARD_BOTTOM_LIFT_FIX,
+        )
+        syncScalarState(
+            value = if (isKeyboardDismissHidden(context)) "1" else "0",
+            propertyKeys = listOf(PERSIST_PROP_KEYBOARD_HIDE_DISMISS, PROP_KEYBOARD_HIDE_DISMISS),
+            settingsGlobalKey = SETTINGS_KEYBOARD_HIDE_DISMISS,
+        )
         TrafficFeature.entries.forEach { feature ->
             syncScalarState(
                 value = if (isTrafficFeatureEnabled(context, feature)) "1" else "0",
@@ -3066,7 +3236,7 @@ object LspConfig {
             settingsGlobalKey = SETTINGS_KEY_AOD_RUNNING_BRIGHTNESS_MULTIPLIER
         )
         syncScalarState(
-            value = if (aodPanoramicSupport) "1" else "0",
+            value = if (aodAllDayUnlock) "1" else "0",
             propertyKeys = listOf(
                 PERSIST_PROP_KEY_AOD_PANORAMIC_SUPPORT,
                 PROP_KEY_AOD_PANORAMIC_SUPPORT
@@ -3074,7 +3244,7 @@ object LspConfig {
             settingsGlobalKey = SETTINGS_KEY_AOD_PANORAMIC_SUPPORT
         )
         syncScalarState(
-            value = if (aodSettingsSwitch) "1" else "0",
+            value = if (aodAllDayUnlock) "1" else "0",
             propertyKeys = listOf(
                 PERSIST_PROP_KEY_AOD_SETTINGS_SWITCH,
                 PROP_KEY_AOD_SETTINGS_SWITCH
@@ -3701,7 +3871,11 @@ object LspConfig {
         }.getOrDefault(DEFAULT_AOD_RUNNING_BRIGHTNESS_MULTIPLIER))
     }
 
-    fun isAodPanoramicSupportEnabledXposed(): Boolean {
+    fun isAodAllDayUnlockEnabledXposed(): Boolean {
+        return readAodPanoramicSupportEnabledXposed() && readAodSettingsSupportEnabledXposed()
+    }
+
+    private fun readAodPanoramicSupportEnabledXposed(): Boolean {
         HookConfigSnapshot.boolean(
             KEY_AOD_PANORAMIC_SUPPORT,
             DEFAULT_AOD_PANORAMIC_SUPPORT,
@@ -3715,7 +3889,7 @@ object LspConfig {
         }.getOrDefault(DEFAULT_AOD_PANORAMIC_SUPPORT)
     }
 
-    fun isAodSettingsSwitchEnabledXposed(): Boolean {
+    private fun readAodSettingsSupportEnabledXposed(): Boolean {
         HookConfigSnapshot.boolean(KEY_AOD_SETTINGS_SWITCH, DEFAULT_AOD_SETTINGS_SWITCH)?.let {
             return it
         }

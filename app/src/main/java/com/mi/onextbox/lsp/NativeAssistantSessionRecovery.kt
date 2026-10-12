@@ -12,9 +12,11 @@ import android.os.Parcel
 import android.os.SystemClock
 import android.provider.Settings
 import com.mi.onextbox.lsp.compat.ModernReflect
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Watches the native show callback without replacing a successful assistant invocation. */
 internal object NativeAssistantSessionRecovery {
@@ -26,11 +28,33 @@ internal object NativeAssistantSessionRecovery {
     private const val BIND_TIMEOUT_MS = 2_000L
     private const val BIND_POLL_MS = 100L
     private val handler by lazy { Handler(Looper.getMainLooper()) }
+    private val tasks by lazy {
+        NativeAssistantReloadTasks(
+            dispatch = { task, delay -> handler.postDelayed(task, delay) },
+            cancelDispatch = handler::removeCallbacks,
+            runWhenActive = { action, deferred ->
+                HotReloadLifecycle.withHook(fallback = deferred, action = action)
+            },
+        )
+    }
     private val replaying = ThreadLocal<Boolean>()
     private var pending: ShowAttempt? = null
+    private val outstandingCallbacks = AtomicInteger()
+
+    fun registerHotReload() {
+        HotReloadLifecycle.register("native-assistant-session",
+            // The callback can reside in another process; do not pretend cancelling a timer revokes it.
+            canReload = { pending == null && outstandingCallbacks.get() == 0 && tasks.isIdle() },
+            detach = {
+                check(pending == null && outstandingCallbacks.get() == 0 && tasks.isIdle()) { "Assistant show callback is still active" }
+                handler.removeCallbacksAndMessages(null)
+            },
+            resumeAfterRejection = { tasks.resumeDeferred() },
+        )
+    }
 
     fun prepare(stub: Any, method: Method, args: Array<Any?>) {
-        if (replaying.get() == true) return
+        if (HotReloadLifecycle.isRetiring || replaying.get() == true) return
         cancel()
         if (args.size != 5 || args[3] != null) return
         val bundle = args[0] as? Bundle ?: return
@@ -42,23 +66,28 @@ internal object NativeAssistantSessionRecovery {
         val savedArgs = args.copyOf().also { it[0] = Bundle(bundle) }
         val attempt = ShowAttempt(stub, method, savedArgs, component, userId, invocationType, 0)
         args[3] = attempt.callback
-        handler.post { arm(attempt) }
+        tasks.post { arm(attempt) }
     }
 
     fun finishRequest(callback: Any?, accepted: Boolean, error: Throwable?) {
-        handler.post {
+        if (HotReloadLifecycle.isRetiring) return
+        tasks.post {
+            if (HotReloadLifecycle.isRetiring) return@post
             val attempt = pending ?: return@post
             if (attempt.callback !== callback) return@post
             if (error != null) {
+                attempt.releaseCallback()
                 attempt.cancel()
                 pending = null
             } else if (!accepted) {
+                attempt.releaseCallback()
                 attempt.complete(shown = false)
             }
         }
     }
 
     fun prepareCornerSession(impl: Any, bundle: Bundle?) {
+        if (HotReloadLifecycle.isRetiring) return
         if (bundle?.getInt("invocation_type", 0) != 1 || !enabled(1)) return
         val component = ModernReflect.getObjectField(impl, "mComponent") as? ComponentName ?: return
         if (component.packageName != GOOGLE_PACKAGE) return
@@ -74,7 +103,9 @@ internal object NativeAssistantSessionRecovery {
     }
 
     fun cancel() {
-        handler.post {
+        if (HotReloadLifecycle.isRetiring) return
+        tasks.post {
+            if (HotReloadLifecycle.isRetiring) return@post
             pending?.cancel()
             pending = null
         }
@@ -105,9 +136,10 @@ internal object NativeAssistantSessionRecovery {
     }.getOrNull()
 
     private fun arm(attempt: ShowAttempt) {
+        if (HotReloadLifecycle.isRetiring) return
         pending?.cancel()
         pending = attempt
-        if (!attempt.completed.get()) handler.postDelayed(attempt.timeout, SHOW_TIMEOUT_MS)
+        if (!attempt.completed.get()) tasks.post(attempt.timeout, SHOW_TIMEOUT_MS)
     }
 
     private class ShowAttempt(
@@ -121,18 +153,28 @@ internal object NativeAssistantSessionRecovery {
     ) {
         private val startedAt = SystemClock.uptimeMillis()
         val completed = AtomicBoolean(false)
+        private val callbackReleased = AtomicBoolean(false)
         val timeout = Runnable { complete(shown = false) }
-        val callback: Any = createCallback(method.parameterTypes[3]) { complete(it) }
+        val callback: Any = createCallback(method.parameterTypes[3]) {
+            // Preserve a Binder result arriving during preparation. Its main-thread task
+            // keeps this generation busy and resumes if another resource vetoes reload.
+            try { complete(it) } finally { releaseCallback() }
+        }.also { outstandingCallbacks.incrementAndGet() }
+
+        fun releaseCallback() {
+            if (callbackReleased.compareAndSet(false, true)) outstandingCallbacks.decrementAndGet()
+        }
 
         fun cancel() {
             completed.set(true)
-            handler.removeCallbacks(timeout)
+            tasks.remove(timeout)
         }
 
         fun complete(shown: Boolean) {
             if (!completed.compareAndSet(false, true)) return
-            handler.post {
-                handler.removeCallbacks(timeout)
+            tasks.post {
+                if (HotReloadLifecycle.isRetiring) return@post
+                tasks.remove(timeout)
                 if (pending !== this) return@post
                 if (shown) {
                     pending = null
@@ -194,7 +236,7 @@ internal object NativeAssistantSessionRecovery {
         }
 
         private fun waitForBinding(deadline: Long) {
-            if (pending !== this) return
+            if (HotReloadLifecycle.isRetiring || pending !== this) return
             if (!stillSelected()) {
                 pending = null
                 return
@@ -208,7 +250,7 @@ internal object NativeAssistantSessionRecovery {
             }.getOrDefault(false)
             if (!connected) {
                 if (SystemClock.uptimeMillis() < deadline) {
-                    handler.postDelayed({ waitForBinding(deadline) }, BIND_POLL_MS)
+                    tasks.post(Runnable { waitForBinding(deadline) }, BIND_POLL_MS)
                 } else {
                     pending = null
                     HookLog.w(TAG, "Native Google assistant did not reconnect before the deadline")
@@ -227,8 +269,12 @@ internal object NativeAssistantSessionRecovery {
             replaying.set(true)
             try {
                 method.isAccessible = true
-                if (method.invoke(stub, *retryArgs) == false) next.complete(shown = false)
+                if (method.invoke(stub, *retryArgs) == false) {
+                    next.releaseCallback()
+                    next.complete(shown = false)
+                }
             } catch (error: Throwable) {
+                next.releaseCallback()
                 next.cancel()
                 pending = null
                 HookLog.w(TAG, "Failed to retry the native assistant session", error)
@@ -270,5 +316,66 @@ internal object NativeAssistantSessionRecovery {
                 else -> null
             }
         }.also { binder.attachInterface(it as IInterface, CALLBACK_DESCRIPTOR) }
+    }
+}
+
+/** Retains main-thread work across a rejected reload without exporting any old-generation task. */
+internal class NativeAssistantReloadTasks(
+    private val dispatch: (Runnable, Long) -> Boolean,
+    private val cancelDispatch: (Runnable) -> Unit,
+    private val runWhenActive: (action: () -> Unit, deferred: () -> Unit) -> Unit,
+) {
+    private val lock = Any()
+    private val queued = linkedSetOf<Task>()
+
+    private inner class Task(val action: Runnable) : Runnable {
+        var canceled = false
+        var deferred = false
+
+        override fun run() {
+            if (synchronized(lock) { canceled }) return
+            runWhenActive({
+                try {
+                    if (!synchronized(lock) { canceled }) action.run()
+                } finally {
+                    synchronized(lock) { queued.remove(this) }
+                }
+            }, {
+                synchronized(lock) { if (!canceled) deferred = true }
+            })
+        }
+    }
+
+    fun isIdle(): Boolean = synchronized(lock) { queued.isEmpty() }
+
+    fun post(action: Runnable, delay: Long = 0L) {
+        val task = Task(action)
+        synchronized(lock) { queued.add(task) }
+        enqueue(task, delay)
+    }
+
+    fun post(action: () -> Unit) = post(Runnable(action))
+
+    fun remove(action: Runnable) {
+        val removed = synchronized(lock) {
+            queued.filter { it.action === action }.onEach { it.canceled = true; queued.remove(it) }
+        }
+        removed.forEach(cancelDispatch)
+    }
+
+    fun resumeDeferred() {
+        val resumed = synchronized(lock) {
+            queued.filter { it.deferred && !it.canceled }.onEach { it.deferred = false }
+        }
+        resumed.forEach { enqueue(it, 0L) }
+    }
+
+    private fun enqueue(task: Task, delay: Long) {
+        try {
+            check(dispatch(task, delay)) { "Assistant recovery main thread is unavailable" }
+        } catch (error: Throwable) {
+            synchronized(lock) { task.canceled = true; queued.remove(task) }
+            throw error
+        }
     }
 }

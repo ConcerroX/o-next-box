@@ -102,6 +102,29 @@ class LspHomeDisplayPolicyTest {
     }
 
     @Test
+    fun failedHotReloadCachesNormalHomeDisplayButRetainsFailureEvidence() {
+        val live = LsposedScopeRequester.StatusSnapshot(
+            moduleState = LspModuleState.ENABLED,
+            status = LspStatus.WAITING_RESTART,
+            serviceConnected = true,
+            frameworkVersionText = "LSPosed 2.2.0-it (7899) / API 102",
+            verifiedScopes = setOf("system", "com.android.systemui"),
+            reason = "target_reload_failed",
+        )
+        val display = lspHomeDisplayForCache(live, false)!!
+        assertEquals(LspStatus.READY, display.status)
+        assertEquals(live.frameworkVersionText, display.frameworkVersionText)
+        assertEquals(display, LspHomeDisplayCodec.decode(
+            LspHomeDisplayCodec.SCHEMA_VERSION, display.status.name,
+            display.frameworkVersionText, display.missingScopes,
+        ))
+        assertEquals(LspStatus.WAITING_RESTART, live.status)
+        assertEquals("target_reload_failed", live.reason)
+        assertFalse(live.isReady)
+        assertNull(lspHomeDisplayForCache(live.copy(isRefreshing = true), false))
+    }
+
+    @Test
     fun genuineRestartRequirementsRemainInTheCache() {
         listOf("targets_not_loaded", "system_not_loaded", "systemui_not_loaded").forEach { reason ->
             val snapshot = LsposedScopeRequester.StatusSnapshot(

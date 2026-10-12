@@ -10,6 +10,7 @@ import android.view.View
 import android.widget.TextView
 import com.mi.onextbox.lsp.LspConfig.LauncherFeature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernReflect
 import io.github.libxposed.api.XposedInterface
@@ -20,10 +21,10 @@ import java.util.WeakHashMap
 internal object LauncherFeaturesHooker {
     private const val TAG = "LauncherFeatures"
 
-    fun hook(classLoader: ClassLoader) {
+    fun hook(classLoader: ClassLoader, apkPath: String) {
+        LauncherGridHooker.hook(classLoader, apkPath)
         LauncherRecentInteractionHooker.hook(classLoader)
         if (enabled(LauncherFeature.RightmostCategories)) LauncherCategoryPageHooker.hook(classLoader)
-        if (enabled(LauncherFeature.RecentMemory)) install("memory") { hookMemory(classLoader) }
         if (enabled(LauncherFeature.OldClearButton) || enabled(LauncherFeature.HideClearButton)) {
             install("clear-button") { hookClearButton(classLoader) }
         }
@@ -40,32 +41,7 @@ internal object LauncherFeaturesHooker {
         }
         if (enabled(LauncherFeature.UnlimitedFolderInput)) install("folder-input") { hookFolderInput(classLoader) }
         LauncherDockHooker.hook(classLoader)
-    }
-
-    private fun hookMemory(loader: ClassLoader) {
-        val type = ModernReflect.findClass("fp.e", loader)
-        val detail = type.getDeclaredField("d").apply { isAccessible = true }
-        val allowed = type.getDeclaredField("m").apply { isAccessible = true }
-        val refresh = type.getDeclaredMethod("i")
-        val gates = listOf(type.getDeclaredMethod("g"), type.getDeclaredMethod("h"))
-        val constructor = type.getDeclaredConstructor(Context::class.java)
-        // Check obfuscated fields and signatures without initializing launcher classes early.
-        require(detail.type == Boolean::class.javaPrimitiveType && allowed.type == detail.type)
-        require(refresh.returnType == Void.TYPE && gates.all { it.returnType == detail.type })
-        require(type.getDeclaredMethod("e", Long::class.javaPrimitiveType).returnType == String::class.java)
-        require(type.getDeclaredMethod("c", Boolean::class.javaPrimitiveType).returnType.name == "fp.e\$b")
-        after(constructor) { chain ->
-            if (enabled(LauncherFeature.RecentMemory)) {
-                allowed.setBoolean(chain.thisObject, true)
-                detail.setBoolean(chain.thisObject, true)
-            }
-        }
-        after(refresh) { chain ->
-            if (enabled(LauncherFeature.RecentMemory)) detail.setBoolean(chain.thisObject, true)
-        }
-        gates.forEach { method ->
-            hook(method) { chain -> if (enabled(LauncherFeature.RecentMemory)) true else chain.proceed() }
-        }
+        LauncherRecentMemoryHooker.hook(classLoader, apkPath)
     }
 
     private fun hookClearButton(loader: ClassLoader) {
@@ -264,16 +240,23 @@ internal object LauncherFeaturesHooker {
         val oplusFolder = ModernReflect.findClass("com.android.launcher3.folder.OplusFolder", loader)
         val nameWatcher = oplusFolder.getDeclaredField("mTextWatcher").apply { isAccessible = true }
         val watchers = java.util.Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
+        fun observeWatcher(watcher: Any) {
+            if (HotReloadLifecycle.isRetiring) return
+            watchers[watcher] = true
+            hook(watcher.javaClass.getDeclaredMethod("afterTextChanged", Editable::class.java)) { change ->
+                if (LauncherFeatureRules.skipFolderNameCrop(
+                        enabled(LauncherFeature.UnlimitedFolderInput), watchers.containsKey(change.thisObject),
+                    )
+                ) null else change.proceed()
+            }
+        }
+        HotReloadLifecycle.registerReplay("launcher:folder-watchers",
+            capture = { synchronized(watchers) { watchers.keys.toTypedArray() } },
+            replay = { saved -> (saved as? Array<*>)?.filterNotNull()?.forEach(::observeWatcher) })
         oplusFolder.declaredConstructors.forEach { constructor ->
             after(constructor) { chain ->
                 val watcher = nameWatcher.get(chain.thisObject) ?: return@after
-                watchers[watcher] = true
-                hook(watcher.javaClass.getDeclaredMethod("afterTextChanged", Editable::class.java)) { change ->
-                    if (LauncherFeatureRules.skipFolderNameCrop(
-                            enabled(LauncherFeature.UnlimitedFolderInput), watchers.containsKey(change.thisObject),
-                        )
-                    ) null else change.proceed()
-                }
+                observeWatcher(watcher)
             }
         }
     }

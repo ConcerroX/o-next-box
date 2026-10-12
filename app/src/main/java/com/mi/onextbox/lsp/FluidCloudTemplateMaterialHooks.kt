@@ -3,6 +3,7 @@ package com.mi.onextbox.lsp
 import android.os.Bundle
 import android.view.View
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernReflect as Reflect
 import io.github.libxposed.api.XposedInterface
@@ -28,6 +29,16 @@ internal object FluidCloudTemplateMaterialHooks {
         report: (String, Throwable) -> Unit,
     ) {
         val states = WeakHashMap<Any, State>()
+        HotReloadLifecycle.registerReplay("$prefix:template-state",
+            capture = { states.map { (wrapper, state) -> arrayOf(wrapper, Bundle(state.original)) }.toTypedArray() },
+            replay = { saved ->
+                (saved as? Array<*>)?.forEach { item ->
+                    val values = item as? Array<*> ?: return@forEach
+                    val wrapper = values.getOrNull(0) ?: return@forEach
+                    val original = values.getOrNull(1) as? Bundle ?: return@forEach
+                    states[wrapper] = State(Bundle(original))
+                }
+            })
         // Seedling.p/t/u obtain their view through f() again. Never reenter configuration updates.
         val dispatching = ThreadLocal<Boolean>()
         fun expanded(wrapper: Any): Boolean = FluidCloudMaterialRules.isExpandedTemplate(

@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
@@ -230,19 +231,19 @@ private fun ColorOsDialogButtonBar(
         if (labelWidths.any { it > horizontalTextWidth }) {
             val fullTextWidth = with(density) { (maxWidth - 24.dp).roundToPx() }
             Column(verticalArrangement = Arrangement.spacedBy(DialogSpacing.ButtonGap)) {
-                ColorOsDialogButton(
+                ColorOs17Button(
                     presentation.positiveText, true, darkTheme, onPositive, Modifier.fillMaxWidth(),
                     if (labelWidths[1] > fullTextWidth) DialogSpacing.MultilineButtonHeight else DialogSpacing.ButtonHeight,
                 )
-                ColorOsDialogButton(
+                ColorOs17Button(
                     presentation.negativeText, false, darkTheme, onNegative, Modifier.fillMaxWidth(),
                     if (labelWidths[0] > fullTextWidth) DialogSpacing.MultilineButtonHeight else DialogSpacing.ButtonHeight,
                 )
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(DialogSpacing.ButtonGap)) {
-                ColorOsDialogButton(presentation.negativeText, false, darkTheme, onNegative, Modifier.weight(1f))
-                ColorOsDialogButton(presentation.positiveText, true, darkTheme, onPositive, Modifier.weight(1f))
+                ColorOs17Button(presentation.negativeText, false, darkTheme, onNegative, Modifier.weight(1f))
+                ColorOs17Button(presentation.positiveText, true, darkTheme, onPositive, Modifier.weight(1f))
             }
         }
     }
@@ -315,9 +316,12 @@ internal fun ColorOsDialogChoice(
 }
 
 @Composable
-private fun ColorOsDialogButton(
-    text: String, primary: Boolean, darkTheme: Boolean, onClick: () -> Unit, modifier: Modifier,
+internal fun ColorOs17Button(
+    text: String, primary: Boolean, darkTheme: Boolean = COUITheme.colorScheme.background.luminance() < 0.5f,
+    onClick: () -> Unit, modifier: Modifier = Modifier,
     minimumHeight: Dp = DialogSpacing.ButtonHeight,
+    enabled: Boolean = true,
+    buttonModifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
     val accent = COUITheme.colorScheme.primary.toArgb()
@@ -328,7 +332,8 @@ private fun ColorOsDialogButton(
     }
     // Keep gesture coordinates outside the moving layer to avoid feedback while dragging.
     Box(
-        modifier.onSizeChanged { holder.size = it }.pointerInput(holder, motion) {
+        modifier.alpha(if (enabled) 1f else .38f).onSizeChanged { holder.size = it }.pointerInput(holder, motion, enabled) {
+            if (!enabled) return@pointerInput
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                 val tracker = VelocityTracker()
@@ -368,7 +373,8 @@ private fun ColorOsDialogButton(
     ) {
         Button(
             onClick = onClick,
-            modifier = Modifier.fillMaxWidth().graphicsLayer {
+            enabled = enabled,
+            modifier = buttonModifier.fillMaxWidth().graphicsLayer {
                 translationX = motion.translationX
                 translationY = motion.translationY
                 scaleX = motion.scaleX

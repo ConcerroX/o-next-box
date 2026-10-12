@@ -54,6 +54,7 @@ libxposed-service = { group = "io.github.libxposed", name = "service", version.r
 androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "androidxNavigation3" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinxSerialization" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 coui-ui = { module = "io.github.suqi8.coui.kmp:coui-ui", version.ref = "couiKmp" }
 coui-preference = { module = "io.github.suqi8.coui.kmp:coui-preference", version.ref = "couiKmp" }
 coui-blur = { module = "io.github.suqi8.coui.kmp:coui-blur", version.ref = "couiBlur" }

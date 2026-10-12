@@ -21,6 +21,8 @@ import android.widget.TextView
 import com.mi.onextbox.lsp.compat.ModernHookBridge as XposedBridge
 import com.mi.onextbox.lsp.compat.ModernMethodHook as XC_MethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as XposedHelpers
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
+import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
 /** Restores the ColorOS 15 About device OTA card composition inside ColorOS 17 Settings. */
@@ -35,8 +37,22 @@ object C15AboutOtaHooker {
 
     private val hookedLoaders = ConcurrentHashMap.newKeySet<Int>()
     private val backgroundBitmaps = ConcurrentHashMap<String, Bitmap>()
+    private val boundRoots = WeakHashMap<ViewGroup, ClassLoader>()
 
     fun hook(classLoader: ClassLoader) {
+        HotReloadLifecycle.register("settings:c15-ota", capture = {
+            boundRoots.entries.map { (root, loader) -> arrayOf(root, loader) }.toTypedArray()
+        }, detach = {
+            boundRoots.keys.toList().forEach(::clearOverlay)
+            boundRoots.clear()
+        }, restore = { state ->
+            (state as? Array<*>)?.forEach { item ->
+                val row = item as? Array<*> ?: return@forEach
+                val root = row.getOrNull(0) as? ViewGroup ?: return@forEach
+                val loader = row.getOrNull(1) as? ClassLoader ?: return@forEach
+                bindCard(root, loader, LspConfig.isSettingsC15AboutLayoutEnabledXposed())
+            }
+        })
         val loaderKey = System.identityHashCode(classLoader)
         synchronized(hookedLoaders) {
             if (loaderKey in hookedLoaders) return
@@ -139,6 +155,7 @@ object C15AboutOtaHooker {
         val card = findCard(root) ?: return
         val overlay = findOverlay(card) ?: return
         val state = overlay.tag as CardState
+        overlay.tag = null
         card.removeView(overlay)
         restoreNativeViews(root, card, state)
     }
@@ -167,12 +184,15 @@ object C15AboutOtaHooker {
         }
         renderOverlay(replacement, modelName, description, version, updateAvailable)
         card.addView(replacement, ViewGroup.LayoutParams(-1, -1))
+        overlay.tag = null
         card.removeView(overlay)
         findView(root, "update_find")?.visibility = View.GONE
         findView(root, "update_text")?.visibility = View.GONE
     }
 
     private fun bindCard(root: ViewGroup, classLoader: ClassLoader, enabled: Boolean) {
+        if (HotReloadLifecycle.isRetiring) return
+        boundRoots[root] = classLoader
         if (!enabled) return
         val card = findCard(root) ?: return
         clearOverlay(root)
@@ -228,6 +248,7 @@ object C15AboutOtaHooker {
             // COUICardView supplies the existing ColorOS 17 outline and corner radius.
             card.clipToOutline = true
         } catch (error: Throwable) {
+            overlay.tag = null
             card.removeView(overlay)
             restoreNativeViews(root, card, state)
             throw error

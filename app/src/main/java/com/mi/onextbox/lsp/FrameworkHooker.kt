@@ -87,7 +87,7 @@ object FrameworkHooker {
             }
 
             PACKAGE_OPLUS_AOD -> {
-                if (LspConfig.isAodSettingsSwitchEnabledXposed()) {
+                if (LspConfig.isAodAllDayUnlockEnabledXposed()) {
                     totalHooks += hookAodSettingsSupport(
                         classLoader = classLoader,
                         packageName = packageName

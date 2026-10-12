@@ -13,8 +13,9 @@ internal fun homeLspDisplayStatus(
 ): LspStatus = when {
     snapshot.status == LspStatus.UNKNOWN &&
         snapshot.reason == "root_shell_unavailable" && rootStartupPending -> LspStatus.CHECKING
-    // Keep the home status ready for stale loaded processes; retain the actual detection result.
-    snapshot.status == LspStatus.WAITING_RESTART && snapshot.reason == "target_stale" &&
+    // Home shows module enablement for loaded targets, not reload completion; retain live evidence.
+    snapshot.status == LspStatus.WAITING_RESTART &&
+        (snapshot.reason == "target_stale" || snapshot.reason == "target_reload_failed") &&
         snapshot.moduleEnabled && snapshot.serviceConnected &&
         !snapshot.verifiedScopes.isNullOrEmpty() && snapshot.missingScopes.isEmpty() -> LspStatus.READY
     else -> snapshot.status

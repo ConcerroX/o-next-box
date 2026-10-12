@@ -13,25 +13,49 @@ internal object HookConfigSnapshot {
     private var attachedPreferences: SharedPreferences? = null
 
     private val listener = SharedPreferences.OnSharedPreferenceChangeListener { preferences, _ ->
-        refresh(preferences)
+        refreshIfAttached(preferences)
     }
 
     val isAvailable: Boolean
         get() = values != null
 
-    fun attach(preferences: SharedPreferences) {
+    val isListening: Boolean
+        get() = attachedPreferences != null
+
+    /** True only when updates are subscribed; a readable snapshot alone is not reload-ready. */
+    @Synchronized
+    fun attach(preferences: SharedPreferences): Boolean {
         if (attachedPreferences === preferences) {
             refresh(preferences)
-            return
+            return true
         }
-        runCatching {
-            attachedPreferences?.unregisterOnSharedPreferenceChangeListener(listener)
-        }
-        attachedPreferences = preferences
+        // Never lose track of a listener that could not be removed from the previous store.
+        if (!detach()) return false
         refresh(preferences)
-        runCatching {
+        if (runCatching {
             preferences.registerOnSharedPreferenceChangeListener(listener)
-        }
+        }.isFailure) return false
+        attachedPreferences = preferences
+        // Catch changes between the initial read and listener registration, including callbacks
+        // dispatched synchronously while the new store was not yet recorded as attached.
+        refresh(preferences)
+        return true
+    }
+
+    /** Keep the last values for in-flight hooks, but release the externally held old listener. */
+    @Synchronized
+    fun detach(): Boolean {
+        val preferences = attachedPreferences ?: return true
+        return runCatching {
+            preferences.unregisterOnSharedPreferenceChangeListener(listener)
+            attachedPreferences = null
+        }.isSuccess
+    }
+
+    @Synchronized
+    private fun refreshIfAttached(preferences: SharedPreferences) {
+        // A queued callback from an old store must not overwrite the new generation's snapshot.
+        if (attachedPreferences === preferences) refresh(preferences)
     }
 
     fun boolean(key: String, defaultValue: Boolean): Boolean? =

@@ -3,6 +3,7 @@ package com.mi.onextbox.lsp
 import android.content.Context
 import android.view.View
 import com.mi.onextbox.lsp.compat.ModernHookBridge as XposedBridge
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernMethodHook as XC_MethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as XposedHelpers
 import java.lang.reflect.Modifier
@@ -39,10 +40,23 @@ object LauncherHooker {
     private const val TASKBAR_UTILS_CLASS = "com.android.launcher3.taskbar.TaskbarUtils"
 
     private val installedHookKeys = ConcurrentHashMap.newKeySet<String>()
-    private val guardedCardLabels = Collections.synchronizedMap(WeakHashMap<View, Boolean>())
+    private val guardedCardLabels = Collections.synchronizedMap(WeakHashMap<View, View.OnLayoutChangeListener>())
     private val titleOwnerClasses = ConcurrentHashMap<Class<*>, Boolean>()
 
     fun hook(classLoader: ClassLoader?) {
+        HotReloadLifecycle.register("launcher:widget-labels",
+            capture = { synchronized(guardedCardLabels) { guardedCardLabels.keys.toTypedArray() } },
+            detach = {
+                synchronized(guardedCardLabels) {
+                    guardedCardLabels.forEach { (view, listener) -> view.removeOnLayoutChangeListener(listener) }
+                    guardedCardLabels.clear()
+                }
+            },
+            restore = { saved ->
+                if (LspConfig.isLauncherHideWidgetLabelsEnabledXposed()) {
+                    (saved as? Array<*>)?.filterIsInstance<View>()?.forEach(::keepCardLabelHidden)
+                }
+            })
         val hideWidgetLabels = LspConfig.isLauncherHideWidgetLabelsEnabledXposed()
         val searchBarMode = LspConfig.getLauncherSearchBarModeXposed()
         if (!hideWidgetLabels && searchBarMode == LspConfig.LAUNCHER_SEARCH_BAR_MODE_OFF) return
@@ -625,18 +639,20 @@ object LauncherHooker {
     }
 
     private fun keepCardLabelHidden(label: View) {
+        if (HotReloadLifecycle.isRetiring) return
         if (label.visibility != View.GONE) label.visibility = View.GONE
         if (label.alpha != 0f) label.alpha = 0f
 
-        val needsGuard = synchronized(guardedCardLabels) {
-            guardedCardLabels.put(label, true) == null
-        }
-        if (!needsGuard) return
-
         // Keep widget titles hidden after dragging or editing.
-        label.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+        val listener = View.OnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+            if (HotReloadLifecycle.isRetiring) return@OnLayoutChangeListener
             if (view.visibility != View.GONE) view.visibility = View.GONE
             if (view.alpha != 0f) view.alpha = 0f
         }
+        synchronized(guardedCardLabels) {
+            if (guardedCardLabels.containsKey(label)) return
+            guardedCardLabels[label] = listener
+        }
+        label.addOnLayoutChangeListener(listener)
     }
 }

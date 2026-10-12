@@ -75,4 +75,28 @@ class ExpressQuerySessionTest {
         session.suppressIme(query, 7_001)
         assertFalse(session.imeSuppressed(7_001))
     }
+
+    @Test fun reloadStatePreservesQueryDeadlineWithoutReissuingACompletedQuery() {
+        val old = ExpressQuerySession()
+        old.receive(ExpressCardRules.destination(number), 1_000)
+        val next = ExpressQuerySession().apply { importReloadState(old.exportReloadState()) }
+        assertEquals(old.pending(1_001), next.pending(1_001))
+        assertTrue(next.imeSuppressed(2_999))
+        assertNull(next.pending(7_000))
+        old.complete(requireNotNull(old.pending(1_001)), 1_001)
+        val completed = ExpressQuerySession().apply { importReloadState(old.exportReloadState()) }
+        assertTrue(completed.inExpress)
+        assertNull(completed.pending(1_002))
+    }
+
+    @Test fun reloadStateUsesOnlyPlatformArraysAndScalarValues() {
+        val session = ExpressQuerySession()
+        session.receive(ExpressCardRules.destination(number), 1_000)
+        fun neutral(value: Any?): Boolean = when (value) {
+            null, is String, is Boolean, is Long -> true
+            is Array<*> -> value.all(::neutral)
+            else -> false
+        }
+        assertTrue(neutral(session.exportReloadState()))
+    }
 }

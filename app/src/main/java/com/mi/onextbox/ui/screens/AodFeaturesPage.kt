@@ -20,10 +20,8 @@ internal fun AodFeaturesPage(
     onAodInitBrightBrightnessChange: (Int) -> Unit,
     aodRunningBrightnessMultiplier: Float,
     onAodRunningBrightnessMultiplierChange: (Float) -> Unit,
-    aodPanoramicSupportEnabled: Boolean,
-    onAodPanoramicSupportEnabledChange: (Boolean) -> Unit,
-    aodSettingsSwitchEnabled: Boolean,
-    onAodSettingsSwitchEnabledChange: (Boolean) -> Unit,
+    aodAllDayUnlockEnabled: Boolean,
+    onAodAllDayUnlockEnabledChange: (Boolean) -> Unit,
     aodSingleClickBlockEnabled: Boolean,
     onAodSingleClickBlockEnabledChange: (Boolean) -> Unit,
 ) {
@@ -89,19 +87,10 @@ internal fun AodFeaturesPage(
     SettingsSection(title = stringResource(R.string.feature_group_aod_features))
     SettingsGroup {
         SettingsToggleRow(
-            title = stringResource(R.string.feature_aod_panoramic_title),
+            title = stringResource(R.string.feature_aod_all_day_unlock_title),
             summary = "",
-            checked = aodPanoramicSupportEnabled,
-            onCheckedChange = onAodPanoramicSupportEnabledChange,
-            hasDividerBelow = true,
-        )
-        SettingsDivider()
-        SettingsToggleRow(
-            title = stringResource(R.string.feature_aod_settings_switch_title),
-            summary = "",
-            checked = aodSettingsSwitchEnabled,
-            onCheckedChange = onAodSettingsSwitchEnabledChange,
-            hasDividerAbove = true,
+            checked = aodAllDayUnlockEnabled,
+            onCheckedChange = onAodAllDayUnlockEnabledChange,
             hasDividerBelow = true,
         )
         SettingsDivider()

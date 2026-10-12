@@ -7,6 +7,7 @@ import android.os.Looper
 import android.os.UserManager
 import android.provider.Settings
 import com.mi.onextbox.lsp.LspConfig.PermissionFeature
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernHookBridge as XposedBridge
 import com.mi.onextbox.lsp.compat.ModernMethodHook as XC_MethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as XposedHelpers
@@ -17,9 +18,31 @@ internal object PermissionSystemHooker {
     private val installed = AtomicBoolean(false)
     private val observing = AtomicBoolean(false)
     private var clearObserver: ContentObserver? = null
+    private var observerContext: Context? = null
+    private var observerController: Any? = null
+    private var observerHandler: Handler? = null
 
     fun hook(loader: ClassLoader) {
         if (!installed.compareAndSet(false, true)) return
+        HotReloadLifecycle.register("permission-system-observer",
+            capture = { arrayOf(observerContext, observerController) },
+            detach = {
+                clearObserver?.let { observerContext?.contentResolver?.unregisterContentObserver(it) }
+                observerHandler?.removeCallbacksAndMessages(null)
+                clearObserver = null
+                observerHandler = null
+                observing.set(false)
+            },
+            restore = { value ->
+                val state = value as? Array<*>
+                val context = state?.getOrNull(0) as? Context
+                val controller = state?.getOrNull(1)
+                if (context != null && controller != null) {
+                    observeClearRequests(context, controller)
+                    observing.set(true)
+                }
+            },
+        )
         runCatching {
             val target = XposedHelpers.findClassIfExists(
                 "com.android.server.wm.OplusAppStartConfirmManager", loader,
@@ -47,6 +70,7 @@ internal object PermissionSystemHooker {
             ) ?: return@runCatching
             XposedBridge.hookAllMethods(target, "init", object : XC_MethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam) {
+                    if (HotReloadLifecycle.isRetiring) return
                     if (param.throwable != null) return
                     val context = param.args.firstOrNull() as? Context ?: return
                     val controller = param.thisObject ?: return
@@ -63,13 +87,24 @@ internal object PermissionSystemHooker {
     }
 
     private fun observeClearRequests(context: Context, controller: Any) {
+        if (HotReloadLifecycle.isRetiring) return
+        clearObserver?.let { observerContext?.contentResolver?.unregisterContentObserver(it) }
+        observerHandler?.removeCallbacksAndMessages(null)
+        clearObserver = null
         val resolver = context.contentResolver
         // Ignore persisted requests on restart: a one-shot UI action must never replay at boot.
         var lastRequest = Settings.Global.getString(resolver, PermissionStartAllowList.REQUEST_KEY)
-        val handler = runCatching { XposedHelpers.getObjectField(controller, "mHandler") as? Handler }
-            .getOrNull() ?: Handler(Looper.getMainLooper())
+        val controllerLooper = runCatching { (XposedHelpers.getObjectField(controller, "mHandler") as? Handler)?.looper }
+            .getOrNull() ?: Looper.getMainLooper()
+        // Own the queue endpoint, never remove unrelated messages from the OEM controller's handler.
+        val handler = Handler(controllerLooper)
         val observer = object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean) {
+                HotReloadLifecycle.withHook(fallback = {}, action = ::handleClearRequest)
+            }
+
+            private fun handleClearRequest() {
+                if (HotReloadLifecycle.isRetiring) return
                 val request = Settings.Global.getString(resolver, PermissionStartAllowList.REQUEST_KEY)
                     ?: return
                 if (request == lastRequest) return
@@ -93,7 +128,10 @@ internal object PermissionSystemHooker {
                     "$id:${if (result.isSuccess) "ok" else "failed"}")
             }
         }
-        resolver.registerContentObserver(Settings.Global.getUriFor(PermissionStartAllowList.REQUEST_KEY), false, observer)
         clearObserver = observer
+        observerContext = context
+        observerController = controller
+        observerHandler = handler
+        resolver.registerContentObserver(Settings.Global.getUriFor(PermissionStartAllowList.REQUEST_KEY), false, observer)
     }
 }

@@ -39,6 +39,24 @@ object ModernXposedPreferenceSync : XposedServiceHelper.OnServiceListener {
         scheduleSync()
     }
 
+    /** Call off the main thread. Consent is accepted only after framework persistence succeeds. */
+    fun setBooleanAndSync(context: Context, key: String, value: Boolean) {
+        initialize(context)
+        // Serialize with every full mirror copy so an older copy cannot overwrite this choice.
+        initializer.submit {
+            try {
+                val local = checkNotNull(localPreferences) { "Local preferences are not ready" }
+                val bound = checkNotNull(remoteBinding.get()) { "Xposed service is not connected" }
+                commitConfirmedBooleanPreference(local, bound.preferences, key, value) {
+                    LspFrameworkService.isCurrent(bound.service)
+                }
+            } catch (error: Throwable) {
+                ConfigSyncStatus.failed("framework preferences")
+                throw error
+            }
+        }.get()
+    }
+
     private fun scheduleSync() {
         if (!syncQueued.compareAndSet(false, true)) return
         initializer.execute {
@@ -61,6 +79,7 @@ object ModernXposedPreferenceSync : XposedServiceHelper.OnServiceListener {
             runCatching {
                 localPreferences =
                     LspPreferenceStore.prefs(appContext).also {
+                        SideKeySettings.enforceDisabled(it)
                         GoogleMessagesConfig.removeRetiredPreferences(it)
                         if (it.contains("mcs_push_monitor_enabled")) {
                             check(it.edit().remove("mcs_push_monitor_enabled").commit())
@@ -117,10 +136,12 @@ object ModernXposedPreferenceSync : XposedServiceHelper.OnServiceListener {
     }
 
     private fun copyAll(source: SharedPreferences, target: SharedPreferences) {
+        SideKeySettings.enforceDisabled(source)
         val editor = target.edit()
             .clear()
             .putBoolean(MODERN_PREFERENCES_READY_KEY, true)
         source.all.forEach { (key, value) -> putValue(editor, key, value) }
+        if (!SideKeyFeaturePolicy.available) editor.putBoolean(SideKeySettings.ENABLED, false)
         check(editor.commit()) { "Framework preference commit failed" }
     }
 

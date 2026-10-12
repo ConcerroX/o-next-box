@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernReflect
 import io.github.libxposed.api.XposedInterface
 import java.lang.ref.WeakReference
@@ -39,6 +40,7 @@ internal class SettingsNativeAppInfoPanel(
     private var headerView: WeakReference<View>? = null
     private val titleDividerPaint = Paint()
     private val decoration = ModernReflect.newInstance(type("androidx.recyclerview.widget.COUIRecyclerView\$COUIDividerItemDecoration"), context)
+    private var attachListener: View.OnAttachStateChangeListener? = null
 
     init {
         // The outer native card retains four corners throughout the height animation.
@@ -63,7 +65,7 @@ internal class SettingsNativeAppInfoPanel(
             }
         })
         view.addView(list)
-        view.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+        attachListener = object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) {
                 // Settings finalizes its page theme after creating the preference models.
                 // Resolve the card surface from the attached page, not the early fragment theme.
@@ -75,7 +77,7 @@ internal class SettingsNativeAppInfoPanel(
                 call(view, "refreshCardBg", color)
             }
             override fun onViewDetachedFromWindow(v: View) { finishAnimations() }
-        })
+        }.also(view::addOnAttachStateChangeListener)
     }
 
     fun setExpanded(value: Boolean, animate: Boolean) {
@@ -104,11 +106,46 @@ internal class SettingsNativeAppInfoPanel(
 
     fun dispose() {
         disposed = true
+        main.removeCallbacksAndMessages(null)
         finishAnimations()
+        attachListener?.let(view::removeOnAttachStateChangeListener)
+        attachListener = null
+        var failure: Throwable? = null
+        listOf<() -> Unit>(
+            { call(list, "setOnGroupClickListener", null) },
+            { detachAdapter() },
+            { call(list, "removeItemDecoration", decoration) },
+        ).forEach { cleanup -> runCatching(cleanup).onFailure { if (failure == null) failure = it else failure?.addSuppressed(it) } }
         dividerInstances.remove(decoration)
         holders.clear()
         headerView = null
         observers.clear()
+        failure?.let { throw it }
+    }
+
+    private fun detachAdapter() {
+        val oldConnector = ModernReflect.getObjectField(list, "mConnector")
+        // Both COUI overloads reject a null adapter: the expandable overload constructs
+        // a connector and immediately dereferences it; the RecyclerView overload throws.
+        // A nonvirtual parent call performs real RecyclerView recycling and observer
+        // cleanup while the old expandable adapter is still available to its callbacks.
+        val setter = ModernReflect.findMethodExact(type("androidx.recyclerview.widget.RecyclerView"),
+            "setAdapter", arrayOf(type("androidx.recyclerview.widget.RecyclerView\$Adapter")))
+        ModernHookRuntime.requireModule().getInvoker(setter)
+            .setType(XposedInterface.Invoker.Type.ORIGIN)
+            .invokeSpecial(list, *arrayOfNulls<Any>(1))
+        if (oldConnector != null) {
+            val oldAdapter = ModernReflect.getObjectField(oldConnector, "mExpandableListAdapter")
+            if (oldAdapter != null) {
+                val observer = ModernReflect.getObjectField(oldConnector, "mDataSetObserver")
+                call(oldAdapter, "unregisterAdapterDataObserver", observer)
+            }
+            // Do not call setExpandableListAdapter(null): it also dereferences null.
+            ModernReflect.setObjectField(oldConnector, "mExpandableListAdapter", null)
+        }
+        ModernReflect.setObjectField(list, "mAdapter", null)
+        ModernReflect.setObjectField(list, "mConnector", null)
+        view.removeView(list)
     }
 
     private fun refreshAll() {

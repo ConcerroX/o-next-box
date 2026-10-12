@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -277,26 +278,29 @@ private fun Material3ExpressiveDropdownPreference(
             maxHeight = maxHeight,
         ) {
             entry.items.forEachIndexed { index, item ->
-                SelectableDropdownMenuItem(
-                    text = {
-                        MaterialText(
-                            text = item.text,
-                        )
-                    },
-                    selected = item.selected,
-                    onClick = {
-                        item.onClick?.invoke()
-                        if (collapseOnSelection) setExpanded(false)
-                    },
-                    shapes = MenuDefaults.itemShape(index = index, count = entry.items.size),
-                    selectedLeadingIcon = {
-                        MaterialIcon(
-                            imageVector = Icons.Filled.FilledCheck,
-                            contentDescription = null,
-                            modifier = Modifier.size(MenuDefaults.LeadingIconSize),
-                        )
-                    },
-                )
+                key(index, item.text) {
+                    SelectableDropdownMenuItem(
+                        text = {
+                            MaterialText(
+                                text = item.text,
+                            )
+                        },
+                        selected = item.selected,
+                        enabled = item.enabled,
+                        onClick = {
+                            item.onClick?.invoke()
+                            if (collapseOnSelection) setExpanded(false)
+                        },
+                        shapes = MenuDefaults.itemShape(index = index, count = entry.items.size),
+                        selectedLeadingIcon = {
+                            MaterialIcon(
+                                imageVector = Icons.Filled.FilledCheck,
+                                contentDescription = null,
+                                modifier = Modifier.size(MenuDefaults.LeadingIconSize),
+                            )
+                        },
+                    )
+                }
             }
         }
     }

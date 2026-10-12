@@ -25,7 +25,7 @@ import com.mi.onextbox.ui.common.AppUiStyle
 import com.mi.onextbox.ui.onboarding.OnboardingAppearance
 import com.mi.onextbox.ui.onboarding.OnboardingPreferences
 import com.mi.onextbox.ui.onboarding.OnboardingScreen
-import com.mi.onextbox.ui.settings.UpdateChannelPreference
+import com.mi.onextbox.ui.settings.AppUpdatePreferences
 import com.mi.onextbox.ui.settings.UpdateNotificationScheduler
 
 /** Onboarding activity with a prepared destination for its exit transition. */
@@ -119,7 +119,7 @@ class OnboardingActivity : ComponentActivity() {
                     onActivationCommitted = {
                         val allowBackgroundUpdates =
                             OnboardingPreferences.isBackgroundNetworkAllowed(this@OnboardingActivity)
-                        UpdateChannelPreference.setUpdateNotificationsEnabled(
+                        AppUpdatePreferences.setUpdateNotificationsEnabled(
                             this@OnboardingActivity,
                             allowBackgroundUpdates,
                         )

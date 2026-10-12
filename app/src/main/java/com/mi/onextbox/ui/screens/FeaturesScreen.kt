@@ -45,6 +45,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material3.Button as MaterialButton
 import androidx.compose.material3.Checkbox as MaterialCheckbox
 import androidx.compose.material3.FilledTonalButton
@@ -106,6 +108,9 @@ import com.mi.onextbox.lsp.EsimDiagnosticsSnapshot
 import com.mi.onextbox.lsp.EsimDiagnosticsStore
 import com.mi.onextbox.lsp.EsimProfileDiagnostic
 import com.mi.onextbox.lsp.LspConfig
+import com.mi.onextbox.lsp.PhoneManagerSettings
+import com.mi.onextbox.lsp.SoftwareUpdateSettings
+import com.mi.onextbox.lsp.FluidCloudBrowserSettings
 import com.mi.onextbox.ui.common.AssistantScreenOption
 import com.mi.onextbox.ui.common.ColorOs17SettingsSlider
 import com.mi.onextbox.ui.common.CouiConfirmDialog
@@ -169,6 +174,7 @@ enum class FeaturePageMode(val isNestedPage: Boolean = false) {
     SystemUiDynamicColor(true),
     SystemUiStatusBar(true),
     SystemUiFluidCloud(true),
+    SystemUiFluidCloudMediaBlacklist(true),
     SystemUiNotificationCenter(true),
     SystemUiControlCenter(true),
     SystemUiSmallWindow(true),
@@ -177,16 +183,22 @@ enum class FeaturePageMode(val isNestedPage: Boolean = false) {
     NotificationRemoval(true),
     MobileNetwork,
     AndroidSystem,
+    SideKey(true),
     Installer(true),
     Esim,
     EsimDiagnostics(true),
     AppMarket,
     Battery,
     TrafficManagement,
+    PhoneManager,
+    SoftwareUpdate,
+    Keyboard,
     QuickAppServices,
     FileManager,
     GoogleMessages,
     SystemMessages,
+    AppErrors,
+    NotificationBatch,
     Athena,
     Settings,
     SettingsRegion(true),
@@ -340,10 +352,8 @@ fun FeatureSubRoute(
     onAodInitBrightBrightnessChange: (Int) -> Unit,
     aodRunningBrightnessMultiplier: Float,
     onAodRunningBrightnessMultiplierChange: (Float) -> Unit,
-    aodPanoramicSupportEnabled: Boolean,
-    onAodPanoramicSupportEnabledChange: (Boolean) -> Unit,
-    aodSettingsSwitchEnabled: Boolean,
-    onAodSettingsSwitchEnabledChange: (Boolean) -> Unit,
+    aodAllDayUnlockEnabled: Boolean,
+    onAodAllDayUnlockEnabledChange: (Boolean) -> Unit,
     aodSingleClickBlockEnabled: Boolean,
     onAodSingleClickBlockEnabledChange: (Boolean) -> Unit,
     assistantPowerMode: Int,
@@ -361,10 +371,23 @@ fun FeatureSubRoute(
     transitionScrollState: ScrollState,
     onBack: () -> Unit,
     onOpenSubPage: (FeaturePageMode) -> Unit,
+    onOpenAppErrorDetail: (Long) -> Unit,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val subPageStateHolder = rememberSaveableStateHolder()
+    if (pageMode == FeaturePageMode.AppErrors) {
+        AppErrorTrackingRoute(modifier.fillMaxSize(), blurBackdrop, onBack, onOpenDetail = onOpenAppErrorDetail)
+        return
+    }
+    if (pageMode == FeaturePageMode.NotificationBatch) {
+        NotificationBatchPage(modifier.fillMaxSize(), blurBackdrop, onBack)
+        return
+    }
+    if (pageMode == FeaturePageMode.SystemUiFluidCloudMediaBlacklist) {
+        FluidCloudMediaBlacklistPage(modifier.fillMaxSize(), blurBackdrop, onBack)
+        return
+    }
     var restartConfirmMode by remember { mutableStateOf<FeaturePageMode?>(null) }
     var pushMonitorRefresh by remember { mutableStateOf(0) }
     val restartTargets = featureRestartPackages(pageMode)
@@ -461,10 +484,8 @@ fun FeatureSubRoute(
                 onAodInitBrightBrightnessChange = onAodInitBrightBrightnessChange,
                 aodRunningBrightnessMultiplier = aodRunningBrightnessMultiplier,
                 onAodRunningBrightnessMultiplierChange = onAodRunningBrightnessMultiplierChange,
-                aodPanoramicSupportEnabled = aodPanoramicSupportEnabled,
-                onAodPanoramicSupportEnabledChange = onAodPanoramicSupportEnabledChange,
-                aodSettingsSwitchEnabled = aodSettingsSwitchEnabled,
-                onAodSettingsSwitchEnabledChange = onAodSettingsSwitchEnabledChange,
+                aodAllDayUnlockEnabled = aodAllDayUnlockEnabled,
+                onAodAllDayUnlockEnabledChange = onAodAllDayUnlockEnabledChange,
                 aodSingleClickBlockEnabled = aodSingleClickBlockEnabled,
                 onAodSingleClickBlockEnabledChange = onAodSingleClickBlockEnabledChange,
                 assistantPowerMode = assistantPowerMode,
@@ -526,6 +547,7 @@ internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
     FeaturePageMode.SystemUiDynamicColor -> stringResource(R.string.feature_group_dynamic_color)
     FeaturePageMode.SystemUiStatusBar -> stringResource(R.string.feature_group_beautify)
     FeaturePageMode.SystemUiFluidCloud -> stringResource(R.string.feature_fluid_cloud_title)
+    FeaturePageMode.SystemUiFluidCloudMediaBlacklist -> stringResource(R.string.fluid_media_apps_title)
     FeaturePageMode.SystemUiNotificationCenter -> stringResource(R.string.feature_group_notification_center)
     FeaturePageMode.SystemUiControlCenter -> stringResource(R.string.feature_group_control_center)
     FeaturePageMode.SystemUiSmallWindow -> stringResource(R.string.small_window_title)
@@ -534,16 +556,22 @@ internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
     FeaturePageMode.NotificationRemoval -> stringResource(R.string.notification_removal_title)
     FeaturePageMode.MobileNetwork -> stringResource(R.string.feature_mobile_network_title)
     FeaturePageMode.AndroidSystem -> stringResource(R.string.feature_android_system_title)
+    FeaturePageMode.SideKey -> stringResource(R.string.side_key_title)
     FeaturePageMode.Installer -> stringResource(R.string.installer_title)
     FeaturePageMode.Esim -> stringResource(R.string.feature_esim_title)
     FeaturePageMode.EsimDiagnostics -> stringResource(R.string.feature_group_esim_diagnostics)
     FeaturePageMode.AppMarket -> stringResource(R.string.feature_app_market_title)
     FeaturePageMode.Battery -> stringResource(R.string.battery_page_title)
     FeaturePageMode.TrafficManagement -> stringResource(R.string.traffic_page_title)
+    FeaturePageMode.PhoneManager -> stringResource(R.string.phone_manager_title)
+    FeaturePageMode.SoftwareUpdate -> stringResource(R.string.ota_page_title)
+    FeaturePageMode.Keyboard -> stringResource(R.string.keyboard_page_title)
     FeaturePageMode.QuickAppServices -> stringResource(R.string.feature_quick_app_services_title)
     FeaturePageMode.FileManager -> stringResource(R.string.feature_file_manager_title)
     FeaturePageMode.GoogleMessages -> stringResource(R.string.feature_google_messages_title)
     FeaturePageMode.SystemMessages -> stringResource(R.string.feature_system_messages_title)
+    FeaturePageMode.AppErrors -> stringResource(R.string.app_errors_title)
+    FeaturePageMode.NotificationBatch -> stringResource(R.string.notification_batch_title)
     FeaturePageMode.Athena -> stringResource(R.string.feature_group_athena)
     FeaturePageMode.Settings -> stringResource(R.string.tab_settings)
     FeaturePageMode.SettingsRegion -> stringResource(R.string.feature_group_settings_hidden_features)
@@ -573,9 +601,10 @@ private fun featureRestartPackages(mode: FeaturePageMode): List<String> = when (
     FeaturePageMode.SystemUiNative,
     FeaturePageMode.SystemUiDynamicColor,
     FeaturePageMode.SystemUiStatusBar,
-    FeaturePageMode.SystemUiFluidCloud,
+    FeaturePageMode.SystemUiFluidCloudMediaBlacklist,
     FeaturePageMode.SystemUiNotificationCenter,
     FeaturePageMode.SystemUiControlCenter -> listOf("com.android.systemui")
+    FeaturePageMode.SystemUiFluidCloud -> listOf("com.android.systemui", FluidCloudBrowserSettings.PACKAGE_NAME)
     FeaturePageMode.SystemUiLockScreen -> listOf("com.android.systemui")
     FeaturePageMode.SystemUiNavigationBar -> listOf("android", "system", "com.android.systemui")
     FeaturePageMode.Screenshot -> listOf("android", "system", "com.oplus.screenshot")
@@ -583,11 +612,15 @@ private fun featureRestartPackages(mode: FeaturePageMode): List<String> = when (
     FeaturePageMode.NotificationRemoval -> listOf("android", "system", "com.android.systemui")
     FeaturePageMode.MobileNetwork -> listOf("com.android.phone")
     FeaturePageMode.AndroidSystem -> listOf("android", "system")
+    FeaturePageMode.SideKey -> listOf("android", "system", "com.android.systemui")
     FeaturePageMode.Installer -> listOf("android", "system")
     FeaturePageMode.Esim -> listOf("com.oplus.euicc")
     FeaturePageMode.AppMarket -> listOf("com.heytap.market")
     FeaturePageMode.Battery -> listOf("android", "system", "com.oplus.battery")
     FeaturePageMode.TrafficManagement -> listOf("com.oplus.trafficmonitor")
+    FeaturePageMode.PhoneManager -> listOf(PhoneManagerSettings.PACKAGE_NAME)
+    FeaturePageMode.SoftwareUpdate -> listOf(SoftwareUpdateSettings.PACKAGE_NAME, SoftwareUpdateSettings.SYSTEM_FILES_PACKAGE_NAME)
+    FeaturePageMode.Keyboard -> listOf("com.oplus.keyboard")
     FeaturePageMode.QuickAppServices -> listOf(
         "com.nearme.instant.platform", "com.android.launcher", "com.coloros.assistantscreen",
     )
@@ -617,6 +650,8 @@ private fun featureRestartPackages(mode: FeaturePageMode): List<String> = when (
     FeaturePageMode.SystemUiSmallWindow,
     FeaturePageMode.EsimDiagnostics,
     FeaturePageMode.SystemMessages,
+    FeaturePageMode.AppErrors,
+    FeaturePageMode.NotificationBatch,
     FeaturePageMode.RefreshRate,
     FeaturePageMode.TouchSampling -> emptyList()
 }
@@ -853,6 +888,20 @@ private fun featureMainEntries(): List<FeatureMainEntry> = buildList {
         )
         add(
             FeatureMainEntry(
+                titleRes = R.string.phone_manager_title,
+                iconPackages = listOf(PhoneManagerSettings.PACKAGE_NAME),
+                pageMode = FeaturePageMode.PhoneManager,
+            )
+        )
+        add(
+            FeatureMainEntry(
+                titleRes = R.string.ota_page_title,
+                iconPackages = listOf(SoftwareUpdateSettings.PACKAGE_NAME),
+                pageMode = FeaturePageMode.SoftwareUpdate,
+            )
+        )
+        add(
+            FeatureMainEntry(
                 titleRes = R.string.feature_file_manager_title,
                 iconPackages = listOf("com.coloros.filemanager"),
                 pageMode = FeaturePageMode.FileManager,
@@ -870,6 +919,13 @@ private fun featureMainEntries(): List<FeatureMainEntry> = buildList {
                 titleRes = R.string.traffic_page_title,
                 iconPackages = listOf("com.oplus.trafficmonitor"),
                 pageMode = FeaturePageMode.TrafficManagement,
+            )
+        )
+        add(
+            FeatureMainEntry(
+                titleRes = R.string.keyboard_page_title,
+                iconPackages = listOf("com.oplus.keyboard"),
+                pageMode = FeaturePageMode.Keyboard,
             )
         )
         add(
@@ -965,6 +1021,18 @@ private fun featureMainEntries(): List<FeatureMainEntry> = buildList {
 }
 
 private fun toolsMainEntries(): List<FeatureMainEntry> = listOf(
+    FeatureMainEntry(
+        titleRes = R.string.notification_batch_title,
+        iconPackages = emptyList(),
+        pageMode = FeaturePageMode.NotificationBatch,
+        iconGlyph = Icons.Rounded.Notifications,
+    ),
+    FeatureMainEntry(
+        titleRes = R.string.app_errors_title,
+        iconPackages = emptyList(),
+        pageMode = FeaturePageMode.AppErrors,
+        iconGlyph = Icons.Rounded.BugReport,
+    ),
     FeatureMainEntry(
         titleRes = R.string.tab_refresh_rate,
         iconPackages = emptyList(),
@@ -1256,10 +1324,8 @@ private fun FeatureSubPage(
     onAodInitBrightBrightnessChange: (Int) -> Unit,
     aodRunningBrightnessMultiplier: Float,
     onAodRunningBrightnessMultiplierChange: (Float) -> Unit,
-    aodPanoramicSupportEnabled: Boolean,
-    onAodPanoramicSupportEnabledChange: (Boolean) -> Unit,
-    aodSettingsSwitchEnabled: Boolean,
-    onAodSettingsSwitchEnabledChange: (Boolean) -> Unit,
+    aodAllDayUnlockEnabled: Boolean,
+    onAodAllDayUnlockEnabledChange: (Boolean) -> Unit,
     aodSingleClickBlockEnabled: Boolean,
     onAodSingleClickBlockEnabledChange: (Boolean) -> Unit,
     assistantPowerMode: Int,
@@ -1293,7 +1359,8 @@ private fun FeatureSubPage(
         )
         FeaturePageMode.NotificationRemoval -> NotificationRemovalPage()
         FeaturePageMode.SystemUi -> SystemUiCategoriesPage(onOpenSubPage)
-        FeaturePageMode.SystemUiFluidCloud -> FluidCloudFeaturesPage()
+        FeaturePageMode.SystemUiFluidCloud -> FluidCloudFeaturesPage(onOpenSubPage)
+        FeaturePageMode.SystemUiFluidCloudMediaBlacklist -> Unit
         FeaturePageMode.SystemUiSmallWindow -> SmallWindowFeaturesPage()
         FeaturePageMode.SystemUiLockScreen -> KeyguardInteractionSettings()
         FeaturePageMode.SystemUiNavigationBar -> NavigationBarFeaturesPage()
@@ -1340,15 +1407,21 @@ private fun FeatureSubPage(
         )
         FeaturePageMode.MobileNetwork -> MobileNetworkFeaturesPage()
         FeaturePageMode.Installer -> InstallerPage()
+        FeaturePageMode.SideKey -> SideKeyFeaturesPage()
         FeaturePageMode.Esim -> EsimFeaturesPage(onOpenSubPage = onOpenSubPage)
         FeaturePageMode.EsimDiagnostics -> EsimDiagnosticsPage()
         FeaturePageMode.AppMarket -> AppMarketFeaturesPage()
         FeaturePageMode.Battery -> BatteryFeaturesPage()
         FeaturePageMode.TrafficManagement -> TrafficManagementPage()
+        FeaturePageMode.PhoneManager -> PhoneManagerFeaturesPage()
+        FeaturePageMode.SoftwareUpdate -> SoftwareUpdateFeaturesPage()
+        FeaturePageMode.Keyboard -> KeyboardFeaturesPage()
         FeaturePageMode.QuickAppServices -> QuickAppServicesFeaturesPage()
         FeaturePageMode.FileManager -> FileManagerFeaturesPage()
         FeaturePageMode.GoogleMessages -> GoogleMessagesFeaturesPage()
         FeaturePageMode.SystemMessages -> PushMonitorPage(pushMonitorRefresh)
+        FeaturePageMode.AppErrors -> Unit
+        FeaturePageMode.NotificationBatch -> Unit
         FeaturePageMode.Athena -> AthenaFeaturesPage()
         FeaturePageMode.Settings,
         FeaturePageMode.SettingsAppearance,
@@ -1378,10 +1451,8 @@ private fun FeatureSubPage(
             onAodInitBrightBrightnessChange = onAodInitBrightBrightnessChange,
             aodRunningBrightnessMultiplier = aodRunningBrightnessMultiplier,
             onAodRunningBrightnessMultiplierChange = onAodRunningBrightnessMultiplierChange,
-            aodPanoramicSupportEnabled = aodPanoramicSupportEnabled,
-            onAodPanoramicSupportEnabledChange = onAodPanoramicSupportEnabledChange,
-            aodSettingsSwitchEnabled = aodSettingsSwitchEnabled,
-            onAodSettingsSwitchEnabledChange = onAodSettingsSwitchEnabledChange,
+            aodAllDayUnlockEnabled = aodAllDayUnlockEnabled,
+            onAodAllDayUnlockEnabledChange = onAodAllDayUnlockEnabledChange,
             aodSingleClickBlockEnabled = aodSingleClickBlockEnabled,
             onAodSingleClickBlockEnabledChange = onAodSingleClickBlockEnabledChange,
         )

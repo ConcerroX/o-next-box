@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.util.Pair
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernMethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect
 import java.util.concurrent.ConcurrentHashMap
@@ -44,6 +45,7 @@ internal object AthenaPolicyHooker {
     private val installedClassLoaderBridges = ConcurrentHashMap.newKeySet<String>()
     private val installedRuntimePolicyClassLoaders = ConcurrentHashMap.newKeySet<String>()
     private val installedSwipeUpKillGuards = ConcurrentHashMap.newKeySet<String>()
+    private val discoveredLoaders = ConcurrentHashMap.newKeySet<ClassLoader>()
     private val loggedClassLoaderBridge = AtomicBoolean(false)
     private val loggedXmlProtection = AtomicBoolean(false)
     private val loggedRuntimeProtection = AtomicBoolean(false)
@@ -56,6 +58,12 @@ internal object AthenaPolicyHooker {
     private var verifiedC17Version: Boolean? = null
 
     fun hook(classLoader: ClassLoader?): Boolean {
+        HotReloadLifecycle.registerReplay("athena-dynamic-loaders",
+            capture = { discoveredLoaders.toTypedArray() },
+            replay = { state ->
+                (state as? Array<*>)?.filterIsInstance<ClassLoader>()?.forEach(::installAthenaHooks)
+            },
+        )
         if (!isFeatureEnabled()) return false
 
         val classLoaderBridgeInstalled = installAthenaClassLoaderBridge(classLoader)
@@ -92,6 +100,7 @@ internal object AthenaPolicyHooker {
                     executable = method,
                     callback = object : ModernMethodHook() {
                         override fun afterHookedMethod(param: MethodHookParam) {
+                            if (HotReloadLifecycle.isRetiring) return
                             val applicationInfo = param.args
                                 .filterIsInstance<ApplicationInfo>()
                                 .firstOrNull()
@@ -116,6 +125,8 @@ internal object AthenaPolicyHooker {
     }
 
     private fun installAthenaHooks(classLoader: ClassLoader) {
+        if (HotReloadLifecycle.isRetiring) return
+        discoveredLoaders.add(classLoader)
         if (!isFeatureEnabled()) return
         installRuntimePolicyHook(classLoader)
         installSwipeUpKillGuard(classLoader)

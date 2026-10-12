@@ -10,7 +10,8 @@ import java.util.WeakHashMap
 internal object SystemUiAodHooker {
     private const val TAG = "ONextBox-LSP"
     private const val INIT_DARK_THRESHOLD = 40
-    private const val GESTURE_SINGLE_CLICK = 16
+    private const val BLACK_SCREEN_GESTURE_EVENT =
+        "com.android.systemui.keyguard.OplusBlackScreenGestureEvent"
     private const val BRIGHTNESS_MIN = 0
     private const val BRIGHTNESS_MAX = 255
 
@@ -140,7 +141,7 @@ internal object SystemUiAodHooker {
                     val instance = chain.proceed()
                     if (
                         instance != null &&
-                        LspConfig.isAodPanoramicSupportEnabledXposed() &&
+                        LspConfig.isAodAllDayUnlockEnabledXposed() &&
                         configuredPanoramicInstances.put(instance, true) != true
                     ) {
                         setBooleanField(instance, "isSupportPanoramicAllDay")
@@ -152,25 +153,28 @@ internal object SystemUiAodHooker {
             installed++
         }
 
+        val singleClickCallbackClasses = singleClickCallbackClassNames.mapNotNull { className ->
+            ModernReflect.findClassIfExists(className, classLoader)
+        }
         var singleClickMethods = 0
-        singleClickCallbackClassNames.forEach { className ->
-            val callbackClass = ModernReflect.findClassIfExists(className, classLoader)
-                ?: return@forEach
+        singleClickCallbackClasses.forEach { callbackClass ->
             callbackClass.declaredMethods
                 .filter { method ->
-                    method.name == "isSupportGesture" &&
-                        method.parameterTypes.contentEquals(arrayOf(Integer.TYPE)) &&
-                        method.returnType == java.lang.Boolean.TYPE
+                    method.name == "onClick" &&
+                        method.parameterTypes.size == 1 &&
+                        method.parameterTypes[0].name == BLACK_SCREEN_GESTURE_EVENT &&
+                        method.returnType == java.lang.Void.TYPE
                 }
                 .forEach { method ->
-                    val key = "aod:single-click:${method.declaringClass.name}#${method.name}"
+                    val key = "aod:single-click-action:${method.declaringClass.name}#${method.name}"
                     ModernHookRegistry.installFast(
                         key,
                         method,
                         XposedInterface.Hooker { chain ->
-                            val block = LspConfig.isAodSingleClickBlockEnabledXposed() &&
-                                chain.getArg(0) == GESTURE_SINGLE_CLICK
-                            if (block) false else chain.proceed()
+                            // Gesture 16 must remain supported: the native dispatcher combines
+                            // two single-tap events into gesture 1 before dispatching double-tap.
+                            if (LspConfig.isAodSingleClickBlockEnabledXposed()) null
+                            else chain.proceed()
                         },
                     )
                     installed++
@@ -178,12 +182,37 @@ internal object SystemUiAodHooker {
                 }
         }
 
+        // Panoramic AOD normally wakes on the first tap and may not opt into double-tap
+        // compatibility. When that wake action is blocked, let the native dispatcher route
+        // the second tap to its existing double-tap callback, respecting the user's setting.
+        val doubleTapCompatibilityMethods = singleClickCallbackClasses.mapNotNull { callbackClass ->
+            runCatching { callbackClass.getMethod("isDoubleTapCompatible") }.getOrNull()
+                ?.takeIf { method ->
+                    method.parameterTypes.isEmpty() && method.returnType == java.lang.Boolean.TYPE
+                }
+        }.distinct()
+        doubleTapCompatibilityMethods.forEach { method ->
+            val key = "aod:double-tap-compat:${method.declaringClass.name}#${method.name}"
+            ModernHookRegistry.installFast(
+                key,
+                method,
+                XposedInterface.Hooker { chain ->
+                    if (
+                        LspConfig.isAodSingleClickBlockEnabledXposed() &&
+                        singleClickCallbackClasses.any { it.isInstance(chain.thisObject) }
+                    ) true else chain.proceed()
+                },
+            )
+            installed++
+        }
+
         HookLog.i(
             TAG,
             if (installed > 0) {
                 "SystemUI AOD API102 hooks installed in $packageName: " +
                     "init=${dozeServiceMethods.size}, running=${runningMethods.size}, " +
-                    "panoramic=${panoramicMethods.size}, gesture=$singleClickMethods"
+                    "panoramic=${panoramicMethods.size}, singleClick=$singleClickMethods, " +
+                    "doubleTapCompat=${doubleTapCompatibilityMethods.size}"
             } else {
                 "SystemUI AOD hooks not matched in $packageName"
             },

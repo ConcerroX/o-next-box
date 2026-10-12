@@ -122,6 +122,7 @@ enum class AboutPageMode {
     Main,
     AppSettings,
     DeveloperOptions,
+    Logs,
     Update,
     UpdateSettings,
     UpdateReleaseNotes,
@@ -137,6 +138,7 @@ fun AboutMainRoute(
     scrollResetKey: Int? = null,
     onOpenAppSettings: () -> Unit,
     onOpenSoftwareUpdate: () -> Unit,
+    onOpenLogs: () -> Unit,
     onOpenContributors: () -> Unit,
     onOpenReferences: () -> Unit,
 ) {
@@ -150,6 +152,7 @@ fun AboutMainRoute(
         AboutMainPage(
             onOpenAppSettings = onOpenAppSettings,
             onOpenSoftwareUpdate = onOpenSoftwareUpdate,
+            onOpenLogs = onOpenLogs,
             onOpenContributors = onOpenContributors,
             onOpenReferences = onOpenReferences,
         )
@@ -201,6 +204,15 @@ fun AboutSubRoute(
     onOpenUpdateSettings: () -> Unit,
     onOpenUpdateReleaseNotes: () -> Unit,
 ) {
+    if (pageMode == AboutPageMode.Logs) {
+        AppLogsRoute(
+            modifier = modifier.fillMaxSize().extendPastBottom(subPageBottomExtension),
+            blurBackdrop = blurBackdrop,
+            bottomContentPadding = bottomContentPadding,
+            onBack = onBack,
+        )
+        return
+    }
     val showDownloadBar = pageMode == AboutPageMode.Update &&
         softwareUpdateState.availableUpdate != null
     var downloadBarHeightPx by remember { mutableIntStateOf(0) }
@@ -211,6 +223,7 @@ fun AboutSubRoute(
             title = when (pageMode) {
                 AboutPageMode.AppSettings -> stringResource(R.string.setting_theme_settings)
                 AboutPageMode.DeveloperOptions -> stringResource(R.string.setting_developer_options)
+                AboutPageMode.Logs -> stringResource(R.string.about_logs_title)
                 AboutPageMode.Update -> stringResource(R.string.setting_software_update)
                 AboutPageMode.UpdateSettings -> stringResource(R.string.software_update_auto_settings)
                 AboutPageMode.UpdateReleaseNotes -> stringResource(R.string.software_update_release_notes_title)
@@ -281,6 +294,7 @@ fun AboutSubRoute(
                 AboutPageMode.UpdateReleaseNotes -> SoftwareUpdateReleaseNotesPage(softwareUpdateState)
                 AboutPageMode.Contributors -> AboutContributorsPage()
                 AboutPageMode.References -> AboutReferencesPage()
+                AboutPageMode.Logs -> Unit
                 AboutPageMode.Main -> Unit
             }
         }

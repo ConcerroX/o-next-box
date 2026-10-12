@@ -1,0 +1,157 @@
+package com.mi.onextbox.lsp
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Test
+
+class FluidCloudBrowserRulesTest {
+    @Test
+    fun recognizedWebLinksCanUseTheSystemDefaultBrowser() {
+        assertTrue(accepts())
+        assertTrue(accepts(scheme = "http"))
+        assertTrue(accepts(scheme = "HTTPS"))
+        assertTrue(accepts(host = "127.0.0.1"))
+        assertTrue(accepts(explicitPackage = STOCK_BROWSER, componentPackage = STOCK_BROWSER))
+    }
+
+    @Test
+    fun disablingTheFeatureLeavesAnExistingStockCardUnchanged() {
+        assertFalse(accepts(enabled = false))
+    }
+
+    @Test
+    fun onlyRecognizedWebLinksAndActivityLaunchesAreEligible() {
+        assertFalse(accepts(textType = null))
+        assertFalse(accepts(textType = 29))
+        assertFalse(accepts(textType = 4))
+        assertFalse(accepts(intentType = 2))
+        assertFalse(accepts(intentType = 0))
+        assertFalse(accepts(action = "android.intent.action.WEB_SEARCH"))
+        assertFalse(accepts(action = "android.intent.action.SEND"))
+        assertFalse(accepts(action = null))
+    }
+
+    @Test
+    fun quickAppsAndExplicitlyChosenThirdPartyAppsAreNotRedirected() {
+        assertFalse(accepts(packageName = "com.nearme.instant.platform"))
+        assertFalse(accepts(packageName = "com.android.chrome"))
+        assertFalse(accepts(packageName = null))
+        assertFalse(accepts(explicitPackage = "com.tencent.mm"))
+        assertFalse(accepts(componentPackage = "com.tencent.mm"))
+        assertFalse(accepts(explicitPackage = STOCK_BROWSER, componentPackage = "com.tencent.mm"))
+        assertFalse(accepts(explicitPackage = "com.tencent.mm", componentPackage = STOCK_BROWSER))
+    }
+
+    @Test
+    fun customProtocolsAndMissingWebHostsAreNotRedirected() {
+        listOf(null, "", "intent", "alipays", "weixin", "file", "content", "javascript")
+            .forEach { assertFalse("Unexpected scheme: $it", accepts(scheme = it)) }
+        listOf(null, "", " ", "\t\n")
+            .forEach { assertFalse("Unexpected host: $it", accepts(host = it)) }
+    }
+
+    @Test
+    fun selectorsAreNotRewrittenEvenIfTheOuterIntentIsAWebLink() {
+        assertFalse(accepts(hasSelector = true))
+    }
+
+    @Test
+    fun temporaryPackageIsVisibleOnlyDuringLaunch() {
+        var currentPackage: String? = STOCK_BROWSER
+        val packageWrites = mutableListOf<String?>()
+        val result = FluidCloudBrowserRules.withTarget(
+            originalPackage = currentPackage,
+            targetPackage = "com.android.chrome",
+            setPackage = { currentPackage = it; packageWrites.add(it) },
+        ) {
+            assertEquals("com.android.chrome", currentPackage)
+            "launched"
+        }
+        assertEquals("launched", result)
+        assertEquals(STOCK_BROWSER, currentPackage)
+        assertEquals(listOf("com.android.chrome", STOCK_BROWSER), packageWrites)
+    }
+
+    @Test
+    fun failedLaunchRestoresMetadataAndDoesNotRetry() {
+        var currentPackage: String? = STOCK_BROWSER
+        var launchCount = 0
+        val failure = IllegalStateException("Launch failed after being attempted")
+        try {
+            FluidCloudBrowserRules.withTarget(
+                originalPackage = currentPackage,
+                targetPackage = "com.android.chrome",
+                setPackage = { currentPackage = it },
+            ) {
+                launchCount++
+                throw failure
+            }
+            fail("The original launch failure must propagate")
+        } catch (actual: IllegalStateException) {
+            assertSame(failure, actual)
+        }
+        assertEquals(1, launchCount)
+        assertEquals(STOCK_BROWSER, currentPackage)
+    }
+
+    @Test
+    fun failedMetadataPreparationDoesNotLaunchAndStillAttemptsRestoration() {
+        val packageWrites = mutableListOf<String?>()
+        var launchCount = 0
+        val failure = IllegalAccessException("Cannot change target package")
+        try {
+            FluidCloudBrowserRules.withTarget(
+                originalPackage = STOCK_BROWSER,
+                targetPackage = "com.android.chrome",
+                setPackage = {
+                    packageWrites.add(it)
+                    if (it == "com.android.chrome") throw failure
+                },
+            ) { launchCount++ }
+            fail("The preparation failure must propagate")
+        } catch (actual: IllegalAccessException) {
+            assertSame(failure, actual)
+        }
+        assertEquals(0, launchCount)
+        assertEquals(listOf("com.android.chrome", STOCK_BROWSER), packageWrites)
+    }
+
+    @Test
+    fun consecutiveClicksCanFollowDifferentDefaultsWithoutStaleMetadata() {
+        var currentPackage: String? = STOCK_BROWSER
+        val launchedPackages = mutableListOf<String?>()
+        listOf("com.android.chrome", "mark.via").forEach { defaultBrowser ->
+            assertTrue(accepts(packageName = currentPackage))
+            FluidCloudBrowserRules.withTarget(
+                originalPackage = currentPackage,
+                targetPackage = defaultBrowser,
+                setPackage = { currentPackage = it },
+            ) { launchedPackages.add(currentPackage) }
+            assertEquals(STOCK_BROWSER, currentPackage)
+        }
+        assertEquals(listOf("com.android.chrome", "mark.via"), launchedPackages)
+    }
+
+    private fun accepts(
+        enabled: Boolean = true,
+        textType: Int? = 2,
+        intentType: Int = 1,
+        packageName: String? = STOCK_BROWSER,
+        action: String? = "android.intent.action.VIEW",
+        scheme: String? = "https",
+        host: String? = "example.com",
+        explicitPackage: String? = null,
+        componentPackage: String? = null,
+        hasSelector: Boolean = false,
+    ): Boolean = FluidCloudBrowserRules.accepts(
+        enabled, textType, intentType, packageName, action, scheme, host,
+        explicitPackage, componentPackage, hasSelector,
+    )
+
+    private companion object {
+        const val STOCK_BROWSER = "com.heytap.browser"
+    }
+}

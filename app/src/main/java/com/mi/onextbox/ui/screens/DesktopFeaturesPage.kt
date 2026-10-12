@@ -77,8 +77,10 @@ internal fun DesktopFeaturesPage(
                 checked = launcherLayoutUnlocked,
                 onCheckedChange = onLauncherLayoutUnlockedChange,
                 hasDividerAbove = false,
-                hasDividerBelow = false,
+                hasDividerBelow = true,
             )
+            SettingsDivider()
+            LauncherGridSettingsGroup()
         }
 
         SettingsSection(title = stringResource(R.string.launcher_group_widgets))

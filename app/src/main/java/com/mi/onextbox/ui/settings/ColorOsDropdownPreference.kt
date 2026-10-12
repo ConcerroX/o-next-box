@@ -4,12 +4,12 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +30,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -69,7 +71,6 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 import kotlin.math.floor
 
 private val PopupItemPressSpring = spring<Float>(
@@ -212,7 +213,6 @@ internal fun ColorOsWindowDropdownPreference(
             ColorOsDropdownPopup(
                 show = expanded,
                 entry = entry,
-                dropdownColors = dropdownColors,
                 maxHeight = maxHeight,
                 anchorCenterX = if (lastTouchXInWindow.isFinite()) {
                     lastTouchXInWindow
@@ -242,12 +242,12 @@ internal fun ColorOsWindowDropdownPreference(
 }
 
 @Composable
-private fun RowScope.ColorOsDropdownPopup(
+internal fun ColorOsDropdownPopup(
     show: Boolean,
     entry: DropdownEntry,
-    dropdownColors: DropdownColors,
-    maxHeight: Dp?,
-    anchorCenterX: Float,
+    maxHeight: Dp? = null,
+    anchorCenterX: Float? = null,
+    selectionMenu: Boolean = true,
     onDismissRequest: () -> Unit,
     onItemClick: (Int) -> Unit,
 ) {
@@ -260,7 +260,9 @@ private fun RowScope.ColorOsDropdownPopup(
     var maskAnimationJob by remember(entry.items) { mutableStateOf<Job?>(null) }
     val sharedMaskOffset = remember(entry.items) { Animatable(0f) }
     val currentOnItemClick by rememberUpdatedState(onItemClick)
-    val rowHeightPx = with(density) { 40.dp.toPx() }
+    val currentItems by rememberUpdatedState(entry.items)
+    val currentShow by rememberUpdatedState(show)
+    val rowHeightPx = with(density) { 40.dp.roundToPx().toFloat() }
     val pressProgress by animateFloatAsState(
         targetValue = if (pressedIndex >= 0) 1f else 0f,
         animationSpec = PopupItemPressSpring,
@@ -274,7 +276,6 @@ private fun RowScope.ColorOsDropdownPopup(
     }
 
     fun itemIndexAt(y: Float): Int {
-        // The pointer node is inside the outer 8dp padding, so its local origin is row 0.
         val contentY = y + scrollState.value
         if (contentY < 0f || rowHeightPx <= 0f) return -1
         return floor(contentY / rowHeightPx).toInt().takeIf { it in entry.items.indices } ?: -1
@@ -288,7 +289,8 @@ private fun RowScope.ColorOsDropdownPopup(
     ) {
         Box(
             modifier = Modifier
-                .padding(vertical = 8.dp),
+                .padding(vertical = 8.dp)
+                .clipToBounds(),
         ) {
             Box(
                 modifier = Modifier
@@ -304,28 +306,32 @@ private fun RowScope.ColorOsDropdownPopup(
             )
             Column(
                 modifier = Modifier
-                .verticalScroll(scrollState)
-                // One gesture owner resolves the row under the finger. This mirrors ColorOS'
-                // COUITouchRecyclerView: it owns one shared mask and springs that same mask to the
-                // row currently under the finger instead of lighting fixed row backgrounds.
-                .pointerInput(entry.items, scrollState, rowHeightPx) {
-                    awaitPointerEventScope {
-                        while (true) {
+                .pointerInput(show, entry.items, scrollState, rowHeightPx) {
+                    if (!show) return@pointerInput
+                    awaitEachGesture {
+                        fun enabledIndexAt(position: Offset): Int {
+                            if (position.x < 0f || position.x >= size.width ||
+                                position.y < 0f || position.y >= size.height
+                            ) return -1
+                            return itemIndexAt(position.y)
+                                .takeIf { it in entry.items.indices && entry.items[it].enabled }
+                                ?: -1
+                        }
+
+                        try {
                             val down = awaitFirstDown(
                                 requireUnconsumed = false,
-                                pass = PointerEventPass.Initial,
+                                pass = PointerEventPass.Main,
                             )
-                            val downY = down.position.y
-                            val downIndex = itemIndexAt(downY)
-                            if (downIndex !in entry.items.indices) continue
-
-                            var trackedIndex = downIndex.takeIf { entry.items[it].enabled } ?: -1
+                            if (down.isConsumed) return@awaitEachGesture
+                            val downIndex = enabledIndexAt(down.position)
+                            val downScroll = scrollState.value
+                            val scrollable = scrollState.maxValue > 0
+                            var trackedIndex = downIndex
                             if (trackedIndex >= 0) {
                                 val initialIndex = trackedIndex
                                 val targetOffset = initialIndex * rowHeightPx - scrollState.value
                                 maskAnimationJob?.cancel()
-                                // UNDISPATCHED makes the first mask placement happen in the DOWN
-                                // frame, before its press alpha is exposed.
                                 maskAnimationJob = maskAnimationScope.launch(
                                     start = CoroutineStart.UNDISPATCHED,
                                 ) {
@@ -335,36 +341,32 @@ private fun RowScope.ColorOsDropdownPopup(
                             } else {
                                 pressedIndex = -1
                             }
-                            var tracking = true
-                            while (tracking) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Main)
                                 val change = event.changes.firstOrNull { it.id == down.id }
-                                if (change == null || event.changes.size > 1) {
-                                    pressedIndex = -1
-                                    break
+                                if (change == null || event.changes.size > 1 || change.isConsumed ||
+                                    !currentShow || currentItems !== entry.items
+                                ) return@awaitEachGesture
+                                if (scrollable && (
+                                    (change.position - down.position).getDistance() > viewConfiguration.touchSlop ||
+                                        scrollState.value != downScroll || scrollState.isScrollInProgress
+                                    )
+                                ) {
+                                    return@awaitEachGesture
                                 }
 
+                                val nextIndex = enabledIndexAt(change.position)
                                 if (change.changedToUpIgnoreConsumed()) {
-                                    val selectedIndex = trackedIndex
-                                    pressedIndex = -1
-                                    if (selectedIndex in entry.items.indices && entry.items[selectedIndex].enabled) {
-                                        currentOnItemClick(selectedIndex)
+                                    if (nextIndex >= 0 && (!scrollable || nextIndex == downIndex)) {
+                                        change.consume()
+                                        currentOnItemClick(nextIndex)
                                     }
-                                    tracking = false
-                                    continue
+                                    return@awaitEachGesture
                                 }
 
-                                if (!change.pressed) {
-                                    pressedIndex = -1
-                                    break
-                                }
+                                if (!change.pressed) return@awaitEachGesture
 
-                                val dynamicSelection =
-                                    !scrollState.canScrollForward && !scrollState.canScrollBackward
-                                if (dynamicSelection) {
-                                    val nextIndex = itemIndexAt(change.position.y)
-                                        .takeIf { it in entry.items.indices && entry.items[it].enabled }
-                                        ?: -1
+                                if (!scrollable) {
                                     if (nextIndex != trackedIndex) {
                                         trackedIndex = nextIndex
                                         pressedIndex = nextIndex
@@ -380,15 +382,15 @@ private fun RowScope.ColorOsDropdownPopup(
                                             dragHaptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                                         }
                                     }
-                                } else if (abs(change.position.y - downY) > viewConfiguration.touchSlop) {
-                                    // A height-limited menu keeps its normal scroll behaviour.
-                                    pressedIndex = -1
-                                    tracking = false
                                 }
                             }
+                        } finally {
+                            maskAnimationJob?.cancel()
+                            pressedIndex = -1
                         }
                     }
-                },
+                }
+                .verticalScroll(scrollState, enabled = scrollState.maxValue > 0),
             ) {
                 entry.items.forEachIndexed { index, item ->
                 val selected = item.selected
@@ -402,9 +404,9 @@ private fun RowScope.ColorOsDropdownPopup(
                         .fillMaxWidth()
                         .height(40.dp)
                         .semantics(mergeDescendants = true) {
-                            role = Role.RadioButton
-                            this.selected = selected
-                            if (item.enabled) {
+                            role = if (selectionMenu) Role.RadioButton else Role.Button
+                            if (selectionMenu) this.selected = selected
+                            if (item.enabled && show) {
                                 onClick {
                                     currentOnItemClick(index)
                                     true
@@ -432,7 +434,7 @@ private fun RowScope.ColorOsDropdownPopup(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
-                        if (selected) {
+                        if (selectionMenu && selected) {
                             Spacer(Modifier.width(8.dp))
                             ColorOsPopupCheck(
                                 tint = if (darkTheme) Color(0xE6FFFFFF) else Color(0xE6000000),

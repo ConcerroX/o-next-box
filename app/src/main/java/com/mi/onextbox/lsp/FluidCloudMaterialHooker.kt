@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.view.View
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernReflect as Reflect
 import io.github.libxposed.api.XposedInterface
@@ -23,6 +24,16 @@ internal object FluidCloudMaterialHooker {
     fun hook(loader: ClassLoader) {
         material = FluidCloudNotificationMaterial(loader, ::diagnose)
         expandedMaterial = FluidCloudExpandedMaterialHooks(::enabled, ::logged, ::diagnose)
+        HotReloadLifecycle.register("fluid-material:views",
+            capture = { material.captureReloadState() },
+            detach = { material.releaseAll() },
+            restore = { material.restoreReloadState(it) })
+        HotReloadLifecycle.registerReplay("fluid-material:plugins",
+            capture = { installed.toTypedArray() },
+            replay = { saved -> (saved as? Array<*>)?.filterIsInstance<ClassLoader>()?.forEach(::installPlugin) })
+        HotReloadLifecycle.registerReplay("fluid-material:expanded-backgrounds",
+            capture = { expandedMaterial.captureReloadState() },
+            replay = { expandedMaterial.restoreReloadState(it) })
         installPanelMaterial(loader)
         installFlashlightMaterial(loader)
         runCatching {
@@ -224,6 +235,7 @@ internal object FluidCloudMaterialHooker {
     }.onFailure { diagnose("Control-center flashlight material hook unavailable", it) }
 
     private fun installPlugin(loader: ClassLoader) {
+        if (HotReloadLifecycle.isRetiring) return
         if (!installed.add(loader)) return
         val prefix = "$TAG:plugin:${System.identityHashCode(loader)}"
         // Do not clear native template layers if this plugin's replacement inputs failed.
@@ -275,7 +287,7 @@ internal object FluidCloudMaterialHooker {
         return context.resources.getDimension(id)
     }
 
-    private fun enabled() = LspConfig.isFluidCloudMaterialEnabledXposed()
+    private fun enabled() = !HotReloadLifecycle.isRetiring && LspConfig.isFluidCloudMaterialEnabledXposed()
     private fun logged(key: String, message: String) {
         if (applied.add(key)) HookLog.i(TAG, message)
     }

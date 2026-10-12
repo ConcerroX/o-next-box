@@ -17,6 +17,7 @@ class LspDetectionPolicyTest {
             target(),
             target(current = false),
             target(loadedVersionCode = versionCode - 1),
+            target(current = false, reloadFailed = true),
         ).forEach { loaded ->
             val result = evaluate(LspModuleState.DISABLED, framework(targets = listOf(loaded)))
             assertEquals(LspModuleState.DISABLED, result.moduleState)
@@ -146,6 +147,60 @@ class LspDetectionPolicyTest {
         val result = evaluate(framework = framework(targets = listOf(target(current = false))))
         assertEquals(LspStatus.WAITING_RESTART, result.status)
         assertEquals("target_stale", result.reason)
+    }
+
+    @Test
+    fun failedHotReloadRetainsADistinctRestartReason() {
+        val result = evaluate(framework = framework(targets = listOf(
+            target(current = false, reloadFailed = true),
+        )))
+        assertEquals(LspStatus.WAITING_RESTART, result.status)
+        assertEquals("target_reload_failed", result.reason)
+    }
+
+    @Test
+    fun failedHotReloadTakesPriorityOverOrdinaryStaleTargetsRegardlessOfOrder() {
+        val targets = listOf(
+            target(current = false),
+            target("$systemUi:service", current = false, reloadFailed = true),
+        )
+        listOf(targets, targets.reversed()).forEach { running ->
+            val result = evaluate(framework = framework(targets = running))
+            assertEquals(LspStatus.WAITING_RESTART, result.status)
+            assertEquals("target_reload_failed", result.reason)
+        }
+    }
+
+    @Test
+    fun failedOptionalScopedAppKeepsRestartWarningWithCurrentCoreTargets() {
+        val result = evaluate(framework = framework(
+            scopes = setOf("system", systemUi, optionalApp),
+            targets = listOf(
+                target("system_server", 1000), target(),
+                target(optionalApp, current = false, reloadFailed = true),
+            ),
+        ))
+        assertEquals(LspStatus.WAITING_RESTART, result.status)
+        assertEquals("target_reload_failed", result.reason)
+    }
+
+    @Test
+    fun failedTargetsOutsideTheCurrentUserOrScopesDoNotCreateRestartWarnings() {
+        val result = evaluate(framework = framework(targets = listOf(
+            target(),
+            target(optionalApp, current = false, reloadFailed = true),
+            target(uid = 1_010_001, current = false, reloadFailed = true),
+            target(uid = -1, current = false, reloadFailed = true),
+        )))
+        assertEquals(LspStatus.READY, result.status)
+        assertEquals("ready", result.reason)
+    }
+
+    @Test
+    fun legacyLoadedTargetConstructionDoesNotImplyReloadFailure() {
+        val loaded = LspLoadedTarget(systemUi, 10001, false, versionCode)
+        assertFalse(loaded.reloadFailed)
+        assertEquals("target_stale", evaluate(framework = framework(targets = listOf(loaded))).reason)
     }
 
     @Test
@@ -343,5 +398,6 @@ class LspDetectionPolicyTest {
         uid: Int = 10001,
         current: Boolean = true,
         loadedVersionCode: Long = versionCode,
-    ) = LspLoadedTarget(processName, uid, current, loadedVersionCode)
+        reloadFailed: Boolean = false,
+    ) = LspLoadedTarget(processName, uid, current, loadedVersionCode, reloadFailed)
 }

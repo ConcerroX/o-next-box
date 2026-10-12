@@ -226,6 +226,7 @@ dependencies {
     implementation(libs.coui.navigation3.ui)
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.kyant.capsule)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -244,6 +245,7 @@ dependencies {
     implementation(libs.dexkit)
     // Modern Xposed API is supplied by the framework in hooked processes.
     compileOnly(libs.libxposed.api)
+    testImplementation(libs.libxposed.api)
     // Module-app communication for modern remote preferences.
     implementation(libs.libxposed.service)
 }

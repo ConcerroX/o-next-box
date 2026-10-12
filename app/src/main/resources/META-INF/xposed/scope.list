@@ -4,6 +4,10 @@ com.oplus.screenshot
 com.oplus.screenrecorder
 com.android.settings
 com.oplus.securitypermission
+com.coloros.phonemanager
+com.oplus.ota
+com.oplus.sau
+com.coloros.colordirectservice
 com.android.permissioncontroller
 com.google.android.permissioncontroller
 com.android.launcher
@@ -17,6 +21,7 @@ com.google.android.apps.messaging
 com.heytap.market
 com.oplus.battery
 com.oplus.trafficmonitor
+com.oplus.keyboard
 com.coloros.filemanager
 com.heytap.mcs
 com.nearme.instant.platform

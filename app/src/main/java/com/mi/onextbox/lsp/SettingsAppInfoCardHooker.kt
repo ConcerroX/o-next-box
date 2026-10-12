@@ -18,13 +18,16 @@ import com.mi.onextbox.R
 import com.mi.onextbox.lsp.SettingsAppInfoRules.Field
 import com.mi.onextbox.lsp.SettingsAppInfoRules.Snapshot
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernReflect
 import io.github.libxposed.api.XposedInterface
 import java.lang.ref.WeakReference
 import java.lang.reflect.Proxy
 import java.util.TimeZone
 import java.util.WeakHashMap
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
 internal object SettingsAppInfoCardHooker {
     private const val TAG = "ONextBox-AppInfo"
@@ -34,7 +37,12 @@ internal object SettingsAppInfoCardHooker {
     private const val HEADER_KEY = "onextbox_app_info_header"
     private const val ROW_CLASS = "com.oplus.settings.widget.preference.SettingsSimpleJumpPreference"
     private val main = Handler(Looper.getMainLooper())
-    private val reader = Executors.newSingleThreadExecutor { job -> Thread(job, "ONextBox-AppInfo").apply { isDaemon = true } }
+    private fun newReader() = ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, LinkedBlockingQueue()) {
+        job -> Thread(job, "ONextBox-AppInfo").apply { isDaemon = true }
+    }
+    private var reader = newReader()
+    private val fragments = WeakHashMap<Any, ClassLoader>()
+    private val cards = java.util.Collections.newSetFromMap(WeakHashMap<Card, Boolean>())
     // A recycled native row must never retain another preference's clipboard handler.
     private val copyHandlers = WeakHashMap<View, WeakReference<View.OnLongClickListener>>()
 
@@ -58,6 +66,36 @@ internal object SettingsAppInfoCardHooker {
     }
 
     fun hook(loader: ClassLoader) {
+        HotReloadLifecycle.register("settings:app-info", capture = {
+            fragments.entries.map { (fragment, loader) ->
+                val screen = call(fragment, "getPreferenceScreen")
+                val header = screen?.let { call(it, "findPreference", HEADER_KEY) }
+                val expanded = header?.let { call(it, "getTag") as? Card }?.expanded == true
+                arrayOf<Any?>(fragment, loader, expanded)
+            }.toTypedArray()
+        }, canReload = { reader.activeCount == 0 && reader.queue.isEmpty() }, detach = {
+            cards.toList().forEach(::remove)
+            copyHandlers.keys.toList().forEach { it.setOnLongClickListener(null) }
+            copyHandlers.clear()
+            main.removeCallbacksAndMessages(null)
+            reader.shutdownNow()
+            check(reader.awaitTermination(250, TimeUnit.MILLISECONDS)) { "App information reader is busy" }
+        }, restore = { state ->
+            if (reader.isShutdown) reader = newReader()
+            (state as? Array<*>)?.forEach { item ->
+                val pair = item as? Array<*> ?: return@forEach
+                val fragment = pair.getOrNull(0) ?: return@forEach
+                val hostLoader = pair.getOrNull(1) as? ClassLoader ?: return@forEach
+                update(fragment, hostLoader)
+                if (pair.getOrNull(2) == true) {
+                    val context = call(fragment, "getContext") as? Context ?: return@forEach
+                    val screen = call(fragment, "getPreferenceScreen") ?: return@forEach
+                    val header = call(screen, "findPreference", HEADER_KEY) ?: return@forEach
+                    val card = call(header, "getTag") as? Card ?: return@forEach
+                    setExpanded(card, true, context)
+                }
+            }
+        })
         val prefix = "$TAG@${System.identityHashCode(loader)}:"
         runCatching {
             val fragment = ModernReflect.findClass(FRAGMENT, loader)
@@ -94,6 +132,8 @@ internal object SettingsAppInfoCardHooker {
     }
 
     private fun update(fragment: Any, loader: ClassLoader) {
+        if (HotReloadLifecycle.isRetiring) return
+        fragments[fragment] = loader
         val screen = call(fragment, "getPreferenceScreen") ?: return
         val header = call(screen, "findPreference", HEADER_KEY)
         val existing = header?.let { call(it, "getTag") as? Card }
@@ -161,6 +201,7 @@ internal object SettingsAppInfoCardHooker {
             item to (call(item, "getOrder") as Int)
         }.filter { (_, order) -> SettingsAppInfoRules.shiftedOrder(order, anchorOrder) != order }
         val card = Card(screen, group, header, rows, shifted, snapshot, nativeRotateHeader)
+        cards.add(card)
         call(header, "setTag", card)
         clickCallback(header, loader) {
             if (LspConfig.isSettingsAppInfoCardEnabledXposed()) {
@@ -261,6 +302,7 @@ internal object SettingsAppInfoCardHooker {
         val unknown = text(appContext, R.string.settings_app_info_unknown)
         val target = WeakReference(card)
         reader.execute {
+            if (HotReloadLifecycle.isRetiring) return@execute
             val value = runCatching {
                 // The displayed PackageInfo already belongs to the right user, including clones.
                 // Query its installer in that user's context, not the Settings process's user.
@@ -272,8 +314,10 @@ internal object SettingsAppInfoCardHooker {
                 }.getOrNull() }
                 SettingsAppInfoRules.installer(source, name, unknown)
             }.getOrElse { HookLog.w(TAG, "Installer information unavailable", it); unknown }
+            if (HotReloadLifecycle.isRetiring) return@execute
             main.post {
                 runCatching {
+                    if (HotReloadLifecycle.isRetiring) return@runCatching
                     val state = target.get() ?: return@runCatching
                     if (generation == state.generation && state.snapshot == snapshot &&
                         call(state.group, "getParent") === state.screen && LspConfig.isSettingsAppInfoCardEnabledXposed()) {
@@ -311,13 +355,25 @@ internal object SettingsAppInfoCardHooker {
     }
 
     private fun remove(card: Card) {
+        cards.remove(card)
         ++card.generation
-        card.rotateView?.get()?.animate()?.cancel()
-        card.panel?.dispose()
-        call(card.screen, "removePreference", card.group)
-        card.shifted.forEach { (item, order) ->
-            if (call(item, "getOrder") == order + 1) call(item, "setOrder", order)
+        var failure: Throwable? = null
+        fun cleanup(action: () -> Unit) {
+            runCatching(action).onFailure { if (failure == null) failure = it else failure?.addSuppressed(it) }
         }
+        cleanup { card.rotateView?.get()?.animate()?.cancel() }
+        cleanup { card.panel?.dispose() }
+        cleanup { call(card.header, "setTag", null) }
+        (listOf(card.header) + card.rows.values.map { it.preference }).forEach {
+            cleanup { call(it, "setCustomBindViewHolder", null) }
+            cleanup { call(it, "setOnPreferenceClickListener", null) }
+        }
+        card.rows.values.forEach { it.refresh = null }
+        cleanup { call(card.screen, "removePreference", card.group) }
+        card.shifted.forEach { (item, order) ->
+            cleanup { if (call(item, "getOrder") == order + 1) call(item, "setOrder", order) }
+        }
+        failure?.let { throw it }
     }
 
     private fun bindCallback(preference: Any, loader: ClassLoader, action: (Any) -> Unit) {

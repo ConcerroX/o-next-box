@@ -28,7 +28,9 @@ internal class FaceTapWakeHandoff {
     )
 
     private val main = Handler(Looper.getMainLooper())
-    private val decoder by lazy { Executors.newSingleThreadExecutor() }
+    private val decoderDelegate = lazy { Executors.newSingleThreadExecutor() }
+    private val decoder by decoderDelegate
+    @Volatile private var disposed = false
     private var pending: Capture? = null
     private var decoding: Capture? = null
     private var layer: ImageView? = null
@@ -42,9 +44,11 @@ internal class FaceTapWakeHandoff {
     private val cleanup = Runnable { cancelPlayback() }
     val running: Boolean get() = layer != null
     val awaiting: Boolean get() = pending != null || decoding != null
+    val busy: Boolean get() = awaiting || preparing.get() != null
 
     /** Warm small reveal assets outside the transition, never decode borrowed native bitmaps */
     fun prepare(source: Any) {
+        if (disposed) return
         runCatching {
             val native = Reflect.getObjectField(source, "fadeInAnimDrawable") as? AnimationDrawable ?: return
             if (prepared?.native?.get() === native || preparing.get() === native || native.numberOfFrames !in 1..90) return
@@ -55,8 +59,9 @@ internal class FaceTapWakeHandoff {
             preparing = WeakReference(native)
             decoder.execute {
                 val frames = runCatching { decode(context, ids) }.getOrNull()
+                if (disposed) return@execute
                 main.post {
-                    if (preparing.get() !== native) return@post
+                    if (disposed || preparing.get() !== native) return@post
                     preparing.clear()
                     if (frames != null) prepared = Prepared(WeakReference(native), ids, frames)
                 }
@@ -67,6 +72,7 @@ internal class FaceTapWakeHandoff {
     private fun decode(context: Context, ids: List<Int>): List<BitmapDrawable> {
         var bytes = 0L
         return ids.map { id ->
+            check(!disposed && !Thread.currentThread().isInterrupted) { "Fingerprint decoder retired" }
             val resources = context.resources
             val bitmap = resources.openRawResource(id).use { stream ->
                 requireNotNull(BitmapFactory.decodeResourceStream(resources, null, stream, null, BitmapFactory.Options()))
@@ -79,6 +85,7 @@ internal class FaceTapWakeHandoff {
 
     /** Called before native stop on its optical Looper, no native writes or method interception */
     fun capture(source: Any): Capture? = runCatching {
+        if (disposed) return@runCatching null
         val native = Reflect.getObjectField(source, "fadeInAnimDrawable") as? AnimationDrawable
             ?: return@runCatching null
         val icon = Reflect.getObjectField(source, "fpIcon") as? ImageView ?: return@runCatching null
@@ -104,6 +111,7 @@ internal class FaceTapWakeHandoff {
     }.getOrNull()
 
     fun offer(capture: Capture) {
+        if (disposed) return
         if (!running && decoding == null &&
             FaceTapWakeRules.position(capture.durations, SystemClock.uptimeMillis() - capture.capturedAt) != null) pending = capture
     }
@@ -115,6 +123,7 @@ internal class FaceTapWakeHandoff {
     }
 
     fun show(host: FrameLayout, bounds: Rect, source: Any, eligible: () -> Boolean, onEnd: () -> Unit) {
+        if (disposed) return
         expire()
         val capture = pending ?: return
         if (running || decoding != null || capture.source.get() !== source) return
@@ -132,7 +141,7 @@ internal class FaceTapWakeHandoff {
         val display: (Result<List<BitmapDrawable>>) -> Unit = { decoded ->
             runCatching {
                 // Generation includes sleep/cancel/new authentication, stale work is never shown
-                if (epoch != generation || decoding !== capture) return@runCatching
+                if (disposed || epoch != generation || decoding !== capture) return@runCatching
                 decoding = null
                 val frames = decoded.getOrNull() ?: return@runCatching
                 val position = FaceTapWakeRules.position(capture.durations, SystemClock.uptimeMillis() - capture.capturedAt)
@@ -175,7 +184,7 @@ internal class FaceTapWakeHandoff {
         if (cached != null) display(Result.success(cached))
         else decoder.execute {
             val decoded = runCatching { decode(capture.context, capture.resources) }
-            main.post { display(decoded) }
+            if (!disposed) main.post { if (!disposed) display(decoded) }
         }
     }
 
@@ -197,5 +206,14 @@ internal class FaceTapWakeHandoff {
     fun clear() {
         pending = null
         cancelPlayback()
+    }
+
+    fun dispose() {
+        disposed = true
+        clear()
+        prepared = null
+        preparing.clear()
+        main.removeCallbacksAndMessages(null)
+        if (decoderDelegate.isInitialized()) decoder.shutdownNow()
     }
 }

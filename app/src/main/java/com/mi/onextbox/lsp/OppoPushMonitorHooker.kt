@@ -13,6 +13,8 @@ import android.os.Process
 import androidx.core.content.ContextCompat
 import com.mi.onextbox.lsp.compat.ModernHookBridge
 import com.mi.onextbox.lsp.compat.ModernMethodHook
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
+import com.mi.onextbox.lsp.compat.ModernReflect
 import com.mi.onextbox.push.MCS_PACKAGE
 import com.mi.onextbox.push.PushMonitorCodec
 import com.mi.onextbox.push.PushMonitorProvider as Bridge
@@ -32,12 +34,30 @@ internal object OppoPushMonitorHooker {
     private val warned = AtomicBoolean()
     private val requestId = AtomicReference("")
     private val queuedPushes = linkedSetOf<String>()
-    private val worker = ScheduledThreadPoolExecutor(1) { runnable ->
+    private fun newWorker() = ScheduledThreadPoolExecutor(1) { runnable ->
         Thread(runnable, "ONextBox-McsMonitor").apply { isDaemon = true }
     }.apply { removeOnCancelPolicy = true }
+    private var worker = newWorker()
+    private var refreshReceiver: BroadcastReceiver? = null
     @Volatile private var appContext: Context? = null
 
     fun hook(loader: ClassLoader) {
+        HotReloadLifecycle.register("push:monitor", capture = { appContext }, canReload = {
+            worker.activeCount == 0 && !refreshPending.get() && !pushPending.get()
+        }, detach = {
+            refreshReceiver?.let { appContext?.unregisterReceiver(it) }
+            refreshReceiver = null
+            initialized.set(false)
+            worker.shutdownNow()
+            check(worker.awaitTermination(250, TimeUnit.MILLISECONDS)) { "Push monitor worker is busy" }
+            appContext = null
+        }, restore = { state -> (state as? Context)?.let(::initialize) })
+        HotReloadLifecycle.afterCommit {
+            val app = runCatching {
+                ModernReflect.callStaticMethod(Class.forName("android.app.ActivityThread"), "currentApplication") as? Application
+            }.getOrNull()
+            if (app?.packageName == MCS_PACKAGE) initialize(app)
+        }
         if (!installed.compareAndSet(false, true)) return
         runCatching {
             val method = Instrumentation::class.java.getDeclaredMethod("callApplicationOnCreate", Application::class.java)
@@ -69,11 +89,14 @@ internal object OppoPushMonitorHooker {
     }
 
     private fun initialize(context: Context) {
+        if (HotReloadLifecycle.isRetiring) return
         if (!initialized.compareAndSet(false, true)) return
+        if (worker.isShutdown) worker = newWorker()
         appContext = context.applicationContext
         runCatching {
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
+                    if (HotReloadLifecycle.isRetiring) return
                     if (intent.action != Bridge.ACTION) return
                     val id = intent.getStringExtra("requestId") ?: ""
                     if (id.length <= 64) refresh(id)
@@ -81,18 +104,25 @@ internal object OppoPushMonitorHooker {
             }
             val filter = IntentFilter(Bridge.ACTION)
             ContextCompat.registerReceiver(context, receiver, filter, Bridge.PERMISSION, null, ContextCompat.RECEIVER_EXPORTED)
+            refreshReceiver = receiver
             refresh("")
-        }.onFailure { warn() }
+        }.onFailure {
+            if (refreshReceiver == null) initialized.set(false)
+            warn()
+        }
     }
 
     private fun refresh(id: String) {
+        if (HotReloadLifecycle.isRetiring) return
         requestId.set(id)
         if (!refreshPending.compareAndSet(false, true)) return
         worker.execute {
+            if (HotReloadLifecycle.isRetiring) { refreshPending.set(false); return@execute }
             val currentRequest = requestId.get()
             try {
                 val ctx = appContext ?: return@execute
                 val (rows, complete) = readRegistrations(ctx)
+                if (HotReloadLifecycle.isRetiring) return@execute
                 val boundedRows = PushMonitorRules.boundedRows(rows)
                 ctx.contentResolver.call(Bridge.URI, "snapshot", null, Bundle().apply {
                     putString("rows", PushMonitorCodec.writeRows(boundedRows).toString())
@@ -145,12 +175,14 @@ internal object OppoPushMonitorHooker {
     }
 
     private fun queuePush(pkg: String) {
+        if (HotReloadLifecycle.isRetiring) return
         synchronized(queuedPushes) {
             if (queuedPushes.size < PushMonitorRules.MAX_APPS) queuedPushes.add(pkg)
         }
         if (!pushPending.compareAndSet(false, true)) return
         worker.schedule({
             try {
+                if (HotReloadLifecycle.isRetiring) return@schedule
                 val packages = synchronized(queuedPushes) { queuedPushes.toList().also { queuedPushes.clear() } }
                 val ctx = appContext ?: return@schedule
                 if (packages.isNotEmpty()) {

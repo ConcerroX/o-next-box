@@ -9,9 +9,9 @@ import com.mi.onextbox.lsp.LspConfig.TrafficFeature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernReflect
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import io.github.libxposed.api.XposedInterface
 import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.result.MethodData
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 
@@ -21,21 +21,26 @@ internal object TrafficManagementHooker {
     private const val MODEL = "com.oplus.trafficmonitor.model.NetworkControlDataModel"
 
     fun hook(loader: ClassLoader, apkPath: String) {
-        if (TrafficFeature.entries.none(::enabled)) return
+        val stateKey = "$TAG:targets@${System.identityHashCode(loader)}"
+        if (TrafficFeature.entries.none(::enabled) && HotReloadLifecycle.restoredState(stateKey) == null) return
         runCatching {
-            System.loadLibrary("dexkit")
-            DexKitBridge.create(apkPath).use { bridge ->
-                Installer(loader, bridge).install()
+            @Suppress("UNCHECKED_CAST")
+            val saved = HotReloadLifecycle.restoredState(stateKey) as? Map<String, Array<Method>>
+            val targets = saved ?: run {
+                System.loadLibrary("dexkit")
+                DexKitBridge.create(apkPath).use { TrafficManagementTargets(it).resolve(loader) }
             }
+            HotReloadLifecycle.register(stateKey, capture = { targets })
+            Installer(loader, targets).install()
         }.onFailure { HookLog.w(TAG, "TrafficMonitor scan unavailable", it) }
     }
 
     private fun enabled(feature: TrafficFeature) = LspConfig.isTrafficFeatureEnabledXposed(feature)
 
-    private class Installer(val loader: ClassLoader, val dex: DexKitBridge) {
+    private class Installer(val loader: ClassLoader, val targets: Map<String, Array<Method>>) {
         private val prefix = "$TAG@${System.identityHashCode(loader)}:"
 
-        private val targets = TrafficManagementTargets(dex)
+        private fun targets(key: String): List<Method> = requireNotNull(targets[key]) { "Missing target: $key" }.toList()
 
         private fun receiver(method: Method): Any? = if (Modifier.isStatic(method.modifiers)) null else {
             method.declaringClass.declaredFields.single {
@@ -44,7 +49,8 @@ internal object TrafficManagementHooker {
         }
 
         private fun feature(feature: TrafficFeature, block: () -> Unit) {
-            if (!enabled(feature)) return
+            // Install compatible gates once; the interceptor checks the current switch at invocation.
+            // Keeping disabled gates also preserves coverage when preferences change before an update.
             runCatching(block).onSuccess {
                 HookLog.i(TAG, "Installed ${feature.name}")
             }.onFailure {
@@ -56,24 +62,20 @@ internal object TrafficManagementHooker {
         private fun hook(feature: TrafficFeature, target: Method, body: (XposedInterface.Chain) -> Any?) {
             ModernHookRegistry.installFast("$prefix${feature.name}:${target.toGenericString()}", target,
                 XposedInterface.Hooker { chain -> if (enabled(feature)) body(chain) else chain.proceed() })
-        }
-
-        private fun hook(feature: TrafficFeature, target: MethodData, body: (XposedInterface.Chain) -> Any?) {
-            hook(feature, target.getMethodInstance(loader), body)
             // Recompile callers that may already contain an inlined stock check.
-            (target.callers + target.callers.flatMap { it.callers }).distinctBy { it.descriptor }.forEach {
-                runCatching { ModernHookRuntime.requireModule().deoptimize(it.getMethodInstance(loader)) }
+            targets["callers:${target.toGenericString()}"].orEmpty().forEach {
+                runCatching { ModernHookRuntime.requireModule().deoptimize(it) }
             }
         }
 
         fun install() {
             feature(TrafficFeature.GoogleNetworkControl) {
                 // This is evaluated lazily before the Google list and detail controls are filtered.
-                hook(TrafficFeature.GoogleNetworkControl, targets.google()) { false }
+                hook(TrafficFeature.GoogleNetworkControl, targets("google").single()) { false }
             }
             feature(TrafficFeature.OtaNetworkControl) {
                 // The same check also guards policy repair, not just the visible Wi-Fi switch.
-                targets.ota().forEach { hook(TrafficFeature.OtaNetworkControl, it) { false } }
+                targets("ota").forEach { hook(TrafficFeature.OtaNetworkControl, it) { false } }
             }
             feature(TrafficFeature.ShowPreinstalledApps) {
                 val classifier = ModernReflect.findClass("com.android.settings.datausage.DataUsageUtils", loader)
@@ -83,7 +85,7 @@ internal object TrafficManagementHooker {
                     val uid = chain.getArg(1) as Int
                     if (context != null && isManageable(context, uid)) true else chain.proceed()
                 }
-                val (filter, excludedUid) = targets.preinstalled()
+                val (filter, excludedUid) = targets("preinstalled")
                 hook(TrafficFeature.ShowPreinstalledApps, filter) { chain ->
                     val context = chain.getArg(0) as? Context
                     val packageName = chain.getArg(1) as? String
@@ -105,17 +107,17 @@ internal object TrafficManagementHooker {
             }
             feature(TrafficFeature.BlockCloudNetworkRules) {
                 // Stop both active downloads and the shared sink used by downloaded/pushed lists.
-                targets.cloud().forEach { hook(TrafficFeature.BlockCloudNetworkRules, it) { null } }
+                targets("cloud").forEach { hook(TrafficFeature.BlockCloudNetworkRules, it) { null } }
             }
             feature(TrafficFeature.ShowHiddenControls) {
-                targets.hidden().forEach { target ->
+                targets("hidden").forEach { target ->
                     hook(TrafficFeature.ShowHiddenControls, target) { emptyList<String>() }
                 }
             }
             feature(TrafficFeature.RoamingBackgroundMode) { installRoaming() }
             feature(TrafficFeature.RemoveDefaultLimit) {
                 // Only suppress the implicit 100 GiB fallback; never overwrite saved user limits.
-                hook(TrafficFeature.RemoveDefaultLimit, targets.limit()) { false }
+                hook(TrafficFeature.RemoveDefaultLimit, targets("limit").single()) { false }
             }
         }
 
@@ -124,10 +126,10 @@ internal object TrafficManagementHooker {
             // The native receiver and native policy writer require this OEM telephony API.
             val telephony = ModernReflect.findClass("android.telephony.OplusTelephonyManager", loader)
             require(telephony.getMethod("getRoamingReduction").returnType == Boolean::class.javaPrimitiveType)
-            val roaming = targets.roaming()
+            val roaming = targets("roaming")
             val (regionGate, uiGate, writeTarget, nativeRead, readWrapper) = roaming
             val writeWrapper = roaming[5]
-            val nativeWrite = writeTarget.getMethodInstance(loader).apply { isAccessible = true }
+            val nativeWrite = writeTarget.apply { isAccessible = true }
             val bindRow = ArrayAdapter::class.java.getDeclaredMethod(
                 "getView", Int::class.javaPrimitiveType, View::class.java, ViewGroup::class.java,
             )
@@ -154,7 +156,7 @@ internal object TrafficManagementHooker {
                     TrafficManagementRules.roamingMode(null, value and 1 != 0)
                 }
             }
-            val nativeReadMethod = nativeRead.getMethodInstance(loader).apply { isAccessible = true }
+            val nativeReadMethod = nativeRead.apply { isAccessible = true }
             hook(feature, readWrapper) { chain ->
                 nativeReadMethod.invoke(receiver(nativeReadMethod), chain.getArg(0), chain.getArg(1))
             }

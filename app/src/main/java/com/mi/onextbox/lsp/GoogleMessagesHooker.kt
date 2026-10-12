@@ -16,6 +16,7 @@ import android.widget.Toast
 import com.mi.onextbox.lsp.compat.ModernHookBridge
 import com.mi.onextbox.lsp.compat.ModernMethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -26,6 +27,7 @@ internal object GoogleMessagesHooker {
     private val hookedLoaders = ConcurrentHashMap.newKeySet<Int>()
     private val geminiLoaders = ConcurrentHashMap.newKeySet<Int>()
     private val copyReceivers = ConcurrentHashMap.newKeySet<Class<*>>()
+    private val appLoaders = ConcurrentHashMap.newKeySet<ClassLoader>()
     private val codeAfterCue = Regex(
         "(?:验证码|校验码|动态码|登录码|驗證碼|校驗碼|動態碼|登入碼|verification\\s*code|security\\s*code|passcode|otp|code)" +
             "[^0-9]{0,30}([0-9]{4,8})(?![0-9])",
@@ -38,6 +40,8 @@ internal object GoogleMessagesHooker {
     )
 
     fun hook(classLoader: ClassLoader) {
+        HotReloadLifecycle.registerReplay("messages:loaders", capture = { appLoaders.toTypedArray() },
+            replay = { state -> (state as? Array<*>)?.filterIsInstance<ClassLoader>()?.forEach(::installAppHooks) })
         if (!hookedLoaders.add(System.identityHashCode(classLoader))) return
         installCopyOtpHook()
         installAppHooks(classLoader)
@@ -54,6 +58,8 @@ internal object GoogleMessagesHooker {
 
     @Synchronized
     private fun installAppHooks(loader: ClassLoader) {
+        if (HotReloadLifecycle.isRetiring) return
+        appLoaders.add(loader)
         val loaderId = System.identityHashCode(loader)
         val receiver = ModernReflect.findClassIfExists(GoogleMessagesOtpAction.RECEIVER, loader)
         if (receiver != null && receiver !in copyReceivers) {

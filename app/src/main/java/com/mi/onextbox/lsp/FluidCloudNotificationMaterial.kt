@@ -11,6 +11,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.view.View
 import com.mi.onextbox.lsp.compat.ModernReflect as Reflect
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
@@ -26,6 +27,39 @@ internal class FluidCloudNotificationMaterial(
     private var revision = 0
 
     private class PanelState(var key: FluidCloudMaterialRules.StyleKey? = null, var mix: Any? = null)
+
+    fun captureReloadState(): Array<Any?> = arrayOf(
+        blurManager?.get(),
+        backgrounds.mapNotNull { (view, reference) -> reference.get()?.captureReloadState(view) }.toTypedArray(),
+    )
+
+    fun releaseAll() {
+        backgrounds.keys.toList().forEach(::release)
+        backgrounds.clear()
+        panels.clear()
+        blurManager = null
+    }
+
+    fun restoreReloadState(saved: Any?) {
+        val values = saved as? Array<*> ?: return
+        values.getOrNull(0)?.let(::observeManager)
+        if (!LspConfig.isFluidCloudMaterialEnabledXposed()) return
+        (values.getOrNull(1) as? Array<*>)?.forEach { item ->
+            val state = item as? Array<*> ?: return@forEach
+            val view = state.getOrNull(0) as? View ?: return@forEach
+            val fallback = state.getOrNull(1) as? Drawable
+            val radius = state.getOrNull(2) as? Float ?: return@forEach
+            val weight = state.getOrNull(3) as? Float ?: return@forEach
+            val alpha = state.getOrNull(4) as? Int ?: return@forEach
+            // A native callback may have replaced the view while this generation was staged.
+            if (state.getOrNull(5) != true || view.background !== fallback) return@forEach
+            background(view, radius, weight, fallback)?.let { replacement ->
+                replacement.alpha = alpha
+                view.background = replacement
+                view.invalidate()
+            }
+        }
+    }
 
     fun invalidateStyle() {
         revision++
@@ -114,6 +148,7 @@ internal class FluidCloudNotificationMaterial(
         backgrounds.remove(view)?.get()?.let {
             view.removeOnAttachStateChangeListener(it)
             it.onViewDetachedFromWindow(view)
+            it.release(view)
         }
     }
 
@@ -350,6 +385,15 @@ internal class FluidCloudNotificationMaterial(
 
         init { delegate.callback = this }
 
+        fun captureReloadState(view: View): Array<Any?> =
+            arrayOf(view, fallback, radius, weight, currentAlpha, view.background === this)
+
+        fun release(view: View) {
+            delegate.callback = null
+            if (view.background === this) view.background = fallback
+            callback = null
+        }
+
         fun update(radius: Float, weight: Float) {
             this.radius = radius
             this.weight = weight
@@ -370,7 +414,7 @@ internal class FluidCloudNotificationMaterial(
         }
 
         override fun draw(canvas: Canvas) {
-            if (!LspConfig.isFluidCloudMaterialEnabledXposed() || blurDisabled()) {
+            if (HotReloadLifecycle.isRetiring || !LspConfig.isFluidCloudMaterialEnabledXposed() || blurDisabled()) {
                 runCatching { Reflect.callMethod(proxy, "setBlurEnabled", false) }
                 fallback?.draw(canvas)
                 return

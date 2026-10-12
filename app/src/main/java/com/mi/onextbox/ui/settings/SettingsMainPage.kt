@@ -106,6 +106,7 @@ import androidx.core.net.toUri
 import androidx.core.content.ContextCompat
 import com.mi.onextbox.BuildConfig
 import com.mi.onextbox.R
+import com.mi.onextbox.lsp.ModuleHotReloadSettings
 import com.mi.onextbox.ui.common.AppIcons
 import com.mi.onextbox.ui.common.AppThemeMode
 import com.mi.onextbox.ui.common.AppUiStyle
@@ -114,6 +115,7 @@ import com.mi.onextbox.ui.common.ConfigBackup
 import com.mi.onextbox.ui.common.ColorOsTopBarButton
 import com.mi.onextbox.ui.common.ColorOsPopup
 import com.mi.onextbox.ui.common.CouiConfirmDialog
+import com.mi.onextbox.ui.common.ColorOs17ConfirmDialog
 import com.mi.onextbox.ui.common.ONextBoxLogo
 import com.mi.onextbox.ui.common.ONextBoxLogoFontFamily
 import com.mi.onextbox.ui.common.isMonet
@@ -301,6 +303,7 @@ suspend fun prefetchAboutAuthorAvatars(context: Context) {
 fun AboutMainPage(
     onOpenAppSettings: () -> Unit,
     onOpenSoftwareUpdate: () -> Unit,
+    onOpenLogs: () -> Unit,
     onOpenContributors: () -> Unit,
     onOpenReferences: () -> Unit,
 ) {
@@ -319,6 +322,15 @@ fun AboutMainPage(
             showArrow = true,
             hasDividerBelow = true,
             onClick = onOpenSoftwareUpdate,
+        )
+        SettingsDivider()
+        SettingsCardRow(
+            title = stringResource(R.string.about_logs_title),
+            summary = "",
+            showArrow = true,
+            hasDividerAbove = true,
+            hasDividerBelow = true,
+            onClick = onOpenLogs,
         )
         SettingsDivider()
         SettingsCardRow(
@@ -553,7 +565,7 @@ private fun AboutDetailText(
 
 @Composable
 private fun BuildTypeBadge() {
-    val isDebug = BuildConfig.DEBUG
+    val isDebug = AppUpdatePreferences.currentBuildType == UpdateBuildType.Debug
     val badgeText = if (isDebug) "Debug" else "Release"
     val badgeColor = if (isDebug) {
         Color(0xFFFFC928)
@@ -591,15 +603,14 @@ data class SoftwareUpdateUiState(
     val updateDownloaded: Boolean,
     val automaticSilentUpdate: Boolean,
     val updateNotificationsEnabled: Boolean,
-    val selectedChannel: UpdateChannel,
-    val selectedBuildType: UpdateBuildType,
+    val buildType: UpdateBuildType,
+    val betaPlanEnabled: Boolean,
     val statusText: String,
     val onCheckUpdates: () -> Unit,
     val onDownloadUpdate: () -> Unit,
     val onAutomaticSilentUpdateChange: (Boolean) -> Unit,
     val onUpdateNotificationsEnabledChange: (Boolean) -> Unit,
-    val onUpdateChannelChange: (UpdateChannel) -> Unit,
-    val onUpdateBuildTypeChange: (UpdateBuildType) -> Unit,
+    val onBetaPlanEnabledChange: (Boolean) -> Unit,
 )
 
 @Composable
@@ -614,16 +625,14 @@ fun rememberSoftwareUpdateUiState(
     var downloadProgress by remember { mutableStateOf<Float?>(null) }
     var downloadedApk by remember { mutableStateOf<File?>(null) }
     var automaticSilentUpdate by remember {
-        mutableStateOf(UpdateChannelPreference.getAutomaticSilentUpdate(context))
+        mutableStateOf(AppUpdatePreferences.getAutomaticSilentUpdate(context))
     }
     var updateNotificationsEnabled by remember {
-        mutableStateOf(UpdateChannelPreference.getUpdateNotificationsEnabled(context))
+        mutableStateOf(AppUpdatePreferences.getUpdateNotificationsEnabled(context))
     }
-    var selectedChannel by remember {
-        mutableStateOf(UpdateChannelPreference.get(context))
-    }
-    var selectedBuildType by remember {
-        mutableStateOf(UpdateChannelPreference.getBuildType(context))
+    val buildType = AppUpdatePreferences.currentBuildType
+    var betaPlanEnabled by remember {
+        mutableStateOf(AppUpdatePreferences.getBetaPlanEnabled(context))
     }
     var statusText by remember { mutableStateOf<String?>(null) }
     val checkingText = stringResource(R.string.update_checking)
@@ -642,7 +651,7 @@ fun rememberSoftwareUpdateUiState(
                 statusText = checkingText
                 delay(SOFTWARE_UPDATE_CHECK_DELAY_MS)
                 runCatching {
-                    AppUpdater.checkForUpdate(selectedChannel, selectedBuildType)
+                    AppUpdater.checkForUpdate(betaPlanEnabled)
                 }.fold(
                     onSuccess = { update ->
                         availableUpdate = update
@@ -721,14 +730,14 @@ fun rememberSoftwareUpdateUiState(
         updateDownloaded = downloadedApk?.isFile == true,
         automaticSilentUpdate = automaticSilentUpdate,
         updateNotificationsEnabled = updateNotificationsEnabled,
-        selectedChannel = selectedChannel,
-        selectedBuildType = selectedBuildType,
+        buildType = buildType,
+        betaPlanEnabled = betaPlanEnabled,
         statusText = statusText ?: noUpdateText,
         onCheckUpdates = checkUpdates,
         onDownloadUpdate = downloadUpdate,
         onAutomaticSilentUpdateChange = { enabled ->
             automaticSilentUpdate = enabled
-            UpdateChannelPreference.setAutomaticSilentUpdate(context, enabled)
+            AppUpdatePreferences.setAutomaticSilentUpdate(context, enabled)
             OnboardingPreferences.setBackgroundNetworkAllowed(
                 context,
                 enabled || updateNotificationsEnabled,
@@ -736,28 +745,22 @@ fun rememberSoftwareUpdateUiState(
         },
         onUpdateNotificationsEnabledChange = { enabled ->
             updateNotificationsEnabled = enabled
-            UpdateChannelPreference.setUpdateNotificationsEnabled(context, enabled)
+            AppUpdatePreferences.setUpdateNotificationsEnabled(context, enabled)
             OnboardingPreferences.setBackgroundNetworkAllowed(
                 context,
                 enabled || automaticSilentUpdate,
             )
             UpdateNotificationScheduler.configure(context, enabled)
         },
-        onUpdateChannelChange = { channel ->
-            selectedChannel = channel
+        onBetaPlanEnabledChange = { enabled ->
+            if (checkingUpdates || downloadingUpdate) return@SoftwareUpdateUiState
+            betaPlanEnabled = enabled
             availableUpdate = null
             downloadedApk = null
             downloadProgress = null
             statusText = null
-            UpdateChannelPreference.set(context, channel)
-        },
-        onUpdateBuildTypeChange = { buildType ->
-            selectedBuildType = buildType
-            availableUpdate = null
-            downloadedApk = null
-            downloadProgress = null
-            statusText = null
-            UpdateChannelPreference.setBuildType(context, buildType)
+            AppUpdatePreferences.setBetaPlanEnabled(context, enabled)
+            UpdateNotificationScheduler.cancelAvailableUpdateNotification(context)
         },
     )
 }
@@ -1116,10 +1119,10 @@ fun SoftwareUpdateReleaseNotesPage(state: SoftwareUpdateUiState) {
     val remoteRelease by produceState<AvailableUpdate?>(
         initialValue = availableUpdate,
         key1 = availableUpdate,
-        key2 = versionName to state.selectedBuildType,
+        key2 = versionName to state.betaPlanEnabled,
     ) {
         value = availableUpdate ?: runCatching {
-            AppUpdater.findRelease(versionName, state.selectedBuildType)
+            AppUpdater.findRelease(versionName, state.betaPlanEnabled || AppUpdateRules.isBetaVersion(versionName))
         }.getOrNull()
     }
     val releaseNotesText = remoteRelease?.releaseNotes
@@ -1456,6 +1459,8 @@ fun SoftwareUpdateAutoSettingsPage(
     state: SoftwareUpdateUiState,
 ) {
     val context = LocalContext.current
+    var showBetaConfirmation by rememberSaveable { mutableStateOf(false) }
+    val settingsEditable = !state.checkingUpdates && !state.downloadingUpdate
     var notificationPermissionGranted by remember {
         mutableStateOf(
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
@@ -1507,23 +1512,45 @@ fun SoftwareUpdateAutoSettingsPage(
         }
         SettingsDivider()
         Material3ExpressiveSegmentPosition(index = 2, count = 4) {
-            SettingsUpdateChannelDropdown(
-                title = stringResource(R.string.about_update_channel_title),
+            SettingsCardRow(
+                title = stringResource(R.string.update_build_type_title),
+                summary = stringResource(if (state.buildType == UpdateBuildType.Debug)
+                    R.string.update_build_type_debug else R.string.update_build_type_release),
                 hasDividerAbove = true,
                 hasDividerBelow = true,
-                selectedChannel = state.selectedChannel,
-                onChannelChange = state.onUpdateChannelChange,
             )
         }
         SettingsDivider()
         Material3ExpressiveSegmentPosition(index = 3, count = 4) {
-            SettingsUpdateBuildTypeDropdown(
-                title = stringResource(R.string.update_build_type_title),
-                selectedBuildType = state.selectedBuildType,
-                onBuildTypeChange = state.onUpdateBuildTypeChange,
+            SettingsToggleRow(
+                title = stringResource(R.string.update_beta_plan_title),
+                summary = stringResource(R.string.update_beta_plan_summary),
+                checked = state.betaPlanEnabled,
+                enabled = settingsEditable,
+                hasDividerAbove = true,
+                onCheckedChange = { enabled ->
+                    if (enabled) showBetaConfirmation = true else state.onBetaPlanEnabledChange(false)
+                },
             )
         }
     }
+    ColorOs17ConfirmDialog(
+        show = showBetaConfirmation,
+        title = stringResource(R.string.update_beta_join_title),
+        summary = stringResource(R.string.update_beta_join_summary),
+        negativeText = stringResource(R.string.update_beta_join_cancel),
+        positiveText = stringResource(R.string.update_beta_join_confirm),
+        onDismissRequest = { showBetaConfirmation = false },
+        onNegative = { showBetaConfirmation = false },
+        onPositive = {
+            if (settingsEditable) {
+                state.onBetaPlanEnabledChange(true)
+                showBetaConfirmation = false
+            }
+        },
+        onDismissFinished = null,
+        content = null,
+    )
 }
 
 @Composable
@@ -2390,6 +2417,8 @@ fun AppSettingsPage(
     }
     }
 
+    ModuleHotReloadSettingsGroup()
+
     SettingsSection(title = stringResource(R.string.section_restore_backup))
     SettingsGroup {
         SettingsCardRow(
@@ -2426,6 +2455,43 @@ fun AppSettingsPage(
             summary = "",
             showArrow = true,
             onClick = onOpenDeveloperOptions,
+        )
+    }
+}
+
+@Composable
+private fun ModuleHotReloadSettingsGroup() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val saveFailedText = stringResource(R.string.setting_module_hot_reload_save_failed)
+    var enabled by remember(context) { mutableStateOf(ModuleHotReloadSettings.isEnabled(context)) }
+    var saving by remember { mutableStateOf(false) }
+
+    SettingsSection(title = stringResource(R.string.settings_section_module_hot_reload))
+    SettingsGroup {
+        SettingsToggleRow(
+            title = stringResource(R.string.setting_module_hot_reload),
+            summary = stringResource(R.string.setting_module_hot_reload_summary),
+            checked = enabled,
+            enabled = !saving,
+            onCheckedChange = { selected ->
+                if (!saving) {
+                    saving = true
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                ModuleHotReloadSettings.setEnabled(context, selected)
+                            }
+                            enabled = selected
+                        } catch (error: Throwable) {
+                            if (error is CancellationException) throw error
+                            Toast.makeText(context, saveFailedText, Toast.LENGTH_LONG).show()
+                        } finally {
+                            saving = false
+                        }
+                    }
+                }
+            },
         )
     }
 }

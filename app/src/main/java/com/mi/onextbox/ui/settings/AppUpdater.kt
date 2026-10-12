@@ -27,8 +27,6 @@ import java.util.zip.ZipInputStream
 object AppUpdater {
     const val INSTALL_PERMISSION_REQUIRED = "Install permission required"
 
-    private const val REPO = "MiToverG422/ONextBox"
-    private const val API_BASE = "https://api.github.com/repos/$REPO"
     private const val USER_AGENT = "ONextBox/${BuildConfig.VERSION_NAME}"
     private const val RUNTIME_PREFS = "onextbox_updater_runtime"
     private const val KEY_PENDING_APK_PATH = "pending_apk_path"
@@ -39,16 +37,16 @@ object AppUpdater {
 
     suspend fun checkAndInstall(
         context: Context,
-        channel: UpdateChannel,
-        buildType: UpdateBuildType = UpdateBuildType.Release,
+        includeBeta: Boolean = AppUpdatePreferences.getBetaPlanEnabled(context),
         installMode: UpdateInstallMode = UpdateInstallMode.Interactive,
     ): UpdateResult {
-        val update = runCatching { checkForUpdate(channel, buildType) }
+        val update = runCatching { checkForUpdate(includeBeta) }
             .getOrElse { error ->
                 if (error is CancellationException) throw error
                 return UpdateResult.Failed(error.message ?: error::class.java.simpleName)
             }
             ?: return UpdateResult.NoUpdate
+        if (update.isBeta && !AppUpdatePreferences.getBetaPlanEnabled(context)) return UpdateResult.NoUpdate
         return downloadAndInstall(
             context = context,
             update = update,
@@ -57,32 +55,33 @@ object AppUpdater {
     }
 
     suspend fun checkForUpdate(
-        channel: UpdateChannel,
-        buildType: UpdateBuildType = UpdateBuildType.Release,
+        includeBeta: Boolean = false,
     ): AvailableUpdate? =
         withContext(Dispatchers.IO) {
-            val update = when (channel) {
-                UpdateChannel.GitHubReleases -> findLatestRelease(buildType)
-                UpdateChannel.GitHubCi -> findLatestCiArtifact(buildType)
-            } ?: return@withContext null
+            val buildType = AppUpdatePreferences.currentBuildType
+            val update = findLatestRelease(buildType, includeBeta) ?: return@withContext null
             update.takeIf(::isNewerUpdate)
         }
 
     suspend fun findRelease(
         versionName: String,
-        buildType: UpdateBuildType = UpdateBuildType.Release,
+        includeBeta: Boolean = AppUpdateRules.isBetaVersion(versionName),
     ): AvailableUpdate? =
         withContext(Dispatchers.IO) {
             val normalizedVersion = versionName.removeVersionPrefix()
-            sequenceOf(
+            val tags = listOf(
                 "V$normalizedVersion",
                 "v$normalizedVersion",
                 normalizedVersion,
-            )
-                .distinct()
+            ).distinct()
+            tags.asSequence()
                 .firstNotNullOfOrNull { tagName ->
                     runCatching {
-                        findLatestReleaseAsset("$API_BASE/releases/tags/$tagName", buildType)
+                        findLatestReleaseAsset(
+                            "https://api.github.com/repos/${AppUpdateRules.repository(includeBeta)}/releases/tags/$tagName",
+                            AppUpdatePreferences.currentBuildType,
+                            includeBeta,
+                        )
                     }.getOrNull()
                 }
         }
@@ -131,6 +130,7 @@ object AppUpdater {
         apkFile: File,
         installMode: UpdateInstallMode = UpdateInstallMode.Interactive,
     ): UpdateResult {
+        if (update.isBeta && !AppUpdatePreferences.getBetaPlanEnabled(context)) return UpdateResult.NoUpdate
         markPendingInstallation(context, update, apkFile)
         return runCatching {
             when (installMode) {
@@ -209,42 +209,64 @@ object AppUpdater {
     suspend fun runAutomaticSilentUpdate(context: Context): UpdateResult? {
         val appContext = context.applicationContext
         if (!ActivationGate.mayRunBackgroundNetwork(appContext)) return null
-        if (!UpdateChannelPreference.getAutomaticSilentUpdate(appContext)) return null
-        if (!UpdateChannelPreference.shouldRunAutomaticSilentUpdate(appContext)) return null
-        UpdateChannelPreference.markAutomaticSilentUpdateChecked(appContext)
+        if (!AppUpdatePreferences.getAutomaticSilentUpdate(appContext)) return null
+        if (!AppUpdatePreferences.shouldRunAutomaticSilentUpdate(appContext)) return null
+        AppUpdatePreferences.markAutomaticSilentUpdateChecked(appContext)
         AppLogStore.i("Updater", "Automatic silent update check started")
         return checkAndInstall(
             context = appContext,
-            channel = UpdateChannelPreference.get(appContext),
-            buildType = UpdateChannelPreference.getBuildType(appContext),
+            includeBeta = AppUpdatePreferences.getBetaPlanEnabled(appContext),
             installMode = UpdateInstallMode.Silent,
         ).also { result ->
             AppLogStore.i("Updater", "Automatic silent update result: $result")
         }
     }
 
-    private fun findLatestRelease(buildType: UpdateBuildType): AvailableUpdate? {
-        return findLatestReleaseAsset("$API_BASE/releases/latest", buildType)
+    private val compareByUpdateVersion = Comparator<AvailableUpdate> { first, second ->
+        AppUpdateRules.compareVersions(first.versionName, second.versionName)
     }
 
-    private fun findLatestCiRelease(buildType: UpdateBuildType): AvailableUpdate? {
-        return runCatching {
-            findLatestReleaseAsset("$API_BASE/releases/tags/ci-latest", buildType)
-        }.getOrNull()
+    private fun findLatestRelease(buildType: UpdateBuildType, includeBeta: Boolean): AvailableUpdate? {
+        val apiBase = "https://api.github.com/repos/${AppUpdateRules.repository(includeBeta)}"
+        val candidates = mutableListOf<AvailableUpdate>()
+        for (page in 1..3) {
+            val releases = JSONArray(getText("$apiBase/releases?per_page=100&page=$page"))
+            for (index in 0 until releases.length()) {
+                val release = releases.optJSONObject(index) ?: continue
+                val update = releaseUpdate(release, buildType, includeBeta) ?: continue
+                if (!AppUpdateRules.acceptsRelease(
+                        release.optString("tag_name"),
+                        release.optBoolean("draft"),
+                        release.optBoolean("prerelease"),
+                        includeBeta,
+                        release.optString("name"),
+                        update.fileName,
+                    )) continue
+                candidates.add(update)
+            }
+            if (releases.length() < 100) break
+        }
+        return candidates.maxWithOrNull(compareByUpdateVersion)
     }
 
     private fun findLatestReleaseAsset(
         url: String,
         buildType: UpdateBuildType,
+        fromBetaRepository: Boolean = false,
     ): AvailableUpdate? {
-        val json = JSONObject(getText(url))
+        return releaseUpdate(JSONObject(getText(url)), buildType, fromBetaRepository)
+    }
+
+    private fun releaseUpdate(json: JSONObject, buildType: UpdateBuildType, fromBetaRepository: Boolean = false): AvailableUpdate? {
+        if (json.optBoolean("draft")) return null
         val assets = json.optJSONArray("assets") ?: JSONArray()
         val asset = firstApkAsset(assets, buildType) ?: return null
         val assetName = asset.optString("name", "")
-        val versionName = extractReleaseVersionName(
-            tagName = json.optString("tag_name"),
+        val versionName = AppUpdateRules.releaseVersionName(
+            tag = json.optString("tag_name"),
             releaseName = json.optString("name"),
             assetName = assetName,
+            requireBeta = fromBetaRepository,
         ) ?: return null
         return AvailableUpdate(
             versionName = versionName,
@@ -255,51 +277,10 @@ object AppUpdater {
             fileSizeBytes = asset.optLong("size").takeIf { it > 0L },
             releaseNotes = normalizeReleaseNotes(json.optString("body")),
             isArtifactZip = false,
+            isBeta = fromBetaRepository ||
+                (json.optBoolean("prerelease") && !json.optString("tag_name").equals("ci-latest", ignoreCase = true)) ||
+                AppUpdateRules.isBetaVersion(versionName),
         )
-    }
-
-    private fun findLatestCiArtifact(buildType: UpdateBuildType): AvailableUpdate? {
-        findLatestCiRelease(buildType)?.let { return it }
-        val runsJson = getLatestCiRunsJson()
-        val runs = runsJson.optJSONArray("workflow_runs") ?: return null
-        for (runIndex in 0 until runs.length()) {
-            val run = runs.optJSONObject(runIndex) ?: continue
-            val artifactsUrl = run.optString("artifacts_url").takeIf { it.isNotBlank() } ?: continue
-            val artifactsJson = JSONObject(getText(artifactsUrl))
-            val artifacts = artifactsJson.optJSONArray("artifacts") ?: continue
-            val artifact = firstUsableArtifact(artifacts) ?: continue
-            val artifactName = artifact.optString("name")
-            val versionName = artifactName.removePrefix("onextbox-").ifBlank {
-                run.optString("head_sha").takeIf { it.length >= 8 }
-                    ?.let { "17.0-CI-${it.take(8)}" }
-                    .orEmpty()
-            }
-            if (versionName.isBlank()) continue
-            if (isNewerVersion(versionName, BuildConfig.VERSION_NAME)) {
-                error("CI APK is not published to ci-latest release yet")
-            }
-            return null
-        }
-        return null
-    }
-
-    private fun getLatestCiRunsJson(): JSONObject {
-        val requests = listOf(
-            "$API_BASE/actions/runs?branch=main&status=success&per_page=10",
-            "$API_BASE/actions/runs?branch=master&status=success&per_page=10",
-            "$API_BASE/actions/runs?status=success&per_page=10",
-        )
-        var lastError: Throwable? = null
-        for (request in requests) {
-            val result = runCatching { JSONObject(getText(request)) }
-            val json = result.getOrNull()
-            if (json?.optJSONArray("workflow_runs")?.length()?.let { it > 0 } == true) {
-                return json
-            }
-            lastError = result.exceptionOrNull()
-        }
-        lastError?.let { throw it }
-        return JSONObject("""{"workflow_runs":[]}""")
     }
 
     private fun firstApkAsset(
@@ -308,58 +289,11 @@ object AppUpdater {
     ): JSONObject? {
         for (index in 0 until assets.length()) {
             val asset = assets.optJSONObject(index) ?: continue
-            val name = asset.optString("name").lowercase(Locale.ROOT)
-            val matchesBuildType = when (buildType) {
-                UpdateBuildType.Release -> name.endsWith(".apk") && !name.contains("debug")
-                UpdateBuildType.Debug -> name.endsWith(".apk") && name.contains("debug")
-            }
-            if (matchesBuildType) {
+            if (AppUpdateRules.matchesApk(asset.optString("name"), buildType)) {
                 return asset
             }
         }
         return null
-    }
-
-    private fun firstUsableArtifact(artifacts: JSONArray): JSONObject? {
-        for (index in 0 until artifacts.length()) {
-            val artifact = artifacts.optJSONObject(index) ?: continue
-            val name = artifact.optString("name").lowercase(Locale.ROOT)
-            if (
-                name.startsWith("onextbox-") &&
-                artifact.optBoolean("expired").not() &&
-                artifact.optString("archive_download_url").isNotBlank()
-            ) {
-                return artifact
-            }
-        }
-        return null
-    }
-
-    private fun extractReleaseVersionName(
-        tagName: String,
-        releaseName: String,
-        assetName: String,
-    ): String? {
-        val candidates = listOf(
-            tagName.removeVersionPrefix(),
-            releaseName
-                .removePrefix("ONextBox CI Latest ")
-                .removePrefix("ONextBox ")
-                .removeVersionPrefix(),
-            assetName
-                .removePrefix("onextbox-")
-                .removeSuffix(".apk")
-                .removeSuffix("-release")
-                .removeSuffix("-debug")
-                .removeVersionPrefix(),
-        )
-        return candidates
-            .map { it.trim() }
-            .firstOrNull { candidate -> candidate.isComparableVersionName() }
-            ?: candidates
-                .asSequence()
-                .mapNotNull { candidate -> VERSION_NAME_REGEX.find(candidate)?.value }
-                .firstOrNull()
     }
 
     private suspend fun downloadApk(
@@ -641,35 +575,13 @@ object AppUpdater {
     }
 
     private fun isNewerUpdate(update: AvailableUpdate): Boolean {
+        if (update.isBeta) return AppUpdateRules.isNewerBetaVersion(update.versionName, BuildConfig.VERSION_NAME)
         if (isNewerVersion(update.versionName, BuildConfig.VERSION_NAME)) return true
         return update.versionCode?.let { it > BuildConfig.VERSION_CODE.toLong() } == true
     }
 
     private fun isNewerVersion(remote: String, current: String): Boolean {
-        if (remote.isBlank()) return false
-        if (remote == current) return false
-        val remoteVersion = ParsedVersion.parse(remote) ?: return false
-        val currentVersion = ParsedVersion.parse(current) ?: return true
-        val remoteParts = remoteVersion.parts
-        val currentParts = currentVersion.parts
-        for (index in 0 until maxOf(remoteParts.size, currentParts.size)) {
-            val remotePart = remoteParts.getOrElse(index) { 0 }
-            val currentPart = currentParts.getOrElse(index) { 0 }
-            if (remotePart != currentPart) return remotePart > currentPart
-        }
-        for (index in 0 until maxOf(remoteVersion.qualifierParts.size, currentVersion.qualifierParts.size)) {
-            val remotePart = remoteVersion.qualifierParts.getOrElse(index) { 0 }
-            val currentPart = currentVersion.qualifierParts.getOrElse(index) { 0 }
-            if (remotePart != currentPart) return remotePart > currentPart
-        }
-        if (remoteVersion.qualifierRank != currentVersion.qualifierRank) {
-            return remoteVersion.qualifierRank > currentVersion.qualifierRank
-        }
-        return remoteVersion.qualifierText != currentVersion.qualifierText
-    }
-
-    private fun String.isComparableVersionName(): Boolean {
-        return matches(VERSION_NAME_REGEX)
+        return AppUpdateRules.isNewerVersion(remote, current)
     }
 
     private fun String.removeVersionPrefix(): String {
@@ -704,51 +616,6 @@ object AppUpdater {
     }
 }
 
-private val VERSION_NAME_REGEX =
-    Regex("""\d+(?:\.\d+)+(?:-(?:BETA(?:\d+(?:\.\d+)*)?|CI-[A-Za-z0-9]+))?""", RegexOption.IGNORE_CASE)
-
-private data class ParsedVersion(
-    val parts: List<Int>,
-    val qualifierRank: Int,
-    val qualifierParts: List<Int>,
-    val qualifierText: String,
-) {
-    companion object {
-        fun parse(version: String): ParsedVersion? {
-            val normalized = version.trim().replaceFirst(Regex("^v", RegexOption.IGNORE_CASE), "")
-            val match = VERSION_NAME_REGEX.find(normalized) ?: return null
-            val comparable = match.value
-            val base = comparable.substringBefore("-")
-            val qualifier = comparable.substringAfter("-", missingDelimiterValue = "")
-            val parts = base.split('.').mapNotNull { it.toIntOrNull() }
-            if (parts.isEmpty()) return null
-            val upperQualifier = qualifier.uppercase(Locale.ROOT)
-            val qualifierRank = when {
-                upperQualifier.startsWith("CI-") -> 1
-                upperQualifier.startsWith("BETA") -> 2
-                upperQualifier.isBlank() -> 3
-                else -> 0
-            }
-            val qualifierParts = when {
-                upperQualifier.startsWith("BETA") ->
-                    upperQualifier
-                        .removePrefix("BETA")
-                        .takeIf { it.isNotBlank() }
-                        ?.split('.')
-                        ?.mapNotNull { it.toIntOrNull() }
-                        .orEmpty()
-                else -> emptyList()
-            }
-            return ParsedVersion(
-                parts = parts,
-                qualifierRank = qualifierRank,
-                qualifierParts = qualifierParts,
-                qualifierText = upperQualifier,
-            )
-        }
-    }
-}
-
 enum class UpdateInstallMode {
     Interactive,
     Silent,
@@ -769,6 +636,7 @@ data class AvailableUpdate(
     val fileSizeBytes: Long? = null,
     val releaseNotes: String? = null,
     val isArtifactZip: Boolean = false,
+    val isBeta: Boolean = false,
 )
 
 data class DownloadProgress(

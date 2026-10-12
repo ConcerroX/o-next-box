@@ -7,6 +7,7 @@ import com.mi.onextbox.lsp.LspConfig.BatteryFeature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernReflect
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import io.github.libxposed.api.XposedInterface
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Method
@@ -18,11 +19,14 @@ internal object BatteryOptimizationHooker {
     fun hookBattery(loader: ClassLoader, apkPath: String) {
         // The plugin can initialize during Application.onCreate, so resolve before that point.
         // Scanning is unnecessary while disabled; loading a plugin already resident is not reversible.
-        if (!LspConfig.isBatteryFeatureEnabledXposed(BatteryFeature.RemoveRestrictPlugin)) return
         val key = "$TAG:App@${System.identityHashCode(loader)}:"
+        val stateKey = key + "resolved-targets"
+        val saved = (HotReloadLifecycle.restoredState(stateKey) as? Array<*>)?.filterIsInstance<Method>()
+        if (!LspConfig.isBatteryFeatureEnabledXposed(BatteryFeature.RemoveRestrictPlugin) && saved == null) return
         runCatching {
-            System.loadLibrary("dexkit")
-            val targets = DexKitBridge.create(apkPath).use { bridge ->
+            val targets = saved ?: run {
+                System.loadLibrary("dexkit")
+                DexKitBridge.create(apkPath).use { bridge ->
                 val supporters = bridge.findClass {
                     matcher {
                         addFieldForType(Context::class.java)
@@ -55,11 +59,13 @@ internal object BatteryOptimizationHooker {
                         }
                     }
                     method
-                }.distinct()
+                    }.distinct()
+                }
             }
             require(targets.isNotEmpty() && targets.map { it.declaringClass }.distinct().size == 1) {
                 "Restrict plugin loader missing or ambiguous"
             }
+            HotReloadLifecycle.register(stateKey, capture = { targets.toTypedArray() })
             targets.forEach { target ->
                 ModernHookRegistry.installFast("$key${target.toGenericString()}", target, XposedInterface.Hooker { chain ->
                     if (LspConfig.isBatteryFeatureEnabledXposed(BatteryFeature.RemoveRestrictPlugin)) {

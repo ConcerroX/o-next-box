@@ -22,6 +22,7 @@ import androidx.core.view.WindowInsetsCompat
 import com.mi.onextbox.lsp.LauncherCategoryPageRules.Direction
 import com.mi.onextbox.lsp.LspConfig.LauncherFeature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernReflect
 import io.github.libxposed.api.XposedInterface
@@ -31,16 +32,24 @@ import java.util.WeakHashMap
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 
 // Native app category entry beyond the rightmost home page.
 internal object LauncherCategoryPageHooker {
     private const val TAG = "LauncherCategoryPage"
+    private val pendingPaletteJobs = AtomicInteger()
 
     fun hook(loader: ClassLoader) {
         runCatching {
             val api = NativeApi(loader)
             val sessions = ConcurrentHashMap<Activity, Session>()
+            HotReloadLifecycle.register("launcher:category-page",
+                canReload = { pendingPaletteJobs.get() == 0 && sessions.values.all { it.canReload } },
+                detach = {
+                    sessions.values.toList().forEach { it.dispose() }
+                    sessions.clear()
+                })
             fun isPanelView(view: Any?): Boolean = view is View && sessions.values.any { it.isPanelView(view) }
             fun isActivePanelView(view: Any?): Boolean = view is View && sessions.values.any { it.hasActivePanel && it.isPanelView(view) }
             val unavailable = WeakHashMap<Activity, Boolean>()
@@ -614,11 +623,20 @@ internal object LauncherCategoryPageHooker {
             val palette = ModernReflect.findClass("com.android.launcher3.allapps.colorfilter.DrawerIconPalette", loader)
             val executors = ModernReflect.findClass("ej.a", loader)
             val executor = executors.getDeclaredField("a").apply { isAccessible = true }.get(null) as Executor
-            executor.execute {
-                runCatching {
-                    ModernReflect.callStaticMethod(palette, "parseAllColorDatas")
-                    HookLog.d(TAG, "Standard palette ready=${ModernReflect.callStaticMethod(palette, "loadFinished")}")
-                }.onFailure { HookLog.w(TAG, "Failed to parse standard-mode icon colors", it) }
+            pendingPaletteJobs.incrementAndGet()
+            try {
+                executor.execute {
+                    try {
+                        if (HotReloadLifecycle.isRetiring) return@execute
+                        runCatching {
+                            ModernReflect.callStaticMethod(palette, "parseAllColorDatas")
+                            HookLog.d(TAG, "Standard palette ready=${ModernReflect.callStaticMethod(palette, "loadFinished")}")
+                        }.onFailure { HookLog.w(TAG, "Failed to parse standard-mode icon colors", it) }
+                    } finally { pendingPaletteJobs.decrementAndGet() }
+                }
+            } catch (error: Throwable) {
+                pendingPaletteJobs.decrementAndGet()
+                throw error
             }
         }
 
@@ -715,6 +733,8 @@ internal object LauncherCategoryPageHooker {
         private var appsBaselineX = 0f
         private var contentBaselineAlpha = 1f
         val ownsGesture: Boolean get() = direction != null || discardUntilUp || animator != null
+        val canReload: Boolean get() = !ownsGesture && tracker == null && !categoryDragging &&
+            !launchedFromPanel && !changingState && !hasActivePanel
         val hasActivePanel: Boolean get() = panel?.active == true
         val retainsAppReturn: Boolean get() = LauncherCategoryPageRules.retainAppReturn(
             hasActivePanel, openedFromEdge, launchedFromPanel, changingState || direction != null,

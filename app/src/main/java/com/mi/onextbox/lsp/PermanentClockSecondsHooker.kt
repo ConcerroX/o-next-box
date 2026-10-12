@@ -2,18 +2,22 @@ package com.mi.onextbox.lsp
 
 import android.os.Handler
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernReflect as Reflect
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Modifier
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Scoped clock hooks: do not alter global power-save, user, or screen lifecycle behavior. */
 internal object PermanentClockSecondsHooker {
     private const val TAG = "ONextBox-ClockSeconds"
     private const val CLOCK = "com.oplus.systemui.statusbar.clock"
     private const val SETTINGS = "com.oplus.settings.feature.notification.controller"
+    private val pendingToggles = AtomicInteger()
     private fun enabled() = LspConfig.isPermanentClockSecondsEnabledXposed()
 
     fun hookSystemUi(loader: ClassLoader) {
+        HotReloadLifecycle.register("clock-seconds:pending-toggle", canReload = { pendingToggles.get() == 0 })
         val key = "$TAG:SystemUI@${System.identityHashCode(loader)}:"
         runCatching {
             // Resolve all critical contracts before installing any clock-state hooks.
@@ -78,15 +82,21 @@ internal object PermanentClockSecondsHooker {
                 val target = chain.thisObject ?: return@Hooker chain.proceed()
                 val handler = workHandler.get(target) as Handler
                 val source = chain.getArg(0) as String
+                pendingToggles.incrementAndGet()
                 val action = Runnable {
-                    runCatching {
-                        // A setting change while queued must not bypass the stock power-save gate.
-                        if (enabled()) toggle.invoke(null, target, source)
-                        else longPress.invoke(target, source)
-                    }.onFailure { HookLog.w(TAG, "Native clock toggle failed", it) }
+                    try {
+                        runCatching {
+                            // A setting change while queued must not bypass the stock power-save gate.
+                            if (enabled()) toggle.invoke(null, target, source)
+                            else longPress.invoke(target, source)
+                        }.onFailure { HookLog.w(TAG, "Native clock toggle failed", it) }
+                    } finally { pendingToggles.decrementAndGet() }
                 }
                 if (handler.looper.isCurrentThread) action.run()
-                else if (!handler.post(action)) return@Hooker chain.proceed()
+                else if (!handler.post(action)) {
+                    pendingToggles.decrementAndGet()
+                    return@Hooker chain.proceed()
+                }
                 null
             })
             ModernHookRegistry.installFast("${key}fluidCloud", hideSeconds, XposedInterface.Hooker { chain ->

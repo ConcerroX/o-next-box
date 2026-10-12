@@ -9,6 +9,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.Display
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernReflect as XposedHelpers
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Method
@@ -45,8 +46,21 @@ internal object SettingsGlobalExtremeRefreshRateHooker {
     private var rateById: Method? = null
     private var settingModeIndexMethod: Method? = null
     private var changeObserver: ContentObserver? = null
+    private var observerContext: Context? = null
+    private var observerHandler: Handler? = null
 
     fun hook(classLoader: ClassLoader?): Int {
+        HotReloadLifecycle.register("global-extreme-refresh-observer",
+            capture = { policy },
+            detach = {
+                changeObserver?.let { observerContext?.contentResolver?.unregisterContentObserver(it) }
+                observerHandler?.removeCallbacksAndMessages(null)
+                changeObserver = null
+                observerHandler = null
+                policy = null
+            },
+            restore = { savedPolicy -> bindPolicy(savedPolicy) },
+        )
         val loader = classLoader ?: return 0
         val configs = XposedHelpers.findClassIfExists(CONFIGS_CLASS, loader) ?: return 0
         val preferredData = XposedHelpers.findClassIfExists(PREFERRED_DATA_CLASS, loader) ?: return 0
@@ -176,6 +190,7 @@ internal object SettingsGlobalExtremeRefreshRateHooker {
     }
 
     private fun bindPolicy(oemPolicy: Any?) {
+        if (HotReloadLifecycle.isRetiring) return
         if (oemPolicy == null || policy != null) return
         if (field(oemPolicy, "mDisplayId") != 0) return
         val oemContext = field(oemPolicy, "mContext") as? Context ?: return
@@ -191,7 +206,10 @@ internal object SettingsGlobalExtremeRefreshRateHooker {
 
         val resolver = oemContext.contentResolver
         val handler = Handler(Looper.getMainLooper())
+        observerContext = oemContext
+        observerHandler = handler
         fun refreshTarget() {
+            if (HotReloadLifecycle.isRetiring) return
             val next = resolveTarget(oemPolicy, oemContext)
             if (next == target) return
             target = next
@@ -202,16 +220,22 @@ internal object SettingsGlobalExtremeRefreshRateHooker {
         val resolutionUri = Settings.Secure.getUriFor(RESOLUTION_KEY)
         val observer = object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean, uri: Uri?) {
-                refreshTarget()
-                // The setting can change before the display service finishes switching.
-                if (uri == resolutionUri) handler.postDelayed({ refreshTarget() }, 1500L)
+                HotReloadLifecycle.withHook(fallback = {}, action = {
+                    if (!HotReloadLifecycle.isRetiring) {
+                        refreshTarget()
+                        // The setting can change before the display service finishes switching.
+                        if (uri == resolutionUri) handler.postDelayed({
+                            HotReloadLifecycle.withHook(fallback = {}, action = ::refreshTarget)
+                        }, 1500L)
+                    }
+                })
             }
         }
+        changeObserver = observer
         resolver.registerContentObserver(Settings.Global.getUriFor(TOGGLE_KEY), false, observer)
         resolver.registerContentObserver(Settings.Secure.getUriFor(PICK_MODE_KEY), false, observer)
         resolver.registerContentObserver(Settings.Secure.getUriFor(CHOICE_RATE_KEY), false, observer)
         resolver.registerContentObserver(resolutionUri, false, observer)
-        changeObserver = observer
 
         val initial = resolveTarget(oemPolicy, oemContext)
         target = initial

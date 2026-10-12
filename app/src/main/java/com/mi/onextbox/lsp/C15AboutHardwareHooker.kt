@@ -11,9 +11,11 @@ import android.widget.TextView
 import com.mi.onextbox.lsp.compat.ModernHookBridge as XposedBridge
 import com.mi.onextbox.lsp.compat.ModernMethodHook as XC_MethodHook
 import com.mi.onextbox.lsp.compat.ModernReflect as XposedHelpers
+import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
+import java.lang.ref.WeakReference
 
 /** Presents the C17 About device hardware data in C15's compact list arrangement. */
 internal object C15AboutHardwareHooker {
@@ -35,6 +37,8 @@ internal object C15AboutHardwareHooker {
     private val hookedLoaders = ConcurrentHashMap.newKeySet<ClassLoader>()
     private val hookedAdapterClasses = ConcurrentHashMap.newKeySet<Class<*>>()
     private val originalCardStates = Collections.synchronizedMap(WeakHashMap<LinearLayout, CardState>())
+    private data class Binding(val adapter: WeakReference<Any>, val holder: WeakReference<Any>, val position: Int)
+    private val boundRows = WeakHashMap<LinearLayout, Binding>()
 
     private data class CardState(
         val childVisibilities: IntArray,
@@ -47,6 +51,25 @@ internal object C15AboutHardwareHooker {
     )
 
     fun hook(classLoader: ClassLoader) {
+        HotReloadLifecycle.registerReplay("settings:c15-adapters",
+            capture = { hookedAdapterClasses.toTypedArray() },
+            replay = { state -> (state as? Array<*>)?.filterIsInstance<Class<*>>()?.forEach(::hookConcreteAdapter) })
+        HotReloadLifecycle.register("settings:c15-hardware", capture = {
+            boundRows.values.mapNotNull { row ->
+                val adapter = row.adapter.get() ?: return@mapNotNull null
+                val holder = row.holder.get() ?: return@mapNotNull null
+                arrayOf(adapter, holder, row.position)
+            }.toTypedArray()
+        },
+            detach = { originalCardStates.keys.toList().forEach(::restoreCard) }, restore = { state ->
+                (state as? Array<*>)?.forEach { item ->
+                    val row = item as? Array<*> ?: return@forEach
+                    val adapter = row.getOrNull(0) ?: return@forEach
+                    val holder = row.getOrNull(1) ?: return@forEach
+                    val position = row.getOrNull(2) as? Int ?: return@forEach
+                    if (LspConfig.isSettingsC15AboutLayoutEnabledXposed()) adaptBoundHardwareRow(adapter, holder, position)
+                }
+            })
         val fragmentClass = XposedHelpers.findClassIfExists(FRAGMENT_CLASS, classLoader) ?: return
         if (!hookedLoaders.add(classLoader)) return
         runCatching {
@@ -107,6 +130,7 @@ internal object C15AboutHardwareHooker {
     }
 
     private fun adaptBoundHardwareRow(adapter: Any, holder: Any, position: Int) {
+        if (HotReloadLifecycle.isRetiring) return
         val screen = XposedHelpers.getObjectField(adapter, "mPreferenceGroup") ?: return
         if (XposedHelpers.callMethod(screen, "getKey") != SCREEN_KEY) return
         val preference = XposedHelpers.callMethod(adapter, "getItem", position) ?: return
@@ -115,6 +139,7 @@ internal object C15AboutHardwareHooker {
         val itemView = XposedHelpers.getObjectField(holder, "itemView") as? View ?: return
         val card = itemView as? LinearLayout ?: return
         if (!inheritsCardLayout(card.javaClass)) return
+        boundRows[card] = Binding(WeakReference(adapter), WeakReference(holder), position)
         val margins = card.layoutParams as? ViewGroup.MarginLayoutParams
         originalCardStates[card] = CardState(
             childVisibilities = IntArray(card.childCount) { index ->
@@ -207,6 +232,7 @@ internal object C15AboutHardwareHooker {
             runCatching { XposedHelpers.getObjectField(it, "itemView") as? LinearLayout }
                 .getOrNull()
         } ?: return
+        boundRows.remove(card)
         restoreCard(card)
     }
 

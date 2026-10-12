@@ -10,6 +10,19 @@ internal class ExpressQuerySession {
     @Volatile private var suppressImeUntil = 0L
     private var generation = 0L
 
+    @Synchronized fun exportReloadState(): Array<Any?> = arrayOf(
+        inExpress, pending?.let { arrayOf<Any?>(it.number, it.generation, it.deadline) }, suppressImeUntil, generation,
+    )
+
+    @Synchronized fun importReloadState(state: Any?) {
+        val values = state as? Array<*> ?: return
+        inExpress = values.getOrNull(0) as? Boolean ?: false
+        val saved = values.getOrNull(1) as? Array<*>
+        pending = if (saved?.size == 3) Pending(saved[0] as String, saved[1] as Long, saved[2] as Long) else null
+        suppressImeUntil = values.getOrNull(2) as? Long ?: 0L
+        generation = values.getOrNull(3) as? Long ?: 0L
+    }
+
     @Synchronized fun receive(data: String?, now: Long) {
         inExpress = ExpressCardRules.isExpressUri(data)
         val number = ExpressCardRules.pendingTrackingNumber(data)

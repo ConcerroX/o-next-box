@@ -67,7 +67,7 @@ import com.mi.onextbox.ui.onboarding.OnboardingPreferences
 import com.mi.onextbox.ui.onboarding.OnboardingAppearance
 import com.mi.onextbox.ui.onboarding.OnboardingScreen
 import com.mi.onextbox.ui.settings.AppUpdater
-import com.mi.onextbox.ui.settings.UpdateChannelPreference
+import com.mi.onextbox.ui.settings.AppUpdatePreferences
 import com.mi.onextbox.ui.settings.UpdateNotificationScheduler
 
 private data class StartupRefreshState(
@@ -432,24 +432,15 @@ class MainActivity : ComponentActivity() {
                 )
             }
             var aodRunningBrightnessMultiplier by aodRunningBrightnessMultiplierState
-            val aodPanoramicSupportEnabledState = rememberConfigState(
-                initialLspConfig.aodPanoramicSupportEnabled,
+            val aodAllDayUnlockEnabledState = rememberConfigState(
+                initialLspConfig.aodAllDayUnlockEnabled,
             ) { value ->
-                LspConfig.setAodPanoramicSupportEnabled(
+                LspConfig.setAodAllDayUnlockEnabled(
                     this@MainActivity,
                     value
                 )
             }
-            var aodPanoramicSupportEnabled by aodPanoramicSupportEnabledState
-            val aodSettingsSwitchEnabledState = rememberConfigState(
-                initialLspConfig.aodSettingsSwitchEnabled,
-            ) { value ->
-                LspConfig.setAodSettingsSwitchEnabled(
-                    this@MainActivity,
-                    value
-                )
-            }
-            var aodSettingsSwitchEnabled by aodSettingsSwitchEnabledState
+            var aodAllDayUnlockEnabled by aodAllDayUnlockEnabledState
             val aodSingleClickBlockEnabledState = rememberConfigState(
                 initialLspConfig.aodSingleClickBlockEnabled,
             ) { value ->
@@ -514,8 +505,7 @@ class MainActivity : ComponentActivity() {
                 aodInitDarkBrightnessState.replaceFromSource(snapshot.aodInitDarkBrightness)
                 aodInitBrightBrightnessState.replaceFromSource(snapshot.aodInitBrightBrightness)
                 aodRunningBrightnessMultiplierState.replaceFromSource(snapshot.aodRunningBrightnessMultiplier)
-                aodPanoramicSupportEnabledState.replaceFromSource(snapshot.aodPanoramicSupportEnabled)
-                aodSettingsSwitchEnabledState.replaceFromSource(snapshot.aodSettingsSwitchEnabled)
+                aodAllDayUnlockEnabledState.replaceFromSource(snapshot.aodAllDayUnlockEnabled)
                 aodSingleClickBlockEnabledState.replaceFromSource(snapshot.aodSingleClickBlockEnabled)
                 systemUiInternationalNetworkDisplayEnabledState.replaceFromSource(snapshot.systemUiInternationalNetworkDisplayEnabled)
                 systemUiHideMobileRoamingIndicatorEnabledState.replaceFromSource(snapshot.systemUiHideMobileRoamingIndicatorEnabled)
@@ -819,10 +809,8 @@ class MainActivity : ComponentActivity() {
                 onAodInitBrightBrightnessChange = { aodInitBrightBrightness = it },
                 aodRunningBrightnessMultiplier = aodRunningBrightnessMultiplier,
                 onAodRunningBrightnessMultiplierChange = { aodRunningBrightnessMultiplier = it },
-                aodPanoramicSupportEnabled = aodPanoramicSupportEnabled,
-                onAodPanoramicSupportEnabledChange = { aodPanoramicSupportEnabled = it },
-                aodSettingsSwitchEnabled = aodSettingsSwitchEnabled,
-                onAodSettingsSwitchEnabledChange = { aodSettingsSwitchEnabled = it },
+                aodAllDayUnlockEnabled = aodAllDayUnlockEnabled,
+                onAodAllDayUnlockEnabledChange = { aodAllDayUnlockEnabled = it },
                 aodSingleClickBlockEnabled = aodSingleClickBlockEnabled,
                 onAodSingleClickBlockEnabledChange = { aodSingleClickBlockEnabled = it },
                 assistantPowerMode = assistantPowerMode,
@@ -891,7 +879,7 @@ class MainActivity : ComponentActivity() {
                             resumeRefreshEnabled = false
                             val allowBackgroundUpdates =
                                 OnboardingPreferences.isBackgroundNetworkAllowed(this@MainActivity)
-                            UpdateChannelPreference.setUpdateNotificationsEnabled(
+                            AppUpdatePreferences.setUpdateNotificationsEnabled(
                                 this@MainActivity,
                                 allowBackgroundUpdates,
                             )
