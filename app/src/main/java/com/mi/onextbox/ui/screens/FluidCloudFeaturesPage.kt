@@ -43,9 +43,9 @@ internal fun FluidCloudFeaturesPage(onOpen: (FeaturePageMode) -> Unit) {
     var browserApplying by remember { mutableStateOf(false) }
     DisposableEffect(context, owner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && !applying) {
-                enabled = LspConfig.isFluidCloudMaterialEnabled(context)
-                mediaEnabled = FluidCloudMediaSettings.isEnabled(context)
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (!applying) enabled = LspConfig.isFluidCloudMaterialEnabled(context)
+                if (!mediaApplying) mediaEnabled = FluidCloudMediaSettings.isEnabled(context)
                 mediaCount = FluidCloudMediaSettings.packages(context).size
             }
             if (event == Lifecycle.Event.ON_RESUME && !browserApplying) {
@@ -55,8 +55,10 @@ internal fun FluidCloudFeaturesPage(onOpen: (FeaturePageMode) -> Unit) {
         owner.lifecycle.addObserver(observer)
         val prefs = LspPreferenceStore.prefs(context)
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == null || key == FluidCloudMediaSettings.ENABLED || key == FluidCloudMediaSettings.PACKAGES) {
+            if (!mediaApplying && (key == null || key == FluidCloudMediaSettings.ENABLED)) {
                 mediaEnabled = FluidCloudMediaSettings.isEnabled(context)
+            }
+            if (key == null || key == FluidCloudMediaSettings.PACKAGES) {
                 mediaCount = FluidCloudMediaSettings.packages(context).size
             }
             if (!browserApplying && (key == null || key == FluidCloudBrowserSettings.ENABLED)) {
@@ -76,8 +78,8 @@ internal fun FluidCloudFeaturesPage(onOpen: (FeaturePageMode) -> Unit) {
             title = stringResource(R.string.feature_fluid_cloud_material_title),
             summary = "",
             checked = enabled,
-            enabled = !applying,
             onCheckedChange = { checked ->
+                if (applying) return@SettingsToggleRow
                 applying = true
                 enabled = checked
                 scope.launch {
@@ -86,11 +88,15 @@ internal fun FluidCloudFeaturesPage(onOpen: (FeaturePageMode) -> Unit) {
                             LspConfig.setFluidCloudMaterialEnabled(context, checked)
                             LspConfig.isFluidCloudMaterialEnabled(context) == checked
                         }
-                        enabled = LspConfig.isFluidCloudMaterialEnabled(context)
                         if (!success) {
                             Toast.makeText(context, R.string.feature_fluid_cloud_material_failed, Toast.LENGTH_LONG).show()
                         }
+                    } catch (cancel: CancellationException) {
+                        throw cancel
+                    } catch (_: Exception) {
+                        Toast.makeText(context, R.string.feature_fluid_cloud_material_failed, Toast.LENGTH_LONG).show()
                     } finally {
+                        enabled = LspConfig.isFluidCloudMaterialEnabled(context)
                         applying = false
                     }
                 }
@@ -103,18 +109,21 @@ internal fun FluidCloudFeaturesPage(onOpen: (FeaturePageMode) -> Unit) {
             title = stringResource(R.string.fluid_media_blacklist_title),
             summary = stringResource(R.string.fluid_media_blacklist_summary),
             checked = mediaEnabled,
-            enabled = !mediaApplying,
             hasDividerBelow = true,
             onCheckedChange = { checked ->
+                if (mediaApplying) return@SettingsToggleRow
                 mediaApplying = true
+                mediaEnabled = checked
                 scope.launch {
                     try {
                         withContext(Dispatchers.IO) { FluidCloudMediaSettings.setEnabled(context, checked) }
-                        mediaEnabled = FluidCloudMediaSettings.isEnabled(context)
                     } catch (cancel: CancellationException) { throw cancel }
                     catch (_: Exception) {
                         Toast.makeText(context, R.string.fluid_media_save_failed, Toast.LENGTH_LONG).show()
-                    } finally { mediaApplying = false }
+                    } finally {
+                        mediaEnabled = FluidCloudMediaSettings.isEnabled(context)
+                        mediaApplying = false
+                    }
                 }
             },
         )
@@ -133,7 +142,6 @@ internal fun FluidCloudFeaturesPage(onOpen: (FeaturePageMode) -> Unit) {
             title = stringResource(R.string.fluid_browser_title),
             summary = stringResource(R.string.fluid_browser_summary),
             checked = browserEnabled,
-            enabled = !browserApplying,
             onCheckedChange = { checked ->
                 if (!browserApplying) {
                     browserApplying = true

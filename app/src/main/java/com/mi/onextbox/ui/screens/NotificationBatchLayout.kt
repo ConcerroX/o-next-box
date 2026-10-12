@@ -43,6 +43,7 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
@@ -51,6 +52,7 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button as MaterialButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox as MaterialCheckbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -78,6 +80,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -101,6 +104,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.core.graphics.drawable.toBitmap
 import com.mi.onextbox.R
 import com.mi.onextbox.notifications.NotificationAppState
@@ -270,7 +274,7 @@ internal fun NotificationBatchLayout(
                 }
             }
             NotificationBatchActions(ui.canApply, ui.operation.busy, onEnable = { onAction(1) }, onDisable = { onAction(2) },
-                modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged { actionsHeightPx = it.height })
+                modifier = Modifier.align(Alignment.BottomCenter).zIndex(1f).onSizeChanged { actionsHeightPx = it.height })
         }
     }
 }
@@ -455,16 +459,26 @@ internal fun NotificationBatchActions(
 @Composable
 private fun BatchButton(label: String, enabled: Boolean, modifier: Modifier, onClick: () -> Unit, secondary: Boolean = false, tag: String) {
     if (LocalAppUiStyle.current == AppUiStyle.Material3Expressive) {
-        if (secondary) FilledTonalButton(onClick, modifier.heightIn(min = 48.dp).testTag(tag), enabled = enabled) {
+        val disabledContainer = notificationBatchDisabledContainerColor(
+            MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.surface,
+        )
+        if (secondary) FilledTonalButton(onClick, modifier.heightIn(min = 48.dp).testTag(tag), enabled = enabled,
+            colors = ButtonDefaults.filledTonalButtonColors(disabledContainerColor = disabledContainer)) {
             MaterialText(label, textAlign = TextAlign.Center)
-        } else MaterialButton(onClick, modifier.heightIn(min = 48.dp).testTag(tag), enabled = enabled) {
+        } else MaterialButton(onClick, modifier.heightIn(min = 48.dp).testTag(tag), enabled = enabled,
+            colors = ButtonDefaults.buttonColors(disabledContainerColor = disabledContainer)) {
             MaterialText(label, textAlign = TextAlign.Center)
         }
     } else {
-        ColorOs17Button(label, primary = !secondary, onClick = onClick, modifier = modifier, minimumHeight = 48.dp,
-            enabled = enabled, buttonModifier = Modifier.testTag(tag))
+        Box(modifier.background(COUITheme.colorScheme.surface.copy(alpha = 1f), CircleShape)) {
+            ColorOs17Button(label, primary = !secondary, onClick = onClick, modifier = Modifier.fillMaxWidth(), minimumHeight = 48.dp,
+                enabled = enabled, buttonModifier = Modifier.testTag(tag))
+        }
     }
 }
+
+internal fun notificationBatchDisabledContainerColor(onSurface: Color, surface: Color): Color =
+    onSurface.copy(alpha = .12f).compositeOver(surface.copy(alpha = 1f))
 
 @Composable
 private fun BatchToolbarButton(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {

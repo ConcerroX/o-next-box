@@ -20,6 +20,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.clearText
@@ -60,6 +62,7 @@ import androidx.compose.material3.Slider as MaterialSlider
 import androidx.compose.material3.Text as MaterialText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,6 +90,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -508,14 +512,7 @@ fun FeatureSubRoute(
     val modeToRestart = restartConfirmMode
     FeatureRestartConfirmDialog(
         show = modeToRestart != null,
-        title = if (modeToRestart == null) {
-            ""
-        } else {
-            stringResource(
-                R.string.feature_restart_scope_confirm_title,
-                featurePageTitle(modeToRestart),
-            )
-        },
+        title = stringResource(R.string.feature_restart_scope_confirm_title),
         targets = modeToRestart?.let(::featureRestartPackages).orEmpty(),
         onDismissRequest = { restartConfirmMode = null },
     )
@@ -589,13 +586,13 @@ internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
     FeaturePageMode.Assistant -> stringResource(R.string.feature_assistant_title)
 }
 
-private fun featureRestartPackages(mode: FeaturePageMode): List<String> = when (mode) {
+internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when (mode) {
     FeaturePageMode.Desktop,
     FeaturePageMode.DesktopLayout,
     FeaturePageMode.DesktopIcons,
     FeaturePageMode.DesktopRecent,
     FeaturePageMode.DesktopPages -> listOf(
-        "com.android.launcher", "com.oplus.launcher", "com.coloros.launcher",
+        "com.android.launcher",
     )
     FeaturePageMode.SystemUi,
     FeaturePageMode.SystemUiNative,
@@ -628,17 +625,17 @@ private fun featureRestartPackages(mode: FeaturePageMode): List<String> = when (
     FeaturePageMode.GoogleMessages -> listOf("com.google.android.apps.messaging")
     FeaturePageMode.Athena -> listOf("android", "system", "com.oplus.athena")
     FeaturePageMode.Settings,
-    FeaturePageMode.SettingsAppearance,
+    FeaturePageMode.SettingsAppearance -> listOf("android", "system", "com.android.settings")
     FeaturePageMode.SettingsApps,
     FeaturePageMode.SettingsPermissions,
     FeaturePageMode.SettingsAboutDevice,
     FeaturePageMode.SettingsRegion -> listOf("com.android.settings")
     FeaturePageMode.SecurityPermission -> listOf(
         "com.oplus.securitypermission", "com.android.settings",
-        "com.android.permissioncontroller", "com.google.android.permissioncontroller", "android", "system",
+        "com.android.permissioncontroller", "android", "system",
     )
     FeaturePageMode.Wallpapers -> listOf("com.oplus.wallpapers")
-    FeaturePageMode.Aod -> listOf("com.oplus.aod", "com.coloros.aod", "com.oplus.aodservice")
+    FeaturePageMode.Aod -> listOf("com.oplus.aod")
     FeaturePageMode.Assistant -> listOf(
         "android",
         "system",
@@ -695,21 +692,54 @@ private fun FeatureRestartConfirmDialog(
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
+    val localeTag = LocalConfiguration.current.locales.toLanguageTags()
     val scope = rememberCoroutineScope()
-    var restartSystem by remember { mutableStateOf(false) }
+    var lastVisibleTargets by remember { mutableStateOf(targets) }
+    SideEffect {
+        if (show) lastVisibleTargets = targets
+    }
+    val displayedTargets = if (show) targets else lastVisibleTargets
+    val plan = remember(displayedTargets) { FeatureRestartPlan(displayedTargets) }
+    val scopeLabels = remember(context, localeTag, plan) {
+        plan.appPackages.map { packageName ->
+            val label = when (packageName) {
+                "com.android.settings" -> resources.getString(R.string.tab_settings)
+                "com.android.systemui" -> resources.getString(R.string.section_lsp)
+                "com.android.launcher" ->
+                    resources.getString(R.string.section_system_desktop)
+                else -> runCatching {
+                    val info = context.packageManager.getApplicationInfo(packageName, 0)
+                    context.packageManager.getApplicationLabel(info).toString()
+                        .lineSequence().firstOrNull().orEmpty().trim().take(80)
+                }.getOrDefault(packageName).ifBlank { packageName }
+            }
+            if (label == packageName) packageName else "$label ($packageName)"
+        }
+    }
+    var restartSystem by remember(displayedTargets) { mutableStateOf(false) }
     LaunchedEffect(show) {
         if (show) restartSystem = false
     }
+    val rebootDevice = plan.shouldRebootDevice(restartSystem)
 
     CouiConfirmDialog(
         show = show,
         title = title,
-        summary = stringResource(R.string.feature_restart_scope_confirm_summary),
+        summary = stringResource(
+            when {
+                plan.requiresDeviceReboot -> R.string.feature_restart_framework_only_summary
+                rebootDevice -> R.string.feature_restart_device_summary
+                else -> R.string.feature_restart_scope_confirm_summary
+            },
+        ),
         negativeText = stringResource(R.string.feature_restart_scope_confirm_cancel),
-        positiveText = stringResource(R.string.feature_restart_scope_confirm_action),
+        positiveText = stringResource(
+            if (rebootDevice) R.string.feature_restart_device_action
+            else R.string.feature_restart_scope_confirm_action,
+        ),
         onDismissRequest = onDismissRequest,
         onPositive = {
-            val shouldRestartSystem = restartSystem
+            val shouldRestartSystem = plan.shouldRebootDevice(restartSystem)
             onDismissRequest()
             scope.launch {
                 val result = restartScopePackages(
@@ -729,44 +759,74 @@ private fun FeatureRestartConfirmDialog(
         },
         content = {
             val isMaterial3Expressive = LocalAppUiStyle.current == AppUiStyle.Material3Expressive
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .then(
-                        if (isMaterial3Expressive) Modifier.padding(top = 12.dp)
-                        else Modifier.heightIn(min = 32.dp)
-                    )
-                    .toggleable(
-                        value = restartSystem,
-                        interactionSource = null,
-                        indication = null,
-                        role = Role.Checkbox,
-                        onValueChange = { restartSystem = it },
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
+                    .heightIn(max = 240.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                if (isMaterial3Expressive) {
-                    MaterialCheckbox(checked = restartSystem, onCheckedChange = null)
-                    MaterialText(
-                        text = stringResource(R.string.feature_restart_system_option),
-                        modifier = Modifier.padding(start = 8.dp),
-                        style = MaterialTheme.typography.bodyLarge,
+                if (scopeLabels.isNotEmpty()) {
+                    FeatureRestartDialogText(
+                        text = scopeLabels.joinToString("\n"),
+                        modifier = Modifier.padding(vertical = 12.dp),
                     )
-                } else {
-                    Checkbox(
-                        state = ToggleableState(restartSystem),
-                        onClick = null,
-                    )
-                    Text(
-                        text = stringResource(R.string.feature_restart_system_option),
-                        modifier = Modifier.padding(start = 8.dp),
-                        fontSize = 12.sp,
-                        color = COUITheme.colorScheme.onBackgroundVariant,
-                    )
+                }
+                if (plan.includesFramework && !plan.requiresDeviceReboot) {
+                    FeatureRestartDialogText(stringResource(R.string.feature_restart_framework_notice))
+                }
+            }
+            if (!plan.requiresDeviceReboot) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = if (isMaterial3Expressive) 48.dp else 32.dp)
+                        .toggleable(
+                            value = restartSystem,
+                            interactionSource = null,
+                            indication = null,
+                            role = Role.Checkbox,
+                            onValueChange = { restartSystem = it },
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (isMaterial3Expressive) {
+                        MaterialCheckbox(checked = restartSystem, onCheckedChange = null)
+                        MaterialText(
+                            text = stringResource(R.string.feature_restart_system_option),
+                            modifier = Modifier.padding(start = 8.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    } else {
+                        Checkbox(
+                            state = ToggleableState(restartSystem),
+                            onClick = null,
+                        )
+                        Text(
+                            text = stringResource(R.string.feature_restart_system_option),
+                            modifier = Modifier.padding(start = 8.dp),
+                            fontSize = 12.sp,
+                            color = COUITheme.colorScheme.onBackgroundVariant,
+                        )
+                    }
                 }
             }
         },
     )
+}
+
+@Composable
+private fun FeatureRestartDialogText(text: String, modifier: Modifier = Modifier) {
+    if (LocalAppUiStyle.current == AppUiStyle.Material3Expressive) {
+        MaterialText(text = text, modifier = modifier, style = MaterialTheme.typography.bodyMedium)
+    } else {
+        Text(
+            text = text,
+            modifier = modifier,
+            fontSize = 13.sp,
+            color = COUITheme.colorScheme.onBackgroundVariant,
+        )
+    }
 }
 
 @Composable
@@ -945,7 +1005,7 @@ private fun featureMainEntries(): List<FeatureMainEntry> = buildList {
         add(
             FeatureMainEntry(
                 titleRes = R.string.feature_aod_enhance_title,
-                iconPackages = listOf("com.oplus.aod", "com.coloros.aod", "com.oplus.aodservice"),
+                iconPackages = listOf("com.oplus.aod"),
                 pageMode = FeaturePageMode.Aod,
             )
         )

@@ -35,6 +35,7 @@ internal object FaceTapUnlockHooker {
     private var button: ImageView? = null
     private var snapshot: IconSnapshot? = null
     private var tap: FaceTapUnlockRules.Tap? = null
+    private val nativePress = FaceTapUnlockRules.NativePress()
     private var gracePolls = 0
     private var faceSource: Any? = null
     private var fingerprintUtils: Any? = null
@@ -68,7 +69,7 @@ internal object FaceTapUnlockHooker {
             canReload = {
                 // Never migrate an authorization or a press which might later dismiss keyguard.
                 sessionUser == null && pendingDismiss == null && pendingHold == null &&
-                    pendingOpticalEvents.get() == 0 && !feedback.isActive && !wake.running && !wake.busy
+                    pendingOpticalEvents.get() == 0 && !nativePress.active && !feedback.isActive && !wake.running && !wake.busy
             },
             capture = { arrayOf(panel.get(), mech.get()) },
             detach = {
@@ -79,6 +80,7 @@ internal object FaceTapUnlockHooker {
                 main.removeCallbacksAndMessages(null)
                 tap?.invalidate()
                 tap = null
+                nativePress.reset()
                 snapshot = null
                 removeButton()
                 panel.clear()
@@ -180,6 +182,7 @@ internal object FaceTapUnlockHooker {
             after(attach) { param ->
                 onMain {
                     cancelFeedbackAndDismiss(hard = false)
+                    nativePress.reset()
                     wake.clear()
                     removeButton()
                     val view = param.thisObject as? FrameLayout ?: return@onMain
@@ -192,6 +195,7 @@ internal object FaceTapUnlockHooker {
                 onMain {
                     if (panel.get() === param.thisObject) {
                         cancelFeedbackAndDismiss(hard = false)
+                        nativePress.reset()
                         wake.clear()
                         removeButton()
                         panel.clear()
@@ -204,7 +208,7 @@ internal object FaceTapUnlockHooker {
             }
             // Some firmwares deliver the native icon's separate window touch before the panel.
             before(iconTouch) { param ->
-                if (!enabled() || sessionUser == null ||
+                if (!enabled() ||
                     Reflect.getObjectField(mech.get() ?: return@before, "fpIcon") !== param.thisObject) return@before
                 val event = param.args[0] as MotionEvent
                 if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -333,6 +337,7 @@ internal object FaceTapUnlockHooker {
             // Never replay a press or delayed dismissal across a pause. Keep the native session,
             // re-check its live eligibility, and require a fresh press for any dismissal action.
             tap?.invalidate()
+            nativePress.invalidate()
             cancelFeedbackAndDismiss(hard = false)
             main.removeCallbacks(refresh)
             gracePolls = 4
@@ -344,6 +349,7 @@ internal object FaceTapUnlockHooker {
         main.removeCallbacks(refresh)
         wake.expire()
         val state = liveState()
+        if (!FaceTapUnlockRules.contactAllowed(state)) nativePress.invalidate()
         val eligible = state != null && FaceTapUnlockRules.eligible(state)
         val host = panel.get()
         val source = mech.get()
@@ -436,6 +442,7 @@ internal object FaceTapUnlockHooker {
     }
 
     private fun handleTouch(event: MotionEvent): Boolean {
+        if (observeNativePress(event)) return false
         val gesture = tap ?: return false
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             // A native-window/panel handoff can forward the same press twice, do not restart
@@ -520,6 +527,40 @@ internal object FaceTapUnlockHooker {
     private fun touchObscured(event: MotionEvent): Boolean =
         event.flags and (MotionEvent.FLAG_WINDOW_IS_OBSCURED or MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED) != 0
 
+    private fun observeNativePress(event: MotionEvent): Boolean {
+        if (event.actionMasked == MotionEvent.ACTION_DOWN && !nativePress.matches(event.downTime)) {
+            nativePress.reset()
+            val state = liveState()
+            val saved = snapshot
+            val host = panel.get()
+            if (state != null && !state.faceAuthenticated && saved != null && host != null &&
+                saved.displayId == host.display?.displayId &&
+                saved.screenWidth == host.resources.displayMetrics.widthPixels &&
+                saved.screenHeight == host.resources.displayMetrics.heightPixels &&
+                event.pointerCount == 1 && !touchObscured(event)) {
+                nativePress.begin(event.rawX, event.rawY, event.downTime, state,
+                    FaceTapUnlockRules.IconBounds(saved.bounds.left, saved.bounds.top,
+                        saved.bounds.right, saved.bounds.bottom))
+            }
+        }
+        if (!nativePress.matches(event.downTime)) return false
+        val state = liveState()
+        if (!FaceTapUnlockRules.contactAllowed(state) || event.pointerCount != 1 || touchObscured(event))
+            nativePress.invalidate()
+        when (event.actionMasked) {
+            MotionEvent.ACTION_MOVE -> nativePress.move(event.rawX, event.rawY)
+            MotionEvent.ACTION_POINTER_DOWN -> nativePress.invalidate()
+            MotionEvent.ACTION_CANCEL -> nativePress.reset()
+            MotionEvent.ACTION_UP -> {
+                if (nativePress.finish(event.rawX, event.rawY, event.eventTime, authenticatedAt, state)) {
+                    HookLog.d(TAG, "Native fingerprint press released after live face authentication")
+                    requestDismiss(immediate = true, animate = false)
+                }
+            }
+        }
+        return true
+    }
+
     private fun startFeedback(): Boolean {
         if (!feedbackEnabled()) return false
         val host = panel.get() ?: return false
@@ -528,7 +569,7 @@ internal object FaceTapUnlockHooker {
         return feedback.release(host, saved.bounds, source)
     }
 
-    private fun requestDismiss(immediate: Boolean = false) {
+    private fun requestDismiss(immediate: Boolean = false, animate: Boolean = true) {
         // Always re-read after the gesture/accessibility click, never use the display-time result.
         val state = liveState() ?: return
         if (!FaceTapUnlockRules.eligible(state)) return
@@ -538,7 +579,7 @@ internal object FaceTapUnlockHooker {
         val expectedAt = authenticatedAt
         // A touch already started the effect on DOWN; release must not restart its first frame.
         // Accessibility clicks still get the same bounded feedback without a touch stream.
-        if (feedbackEnabled() && (feedback.isActive || startFeedback())) {
+        if (animate && feedbackEnabled() && (feedback.isActive || startFeedback())) {
             if (immediate) {
                 commitDismiss(state.currentUser, expectedAt)
                 return
@@ -581,6 +622,7 @@ internal object FaceTapUnlockHooker {
             throw error
         }
         sessionUser = null
+        nativePress.reset()
         cancelHold()
         wake.clear()
         tap?.invalidate()
@@ -591,6 +633,7 @@ internal object FaceTapUnlockHooker {
     private fun clearSession() {
         sessionUser = null
         onMain {
+            nativePress.reset()
             cancelFeedbackAndDismiss()
             feedback.clear()
             wake.clear()
@@ -630,6 +673,7 @@ internal object FaceTapUnlockHooker {
             if (failed.compareAndSet(false, true)) {
                 sessionUser = null
                 main.post {
+                    nativePress.reset()
                     runCatching { cancelFeedbackAndDismiss() }
                     runCatching { feedback.clear() }
                     runCatching { wake.clear() }

@@ -325,13 +325,17 @@
     <string name="feature_restart_scope_done">已请求重启作用域</string>
     <string name="feature_restart_scope_failed">重启作用域失败，请授予 Root 或手动重启</string>
     <string name="feature_restart_scope_unsupported">此页面没有可重启的作用域</string>
-    <string name="feature_restart_scope_confirm_title">是否重启 %1$s 作用域</string>
-    <string name="feature_restart_scope_confirm_summary">将强制停止相关应用，使模块配置重新加载</string>
+    <string name="feature_restart_scope_confirm_title">是否重启作用域</string>
+    <string name="feature_restart_scope_confirm_summary">将停止下列应用进程，重新启动后加载模块配置</string>
+    <string name="feature_restart_framework_notice">系统框架相关功能需重启整台设备，未勾选时仅重启下列应用作用域</string>
+    <string name="feature_restart_framework_only_summary">此作用域位于系统框架，无法单独重启，确认后将重启整台设备并重新加载模块配置</string>
+    <string name="feature_restart_device_summary">将重启整台设备，使所有作用域重新加载模块配置</string>
+    <string name="feature_restart_device_action">重启设备</string>
     <string name="feature_restart_scope_confirm_cancel">取消</string>
     <string name="feature_restart_scope_confirm_action">重启</string>
     <string name="feature_restart_all_scope_title">重启全部作用域</string>
     <string name="feature_restart_all_scope_confirm_title">是否重启全部作用域</string>
-    <string name="feature_restart_system_option">同时重启系统</string>
+    <string name="feature_restart_system_option">重启整台设备</string>
 
 
 

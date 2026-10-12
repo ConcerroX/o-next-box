@@ -22,6 +22,35 @@ internal object FaceTapUnlockRules {
     fun mayBegin(eventTime: Long, authenticatedAt: Long): Boolean =
         authenticatedAt > 0L && eventTime >= authenticatedAt
 
+    fun contactAllowed(state: State?): Boolean =
+        state != null && state.showing && state.interactive && !state.blocked
+
+    class NativePress {
+        private val contact = Tap(0f)
+        private var downTime = 0L
+        val active: Boolean get() = contact.active
+
+        fun matches(time: Long): Boolean = contact.matchesPress(time)
+
+        fun begin(x: Float, y: Float, time: Long, state: State?, bounds: IconBounds) {
+            if (matches(time)) return
+            reset()
+            if (!contactAllowed(state) || state == null || state.faceAuthenticated || time <= 0L ||
+                !bounds.contains(x, y)) return
+            downTime = time
+            contact.begin(x, y, time, state.currentUser, bounds)
+        }
+
+        fun move(x: Float, y: Float) = contact.move(x, y)
+        fun invalidate() = contact.invalidate()
+        fun reset() = contact.reset()
+
+        fun finish(x: Float, y: Float, eventTime: Long, authenticatedAt: Long, state: State?): Boolean =
+            contact.finish(x, y, eventTime, state?.currentUser ?: -1,
+                state != null && eligible(state) && downTime < authenticatedAt &&
+                    mayBegin(eventTime, authenticatedAt))
+    }
+
     fun nativeIconVisible(viewShown: Boolean, alpha: Float, hasDrawable: Boolean): Boolean =
         viewShown && alpha.isFinite() && alpha > 0.05f && hasDrawable
 

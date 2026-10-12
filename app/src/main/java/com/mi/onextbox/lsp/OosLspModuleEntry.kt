@@ -220,7 +220,7 @@ class OosLspModuleEntry : XposedModule() {
 
             FluidCloudBrowserSettings.PACKAGE_NAME -> FluidCloudBrowserHooker.hook(classLoader)
 
-            "com.android.permissioncontroller", "com.google.android.permissioncontroller" ->
+            "com.android.permissioncontroller" ->
                 PermissionUiStyleHooker.hookPermissionController(classLoader)
 
             PACKAGE_GOOGLE_APP -> {

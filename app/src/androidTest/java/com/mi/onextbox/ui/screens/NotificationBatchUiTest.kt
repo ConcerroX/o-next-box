@@ -1,24 +1,31 @@
 package com.mi.onextbox.ui.screens
 
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.rememberTransition
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -26,6 +33,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -45,6 +54,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.math.abs
 
 @RunWith(AndroidJUnit4::class)
 class NotificationBatchUiTest {
@@ -69,6 +79,10 @@ class NotificationBatchUiTest {
     @Test fun materialActionsAreDisabledWhenNoPermissionIsChosen() = noPermissions(AppUiStyle.Material3Expressive)
     @Test fun couiNativeButtonsDispatchTheChosenAction() = actionsClick(AppUiStyle.ColorOs)
     @Test fun materialButtonsDispatchTheChosenAction() = actionsClick(AppUiStyle.Material3Expressive)
+    @Test fun couiDisabledButtonsDoNotRevealContentBehindThem() = opaqueDisabledActions(AppUiStyle.ColorOs, false)
+    @Test fun couiDarkDisabledButtonsDoNotRevealContentBehindThem() = opaqueDisabledActions(AppUiStyle.ColorOs, true)
+    @Test fun materialDisabledButtonsDoNotRevealContentBehindThem() = opaqueDisabledActions(AppUiStyle.Material3Expressive, false)
+    @Test fun materialDarkDisabledButtonsDoNotRevealContentBehindThem() = opaqueDisabledActions(AppUiStyle.Material3Expressive, true)
     @Test fun materialCornerRecoveryStartsWithCollapseRatherThanAfterIt() {
         val visible = MutableTransitionState(true)
         var bottomCorner = 0f
@@ -217,6 +231,49 @@ class NotificationBatchUiTest {
         compose.onNodeWithTag("batchEnable").performClick()
         compose.onNodeWithTag("batchDisable").performClick()
         compose.runOnIdle { assertEquals(listOf(1, 2), actions) }
+    }
+
+    private fun opaqueDisabledActions(style: AppUiStyle, dark: Boolean) {
+        val background = mutableStateOf(Color.Magenta)
+        var actions = 0
+        compose.setContent {
+            COUITheme {
+                val surface = if (dark) Color(0xFF141218) else Color(0xFFFFFBFE)
+                COUITheme(colors = COUITheme.colorScheme.copy(surface = surface, background = surface)) {
+                    MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
+                        CompositionLocalProvider(LocalAppUiStyle provides style) {
+                            Box(Modifier.width(360.dp).height(180.dp).background(background.value)) {
+                                NotificationBatchActions(false, false, { actions++ }, { actions++ },
+                                    Modifier.align(Alignment.BottomCenter))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        val tags = listOf("batchEnable", "batchDisable")
+        tags.forEach { compose.onNodeWithTag(it).assertIsNotEnabled() }
+        val before = tags.associateWith { compose.onNodeWithTag(it).captureToImage().toPixelMap() }
+        compose.runOnIdle { background.value = Color.Cyan }
+        compose.waitForIdle()
+        for (tag in tags) {
+            val first = before.getValue(tag)
+            val second = compose.onNodeWithTag(tag).captureToImage().toPixelMap()
+            assertEquals(first.width, second.width)
+            assertEquals(first.height, second.height)
+            for (xFraction in listOf(.2f, .5f, .8f)) {
+                for (yFraction in listOf(.3f, .5f, .7f)) {
+                    val x = (first.width * xFraction).toInt()
+                    val y = (first.height * yFraction).toInt()
+                    val a = first[x, y]
+                    val b = second[x, y]
+                    assertTrue("$style/$dark/$tag must not reveal the changed backdrop",
+                        abs(a.red - b.red) < .05f && abs(a.green - b.green) < .05f && abs(a.blue - b.blue) < .05f)
+                }
+            }
+            compose.onNodeWithTag(tag).performTouchInput { click() }
+        }
+        compose.runOnIdle { assertEquals(0, actions) }
     }
 
     private fun state(app: NotificationBatchApp) = NotificationAppState(app.target, NotificationPermissionKind.entries.associateWith { 1 })

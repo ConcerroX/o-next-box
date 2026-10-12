@@ -281,13 +281,17 @@
     <string name="feature_restart_scope_done">Scope restart requested</string>
     <string name="feature_restart_scope_failed">Failed to restart scope, Please grant root or reboot manually</string>
     <string name="feature_restart_scope_unsupported">This page has no restartable scope</string>
-    <string name="feature_restart_scope_confirm_title">Restart %1$s scope?</string>
-    <string name="feature_restart_scope_confirm_summary">Related apps will be force-stopped so the module configuration can reload</string>
+    <string name="feature_restart_scope_confirm_title">Restart scopes?</string>
+    <string name="feature_restart_scope_confirm_summary">The following app processes will be stopped, module configuration will reload when they restart</string>
+    <string name="feature_restart_framework_notice">System framework changes require a full device reboot, leaving the option unchecked only restarts the listed app scopes</string>
+    <string name="feature_restart_framework_only_summary">This scope runs in the system framework and cannot restart independently, confirming will reboot the entire device and reload module configuration</string>
+    <string name="feature_restart_device_summary">The entire device will reboot, reloading module configuration in all scopes</string>
+    <string name="feature_restart_device_action">Reboot device</string>
     <string name="feature_restart_scope_confirm_cancel">Cancel</string>
     <string name="feature_restart_scope_confirm_action">Restart</string>
     <string name="feature_restart_all_scope_title">Restart all scopes</string>
     <string name="feature_restart_all_scope_confirm_title">Restart all scopes?</string>
-    <string name="feature_restart_system_option">Also restart the system</string>
+    <string name="feature_restart_system_option">Reboot the entire device</string>
 
 <string name="feature_aod_dark_brightness_label">AOD brightness before screen off (dark ambient)</string>
 

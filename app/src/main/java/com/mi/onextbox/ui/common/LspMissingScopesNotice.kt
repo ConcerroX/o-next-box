@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -114,24 +116,32 @@ internal fun LspMissingScopesNotice(
             if (material) {
                 androidx.compose.material3.TextButton(
                     onClick = onOpen,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     enabled = !opening,
-                    contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
                     colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         disabledContentColor = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = .38f),
                     ),
                 ) {
-                    androidx.compose.material3.Text(stringResource(R.string.onboarding_open_lsposed))
+                    androidx.compose.material3.Text(
+                        stringResource(R.string.onboarding_open_lsposed),
+                        textAlign = TextAlign.Center,
+                    )
                 }
             } else {
                 Button(
                     onClick = onOpen,
+                    modifier = Modifier.fillMaxWidth(),
                     enabled = !opening,
-                    minHeight = 40.dp,
+                    minHeight = 48.dp,
                     cornerRadius = AppUiTokens.CardCornerRadius,
                     insideMargin = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    Text(stringResource(R.string.onboarding_open_lsposed), fontSize = 14.sp)
+                    Text(
+                        stringResource(R.string.onboarding_open_lsposed),
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                    )
                 }
             }
             if (openFailed) {
