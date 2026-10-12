@@ -1,14 +1,16 @@
 package com.mi.onextbox.ui.screens
 
+import androidx.compose.runtime.setValue
+
+import androidx.compose.runtime.getValue
+
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
@@ -20,7 +22,6 @@ import com.mi.onextbox.lsp.LauncherGridSettings
 import com.mi.onextbox.lsp.LauncherGridState
 import com.mi.onextbox.ui.common.AppLogStore
 import com.mi.onextbox.ui.settings.FeatureSettingWriteQueue
-import com.mi.onextbox.ui.settings.SettingsDivider
 import com.mi.onextbox.ui.settings.SettingsToggleRow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -61,40 +62,46 @@ internal fun LauncherGridSettingsGroup() {
         owner.lifecycle.addObserver(observer)
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
-    androidx.compose.runtime.key("launcher-custom-grid") {
-        SettingsToggleRow(
-            title = stringResource(R.string.launcher_custom_grid_title),
-            summary = "",
-            checked = state.enabled,
-            onCheckedChange = { save(state.copy(enabled = it)) },
-            hasDividerAbove = true,
-            hasDividerBelow = true,
-        )
-        SettingsDivider()
-        FeatureSliderRow(
-            heading = stringResource(R.string.launcher_custom_grid_columns),
-            currentValue = stringResource(R.string.launcher_custom_grid_columns_value, state.grid.columns),
-            value = state.grid.columns.toFloat(),
-            valueRange = LauncherGridRules.MIN_COLUMNS.toFloat()..LauncherGridRules.MAX_COLUMNS.toFloat(),
-            steps = LauncherGridRules.MAX_COLUMNS - LauncherGridRules.MIN_COLUMNS - 1,
-            enabled = state.enabled,
-            onValueChange = { state = state.copy(grid = state.grid.copy(columns = it.roundToInt())) },
-            onValueChangeFinished = { save(state) },
-            onReset = { save(state.copy(grid = state.grid.copy(columns = 4))) },
-            hasDividerBelow = true,
-        )
-        SettingsDivider()
-        FeatureSliderRow(
-            heading = stringResource(R.string.launcher_custom_grid_rows),
-            currentValue = stringResource(R.string.launcher_custom_grid_rows_value, state.grid.rows),
-            value = state.grid.rows.toFloat(),
-            valueRange = LauncherGridRules.MIN_ROWS.toFloat()..LauncherGridRules.MAX_ROWS.toFloat(),
-            steps = LauncherGridRules.MAX_ROWS - LauncherGridRules.MIN_ROWS - 1,
-            enabled = state.enabled,
-            onValueChange = { state = state.copy(grid = state.grid.copy(rows = it.roundToInt())) },
-            onValueChangeFinished = { save(state) },
-            onReset = { save(state.copy(grid = state.grid.copy(rows = 7))) },
-            hasDividerBelow = false,
-        )
+    FeatureAnimatedRows(hasDividerAbove = true) {
+        row(0) { above, below ->
+            SettingsToggleRow(
+                title = stringResource(R.string.launcher_custom_grid_title),
+                summary = "",
+                checked = state.enabled,
+                onCheckedChange = { save(state.copy(enabled = it)) },
+                hasDividerAbove = above,
+                hasDividerBelow = below,
+            )
+        }
+        row(1, visible = state.enabled) { above, below ->
+            FeatureSliderRow(
+                heading = stringResource(R.string.launcher_custom_grid_columns),
+                currentValue = stringResource(R.string.launcher_custom_grid_columns_value, state.grid.columns),
+                value = state.grid.columns.toFloat(),
+                valueRange = LauncherGridRules.MIN_COLUMNS.toFloat()..LauncherGridRules.MAX_COLUMNS.toFloat(),
+                steps = LauncherGridRules.MAX_COLUMNS - LauncherGridRules.MIN_COLUMNS - 1,
+                enabled = state.enabled,
+                onValueChange = { state = state.copy(grid = state.grid.copy(columns = it.roundToInt())) },
+                onValueChangeFinished = { save(state) },
+                onReset = { save(state.copy(grid = state.grid.copy(columns = 4))) },
+                hasDividerAbove = above,
+                hasDividerBelow = below,
+            )
+        }
+        row(2, visible = state.enabled) { above, below ->
+            FeatureSliderRow(
+                heading = stringResource(R.string.launcher_custom_grid_rows),
+                currentValue = stringResource(R.string.launcher_custom_grid_rows_value, state.grid.rows),
+                value = state.grid.rows.toFloat(),
+                valueRange = LauncherGridRules.MIN_ROWS.toFloat()..LauncherGridRules.MAX_ROWS.toFloat(),
+                steps = LauncherGridRules.MAX_ROWS - LauncherGridRules.MIN_ROWS - 1,
+                enabled = state.enabled,
+                onValueChange = { state = state.copy(grid = state.grid.copy(rows = it.roundToInt())) },
+                onValueChangeFinished = { save(state) },
+                onReset = { save(state.copy(grid = state.grid.copy(rows = 7))) },
+                hasDividerAbove = above,
+                hasDividerBelow = below,
+            )
+        }
     }
 }

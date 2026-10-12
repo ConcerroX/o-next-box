@@ -1091,4 +1091,26 @@
     <string name="update_beta_join_summary">加入后从 ONextBox_BetaTesting 获取 Beta 更新，仍匹配当前构建类型，测试版可能不稳定或出现功能异常，是否继续</string>
     <string name="update_beta_join_cancel">暂不加入</string>
     <string name="update_beta_join_confirm">加入</string>
+    <string name="oshare_title">互传</string>
+    <string name="oshare_unlimited_title">解除所有人 10 分钟限制</string>
+    <string name="oshare_unlimited_summary">选择“所有人”后不再自动切换接收范围，附近设备可持续发现此设备，直到手动更改</string>
+    <string name="oshare_save_failed">保存 互传设置失败</string>
+    <string name="feature_aosp_volume_title">原生音量面板</string>
+    <string name="feature_aosp_volume_summary">使用原生音量面板</string>
+    <string name="feature_aosp_volume_save_failed">保存音量面板设置失败</string>
+    <string name="feature_screen_capture_group">截图与录屏</string>
+    <string name="feature_screen_capture_title">解除截图录屏限制</string>
+    <string name="feature_screen_capture_summary">允许在受保护的应用内截图和录屏</string>
+    <string name="feature_screen_capture_save_failed">无法保存截图录屏设置</string>
+    <string name="feature_large_network_type_title">大号网络类型图标</string>
+    <string name="feature_large_network_type_summary">使用放大的网络类型图标</string>
+    <string name="feature_large_network_type_save_failed">无法保存网络图标设置</string>
+    <string name="feature_large_network_font_title">跟随系统字体</string>
+    <string name="feature_large_network_font_summary">大号网络类型图标使用系统当前字体</string>
+    <string name="feature_large_network_bold_title">使用粗体字体</string>
+    <string name="feature_large_network_bold_summary">跟随系统字体时加粗网络类型文字</string>
+    <string name="feature_large_network_artwork_title">仿原生大号网络类型图标包</string>
+    <string name="feature_large_network_artwork_summary">重绘网络类型图标，共支持25种网络类型</string>
+    <string name="feature_large_network_lte_title">4G を LTE と表示</string>
+    <string name="feature_large_network_lte_summary">カスタムアイコンの 4G・4G+ を LTE・LTE+ に置き換えます</string>
 </resources>

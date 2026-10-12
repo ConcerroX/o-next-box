@@ -26,63 +26,70 @@ internal fun AodFeaturesPage(
     onAodSingleClickBlockEnabledChange: (Boolean) -> Unit,
 ) {
     SettingsSection(title = stringResource(R.string.feature_group_aod_brightness))
-    SettingsGroup {
-        SettingsToggleRow(
-            title = stringResource(R.string.feature_aod_enhance_toggle_title),
-            summary = "",
-            checked = aodEnhanceEnabled,
-            onCheckedChange = onAodEnhanceEnabledChange,
-            hasDividerBelow = true,
-        )
-        SettingsDivider()
-        FeatureSliderRow(
-            heading = stringResource(R.string.feature_aod_dark_brightness_label),
-            currentValue = if (aodInitDarkBrightness == FeatureSliderRules.SYSTEM_DEFAULT) {
-                stringResource(R.string.feature_slider_current_default)
-            } else stringResource(R.string.feature_slider_current_value, aodInitDarkBrightness.toString()),
-            value = if (aodInitDarkBrightness == FeatureSliderRules.SYSTEM_DEFAULT) {
-                FeatureSliderRules.DARK_BRIGHTNESS_PREVIEW.toFloat()
-            } else aodInitDarkBrightness.toFloat(),
-            valueRange = 0f..255f,
-            steps = 254,
-            onValueChange = { onAodInitDarkBrightnessChange(it.roundToInt()) },
-            onReset = { onAodInitDarkBrightnessChange(FeatureSliderRules.SYSTEM_DEFAULT) },
-            enabled = aodEnhanceEnabled,
-            hasDividerAbove = true,
-            hasDividerBelow = true,
-        )
-        SettingsDivider()
-        FeatureSliderRow(
-            heading = stringResource(R.string.feature_aod_bright_brightness_label),
-            currentValue = if (aodInitBrightBrightness == FeatureSliderRules.SYSTEM_DEFAULT) {
-                stringResource(R.string.feature_slider_current_default)
-            } else stringResource(R.string.feature_slider_current_value, aodInitBrightBrightness.toString()),
-            value = if (aodInitBrightBrightness == FeatureSliderRules.SYSTEM_DEFAULT) {
-                FeatureSliderRules.BRIGHT_BRIGHTNESS_PREVIEW.toFloat()
-            } else aodInitBrightBrightness.toFloat(),
-            valueRange = 0f..255f,
-            steps = 254,
-            onValueChange = { onAodInitBrightBrightnessChange(it.roundToInt()) },
-            onReset = { onAodInitBrightBrightnessChange(FeatureSliderRules.SYSTEM_DEFAULT) },
-            enabled = aodEnhanceEnabled,
-            hasDividerAbove = true,
-            hasDividerBelow = true,
-        )
-        SettingsDivider()
-        FeatureSliderRow(
-            heading = stringResource(R.string.feature_aod_multiplier_label),
-            currentValue = if (FeatureSliderRules.normalizeMultiplier(aodRunningBrightnessMultiplier) == FeatureSliderRules.SYSTEM_DEFAULT_MULTIPLIER) {
-                stringResource(R.string.feature_slider_current_default)
-            } else stringResource(R.string.feature_slider_current_value, formatAodMultiplier(aodRunningBrightnessMultiplier)),
-            value = if (aodRunningBrightnessMultiplier == FeatureSliderRules.SYSTEM_DEFAULT_MULTIPLIER) 1f
-                else aodRunningBrightnessMultiplier,
-            valueRange = 1f..3f,
-            steps = 19,
-            onValueChange = { onAodRunningBrightnessMultiplierChange(FeatureSliderRules.multiplierFromSlider(it)) },
-            onReset = { onAodRunningBrightnessMultiplierChange(FeatureSliderRules.SYSTEM_DEFAULT_MULTIPLIER) },
-            enabled = aodEnhanceEnabled,
-            hasDividerAbove = true,
-        )
+    FeatureAnimatedGroup {
+        row(0) { above, below ->
+            SettingsToggleRow(
+                title = stringResource(R.string.feature_aod_enhance_toggle_title),
+                summary = "",
+                checked = aodEnhanceEnabled,
+                onCheckedChange = onAodEnhanceEnabledChange,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
+            )
+        }
+        row(1, visible = aodEnhanceEnabled) { above, below ->
+            FeatureSliderRow(
+                heading = stringResource(R.string.feature_aod_dark_brightness_label),
+                currentValue = if (aodInitDarkBrightness == FeatureSliderRules.SYSTEM_DEFAULT) {
+                    stringResource(R.string.feature_slider_current_default)
+                } else stringResource(R.string.feature_slider_current_value, aodInitDarkBrightness.toString()),
+                value = if (aodInitDarkBrightness == FeatureSliderRules.SYSTEM_DEFAULT) {
+                    FeatureSliderRules.DARK_BRIGHTNESS_PREVIEW.toFloat()
+                } else aodInitDarkBrightness.toFloat(),
+                valueRange = 0f..255f,
+                steps = 254,
+                onValueChange = { onAodInitDarkBrightnessChange(it.roundToInt()) },
+                onReset = { onAodInitDarkBrightnessChange(FeatureSliderRules.SYSTEM_DEFAULT) },
+                enabled = aodEnhanceEnabled,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
+            )
+        }
+        row(2, visible = aodEnhanceEnabled) { above, below ->
+            FeatureSliderRow(
+                heading = stringResource(R.string.feature_aod_bright_brightness_label),
+                currentValue = if (aodInitBrightBrightness == FeatureSliderRules.SYSTEM_DEFAULT) {
+                    stringResource(R.string.feature_slider_current_default)
+                } else stringResource(R.string.feature_slider_current_value, aodInitBrightBrightness.toString()),
+                value = if (aodInitBrightBrightness == FeatureSliderRules.SYSTEM_DEFAULT) {
+                    FeatureSliderRules.BRIGHT_BRIGHTNESS_PREVIEW.toFloat()
+                } else aodInitBrightBrightness.toFloat(),
+                valueRange = 0f..255f,
+                steps = 254,
+                onValueChange = { onAodInitBrightBrightnessChange(it.roundToInt()) },
+                onReset = { onAodInitBrightBrightnessChange(FeatureSliderRules.SYSTEM_DEFAULT) },
+                enabled = aodEnhanceEnabled,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
+            )
+        }
+        row(3, visible = aodEnhanceEnabled) { above, below ->
+            FeatureSliderRow(
+                heading = stringResource(R.string.feature_aod_multiplier_label),
+                currentValue = if (FeatureSliderRules.normalizeMultiplier(aodRunningBrightnessMultiplier) == FeatureSliderRules.SYSTEM_DEFAULT_MULTIPLIER) {
+                    stringResource(R.string.feature_slider_current_default)
+                } else stringResource(R.string.feature_slider_current_value, formatAodMultiplier(aodRunningBrightnessMultiplier)),
+                value = if (aodRunningBrightnessMultiplier == FeatureSliderRules.SYSTEM_DEFAULT_MULTIPLIER) 1f
+                    else aodRunningBrightnessMultiplier,
+                valueRange = 1f..3f,
+                steps = 19,
+                onValueChange = { onAodRunningBrightnessMultiplierChange(FeatureSliderRules.multiplierFromSlider(it)) },
+                onReset = { onAodRunningBrightnessMultiplierChange(FeatureSliderRules.SYSTEM_DEFAULT_MULTIPLIER) },
+                enabled = aodEnhanceEnabled,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
+            )
+        }
     }
     SettingsSection(title = stringResource(R.string.feature_group_aod_features))
     SettingsGroup {

@@ -27,6 +27,7 @@
         <package android:name="com.android.permissioncontroller" />
         <package android:name="com.oplus.securitypermission" />
         <package android:name="com.coloros.phonemanager" />
+        <package android:name="com.coloros.oshare" />
         <package android:name="com.oplus.ota" />
         <package android:name="com.oplus.sau" />
         <package android:name="com.coloros.colordirectservice" />
@@ -78,6 +79,7 @@
     </queries>
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />

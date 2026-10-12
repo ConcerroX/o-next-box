@@ -107,6 +107,8 @@ internal fun SystemUiFeaturesPage(
                 SettingsDivider()
                 AospBackPanelSettingsRow()
                 SettingsDivider()
+                AospVolumeSettingsRow()
+                SettingsDivider()
                 SettingsToggleRow(
                     title = stringResource(R.string.feature_force_native_clipboard_overlay_title),
                     summary = stringResource(R.string.feature_force_native_clipboard_overlay_summary),
@@ -162,6 +164,10 @@ internal fun SystemUiFeaturesPage(
             }
         }
         FeaturePageMode.SystemUiStatusBar -> {
+            SettingsSection(title = stringResource(R.string.feature_large_network_type_title))
+            SettingsGroup {
+                LargeNetworkTypeSettingsRow()
+            }
             SettingsSection(title = stringResource(R.string.status_bar_group_network))
             SettingsGroup {
                 SettingsToggleRow(

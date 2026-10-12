@@ -1,5 +1,6 @@
 package com.mi.onextbox.lsp
 
+import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,6 +13,11 @@ import java.lang.reflect.Modifier
 internal object FluidCloudBrowserHooker {
     private const val TAG = "FluidCloudBrowser"
     private const val TEXT_INTENT = "com.oplus.textintent.distribution.bean.TextIntent"
+    private val reported = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    private fun reportOnce(message: String) {
+        if (reported.add(message)) HookLog.i(TAG, message)
+    }
 
     fun hook(loader: ClassLoader) {
         val key = "$TAG:invoke@${System.identityHashCode(loader)}"
@@ -50,14 +56,21 @@ internal object FluidCloudBrowserHooker {
                             componentPackage = original.component?.packageName,
                             hasSelector = original.selector != null,
                         )) return@runCatching null
-                    val target = defaultBrowser(context) ?: return@runCatching null
+                    reportOnce("Recognized web link launch intercepted")
+                    val target = defaultBrowser(context) ?: run {
+                        reportOnce("No default browser resolved; original route retained")
+                        return@runCatching null
+                    }
                     val redirected = Intent(original).apply {
                         component = null
                         setPackage(target)
                         addCategory(Intent.CATEGORY_BROWSABLE)
                     }
                     val activity = redirected.resolveActivityInfo(context.packageManager, PackageManager.MATCH_DEFAULT_ONLY)
-                        ?: return@runCatching null
+                        ?: run {
+                            reportOnce("Default browser cannot resolve web intent; original route retained")
+                            return@runCatching null
+                        }
                     if (activity.packageName != target || !activity.enabled || !activity.exported ||
                         !activity.applicationInfo.enabled) return@runCatching null
                     Triple(oldPackage, target, redirected)
@@ -65,6 +78,7 @@ internal object FluidCloudBrowserHooker {
                     ?: return@Hooker chain.proceed()
                 val args = chain.args.toTypedArray()
                 args[1] = prepared.third
+                reportOnce("Routing recognized web link to default browser")
                 FluidCloudBrowserRules.withTarget(
                     prepared.first, prepared.second, { packageName.set(owner, it) },
                 ) { chain.proceed(args) }
@@ -75,6 +89,23 @@ internal object FluidCloudBrowserHooker {
             runCatching { loader.loadClass("$TEXT_INTENT\$invoke\$1\$1\$1") }.getOrNull()
                 ?.declaredMethods?.filter { it.name == "invokeSuspend" }
                 ?.forEach { ModernHookRuntime.requireModule().deoptimize(it) }
+            // These card/panel callers can contain an inlined invoke/processInvoke on OEM builds.
+            // Deoptimizing only TextIntent.invoke does not invalidate that outer compiled code.
+            listOf(
+                "com.oplus.textintent.distribution.PilotIntent",
+                "com.oplus.textintent.distribution.ui.MultiAppOpenablePanel",
+                "com.oplus.textintent.distribution.ui.MultiAppInstallPanel",
+                "com.oplus.textintent.distribution.ui.MediaOpenPanel",
+            ).forEach { name ->
+                runCatching {
+                    val caller = loader.loadClass(name)
+                    (listOf(caller) + caller.declaredClasses.toList()).forEach { callerType ->
+                        callerType.declaredMethods.filterNot {
+                            Modifier.isAbstract(it.modifiers) || Modifier.isNative(it.modifiers)
+                        }.forEach { ModernHookRuntime.requireModule().deoptimize(it) }
+                    }
+                }.onFailure { reportOnce("Optional web link caller deoptimization unavailable: $name") }
+            }
             HookLog.i(TAG, "Recognized web link routing installed")
         }.onFailure {
             ModernHookRegistry.unhook(key)
@@ -84,12 +115,26 @@ internal object FluidCloudBrowserHooker {
 
     private fun defaultBrowser(context: Context): String? {
         val pm = context.packageManager
-        val lookup = runCatching {
-            val user = Context::class.java.getMethod("getUserId").invoke(context) as Int
-            pm.javaClass.getMethod("getDefaultBrowserPackageNameAsUser", Int::class.javaPrimitiveType)
-                .invoke(pm, user) as? String
-        }
-        if (lookup.isSuccess) return lookup.getOrNull()?.takeIf { it.isNotBlank() }
+        return FluidCloudBrowserRules.firstAvailableBrowser(
+            // Query the browser role in the current user's context on every click (no stale cache).
+            {
+                val manager = context.getSystemService(RoleManager::class.java)
+                @Suppress("UNCHECKED_CAST")
+                val holders = manager?.javaClass?.getMethod("getRoleHolders", String::class.java)
+                    ?.invoke(manager, RoleManager.ROLE_BROWSER) as? List<String>
+                holders?.singleOrNull()
+            },
+            {
+                val user = Context::class.java.getMethod("getUserId").invoke(context) as Int
+                pm.javaClass.getMethod("getDefaultBrowserPackageNameAsUser", Int::class.javaPrimitiveType)
+                    .invoke(pm, user) as? String
+            },
+            { resolveBrowser(context) },
+        )
+    }
+
+    private fun resolveBrowser(context: Context): String? {
+        val pm = context.packageManager
         val probe = Intent(Intent.ACTION_VIEW, Uri.parse("https://onextbox.invalid/"))
             .addCategory(Intent.CATEGORY_BROWSABLE)
         val resolved = pm.resolveActivity(probe, PackageManager.MATCH_DEFAULT_ONLY) ?: return null

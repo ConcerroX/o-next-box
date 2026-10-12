@@ -1091,4 +1091,26 @@
     <string name="update_beta_join_summary">Sau khi tham gia, bản cập nhật Beta được lấy từ ONextBox_BetaTesting và khớp với loại bản dựng hiện tại, bản thử nghiệm có thể không ổn định hoặc có lỗi chức năng, bạn có muốn tiếp tục không</string>
     <string name="update_beta_join_cancel">Chưa tham gia</string>
     <string name="update_beta_join_confirm">Tham gia</string>
+    <string name="oshare_title">Share</string>
+    <string name="oshare_unlimited_title">Bỏ giới hạn 10 phút</string>
+    <string name="oshare_unlimited_summary">Giữ chế độ hiển thị với mọi người cho đến khi bạn đổi thủ công; các thiết bị ở gần vẫn có thể tìm thấy thiết bị này</string>
+    <string name="oshare_save_failed">Không thể lưu cài đặt Share</string>
+    <string name="feature_aosp_volume_title">Bảng âm lượng gốc</string>
+    <string name="feature_aosp_volume_summary">Sử dụng bảng âm lượng gốc</string>
+    <string name="feature_aosp_volume_save_failed">Không thể lưu cài đặt bảng âm lượng</string>
+    <string name="feature_screen_capture_group">Ảnh chụp và quay màn hình</string>
+    <string name="feature_screen_capture_title">Gỡ giới hạn chụp và quay màn hình</string>
+    <string name="feature_screen_capture_summary">Cho phép chụp và quay màn hình trong ứng dụng được bảo vệ</string>
+    <string name="feature_screen_capture_save_failed">Không thể lưu cài đặt chụp và quay màn hình</string>
+    <string name="feature_large_network_type_title">Biểu tượng loại mạng lớn</string>
+    <string name="feature_large_network_type_summary">Sử dụng biểu tượng loại mạng phóng to</string>
+    <string name="feature_large_network_type_save_failed">Không thể lưu cài đặt biểu tượng mạng</string>
+    <string name="feature_large_network_font_title">Theo phông chữ hệ thống</string>
+    <string name="feature_large_network_font_summary">Dùng phông chữ hệ thống hiện tại cho biểu tượng loại mạng lớn</string>
+    <string name="feature_large_network_bold_title">Sử dụng chữ đậm</string>
+    <string name="feature_large_network_bold_summary">In đậm loại mạng khi dùng phông chữ hệ thống</string>
+    <string name="feature_large_network_artwork_title">Bộ biểu tượng loại mạng cỡ lớn theo phong cách gốc</string>
+    <string name="feature_large_network_artwork_summary">Vẽ lại biểu tượng loại mạng, hỗ trợ tổng cộng 25 loại mạng</string>
+    <string name="feature_large_network_lte_title">Hiển thị 4G thành LTE</string>
+    <string name="feature_large_network_lte_summary">Thay biểu tượng 4G và 4G+ bằng LTE và LTE+ trong bộ tùy chỉnh</string>
 </resources>

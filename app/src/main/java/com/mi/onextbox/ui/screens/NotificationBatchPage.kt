@@ -1,6 +1,5 @@
 package com.mi.onextbox.ui.screens
 
-import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -59,9 +58,9 @@ internal fun NotificationBatchPage(modifier: Modifier, backdrop: LayerBackdrop?,
             val catalog = withContext(Dispatchers.IO) {
                 val pm = context.packageManager
                 val collator = Collator.getInstance(locale)
-                pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-                    .mapNotNull { it.activityInfo?.applicationInfo }.distinctBy { it.packageName }
-                    .map { NotificationBatchApp(NotificationAppTarget(it.packageName, it.uid), pm.getApplicationLabel(it).toString()) }
+                manageableApplications(pm)
+                    .map { NotificationBatchApp(NotificationAppTarget(it.packageName, it.uid),
+                        runCatching { pm.getApplicationLabel(it).toString() }.getOrDefault(it.packageName)) }
                     .sortedWith { a, b -> collator.compare(a.label, b.label) }
             }
             apps = catalog

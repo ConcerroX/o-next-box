@@ -1,15 +1,16 @@
 package com.mi.onextbox.ui.screens
 
+import androidx.compose.runtime.setValue
+
+import androidx.compose.runtime.getValue
+
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -103,7 +104,8 @@ internal fun DesktopFeaturesPage(
         }
 
         SettingsSection(title = stringResource(R.string.desktop_category_search))
-        SettingsGroup {
+        FeatureAnimatedGroup {
+        row(0) { above, below ->
             LauncherSearchBarModeRow(
                 title = stringResource(R.string.feature_launcher_taskbar_search_box_title),
                 summary = stringResource(R.string.feature_launcher_taskbar_search_box_summary),
@@ -116,10 +118,11 @@ internal fun DesktopFeaturesPage(
                         }
                     }
                 },
-                hasDividerAbove = false,
-                hasDividerBelow = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
-            SettingsDivider()
+        }
+        row(1, visible = launcherSearchBarMode != LspConfig.LAUNCHER_SEARCH_BAR_MODE_OFF) { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_launcher_search_compatibility_title),
                 summary = stringResource(R.string.feature_launcher_search_compatibility_summary),
@@ -135,10 +138,11 @@ internal fun DesktopFeaturesPage(
                         }
                     }
                 },
-                hasDividerAbove = true,
-                hasDividerBelow = false,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
         }
+    }
 
         SettingsSection(title = stringResource(R.string.launcher_group_dock))
         SettingsGroup { LauncherFeatureRows(LauncherFeatureItems.dock) }
@@ -275,29 +279,34 @@ internal fun RecentTaskRadiusRow(
     val displayedRadius = if (radiusPreference == FeatureSliderRules.SYSTEM_DEFAULT) {
         defaultRadiusDp ?: FeatureSliderRules.RECENT_RADIUS_PREVIEW_DP
     } else valueDp
-    SettingsToggleRow(
-        title = title,
-        summary = "",
-        checked = checked,
-        onCheckedChange = onCheckedChange,
-        hasDividerAbove = hasDividerAbove,
-        hasDividerBelow = true,
-    )
-    SettingsDivider()
-    FeatureSliderRow(
-        heading = stringResource(R.string.feature_recent_task_radius_label),
-        currentValue = if (radiusPreference == FeatureSliderRules.SYSTEM_DEFAULT) {
-            stringResource(R.string.feature_slider_current_default)
-        } else stringResource(R.string.feature_slider_current_dp, valueDp),
-        value = displayedRadius.toFloat(),
-        valueRange = 0f..260f,
-        steps = 259,
-        enabled = checked,
-        onValueChange = { onValueDpChange(FeatureSliderRules.radiusFromSlider(it.roundToInt(), defaultRadiusDp)) },
-        onReset = { onValueDpChange(FeatureSliderRules.SYSTEM_DEFAULT) },
-        hasDividerAbove = true,
-        hasDividerBelow = false,
-    )
+    FeatureAnimatedRows(hasDividerAbove = hasDividerAbove) {
+    row("main") { above, below ->
+        SettingsToggleRow(
+            title = title,
+            summary = "",
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            hasDividerAbove = above,
+            hasDividerBelow = below,
+        )
+    }
+    row("radius", visible = checked) { above, below ->
+        FeatureSliderRow(
+            heading = stringResource(R.string.feature_recent_task_radius_label),
+            currentValue = if (radiusPreference == FeatureSliderRules.SYSTEM_DEFAULT) {
+                stringResource(R.string.feature_slider_current_default)
+            } else stringResource(R.string.feature_slider_current_dp, valueDp),
+            value = displayedRadius.toFloat(),
+            valueRange = 0f..260f,
+            steps = 259,
+            enabled = checked,
+            onValueChange = { onValueDpChange(FeatureSliderRules.radiusFromSlider(it.roundToInt(), defaultRadiusDp)) },
+            onReset = { onValueDpChange(FeatureSliderRules.SYSTEM_DEFAULT) },
+            hasDividerAbove = above,
+            hasDividerBelow = below,
+        )
+    }
+    }
 }
 
 @SuppressLint("DiscouragedApi")

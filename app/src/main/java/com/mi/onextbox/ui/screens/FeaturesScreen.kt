@@ -113,6 +113,7 @@ import com.mi.onextbox.lsp.EsimDiagnosticsStore
 import com.mi.onextbox.lsp.EsimProfileDiagnostic
 import com.mi.onextbox.lsp.LspConfig
 import com.mi.onextbox.lsp.PhoneManagerSettings
+import com.mi.onextbox.lsp.OShareSettings
 import com.mi.onextbox.lsp.SoftwareUpdateSettings
 import com.mi.onextbox.lsp.FluidCloudBrowserSettings
 import com.mi.onextbox.ui.common.AssistantScreenOption
@@ -195,6 +196,7 @@ enum class FeaturePageMode(val isNestedPage: Boolean = false) {
     Battery,
     TrafficManagement,
     PhoneManager,
+    OShare,
     SoftwareUpdate,
     Keyboard,
     QuickAppServices,
@@ -561,6 +563,7 @@ internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
     FeaturePageMode.Battery -> stringResource(R.string.battery_page_title)
     FeaturePageMode.TrafficManagement -> stringResource(R.string.traffic_page_title)
     FeaturePageMode.PhoneManager -> stringResource(R.string.phone_manager_title)
+    FeaturePageMode.OShare -> stringResource(R.string.oshare_title)
     FeaturePageMode.SoftwareUpdate -> stringResource(R.string.ota_page_title)
     FeaturePageMode.Keyboard -> stringResource(R.string.keyboard_page_title)
     FeaturePageMode.QuickAppServices -> stringResource(R.string.feature_quick_app_services_title)
@@ -616,6 +619,7 @@ internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when 
     FeaturePageMode.Battery -> listOf("android", "system", "com.oplus.battery")
     FeaturePageMode.TrafficManagement -> listOf("com.oplus.trafficmonitor")
     FeaturePageMode.PhoneManager -> listOf(PhoneManagerSettings.PACKAGE_NAME)
+    FeaturePageMode.OShare -> listOf(OShareSettings.PACKAGE_NAME)
     FeaturePageMode.SoftwareUpdate -> listOf(SoftwareUpdateSettings.PACKAGE_NAME, SoftwareUpdateSettings.SYSTEM_FILES_PACKAGE_NAME)
     FeaturePageMode.Keyboard -> listOf("com.oplus.keyboard")
     FeaturePageMode.QuickAppServices -> listOf(
@@ -951,6 +955,13 @@ private fun featureMainEntries(): List<FeatureMainEntry> = buildList {
                 titleRes = R.string.phone_manager_title,
                 iconPackages = listOf(PhoneManagerSettings.PACKAGE_NAME),
                 pageMode = FeaturePageMode.PhoneManager,
+            )
+        )
+        add(
+            FeatureMainEntry(
+                titleRes = R.string.oshare_title,
+                iconPackages = listOf(OShareSettings.PACKAGE_NAME),
+                pageMode = FeaturePageMode.OShare,
             )
         )
         add(
@@ -1474,6 +1485,7 @@ private fun FeatureSubPage(
         FeaturePageMode.Battery -> BatteryFeaturesPage()
         FeaturePageMode.TrafficManagement -> TrafficManagementPage()
         FeaturePageMode.PhoneManager -> PhoneManagerFeaturesPage()
+        FeaturePageMode.OShare -> OShareFeaturesPage()
         FeaturePageMode.SoftwareUpdate -> SoftwareUpdateFeaturesPage()
         FeaturePageMode.Keyboard -> KeyboardFeaturesPage()
         FeaturePageMode.QuickAppServices -> QuickAppServicesFeaturesPage()

@@ -28,8 +28,9 @@ class FluidCloudToggleUiContractTest {
         listOf("enabled", "mediaEnabled", "browserEnabled").forEach { state ->
             assertTrue(state, source.contains("$state = checked"))
         }
-        assertTrue(source.contains("finally {\n                        enabled = LspConfig.isFluidCloudMaterialEnabled(context)"))
-        assertTrue(source.contains("finally {\n                        mediaEnabled = FluidCloudMediaSettings.isEnabled(context)"))
+        val normalized = source.replace(Regex("\\s+"), " ")
+        assertTrue(normalized.contains("finally { enabled = LspConfig.isFluidCloudMaterialEnabled(context)"))
+        assertTrue(normalized.contains("finally { mediaEnabled = FluidCloudMediaSettings.isEnabled(context)"))
         assertTrue(source.contains("browserEnabled = FluidCloudBrowserSettings.isEnabled(appContext)"))
     }
 

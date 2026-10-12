@@ -3,8 +3,6 @@ package com.mi.onextbox.lsp
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernReflect
 import io.github.libxposed.api.XposedInterface
-import java.util.Collections
-import java.util.WeakHashMap
 
 /** API 102-native AOD hooks kept outside the main SystemUI feature dispatcher. */
 internal object SystemUiAodHooker {
@@ -16,8 +14,6 @@ internal object SystemUiAodHooker {
     private const val BRIGHTNESS_MAX = 255
 
     private val brightnessArgs = ThreadLocal.withInitial<Array<Any?>> { arrayOfNulls(2) }
-    private val configuredPanoramicInstances =
-        Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
     private val singleClickCallbackClassNames = listOf(
         "com.oplus.systemui.aod.scene.AodViewSingleClickWakeUpHolder\$AodSingleClickWakeUpCallback",
         // ColorOS 16 panoramic AOD path.
@@ -124,13 +120,19 @@ internal object SystemUiAodHooker {
             installed++
         }
 
+        val smoothController = ModernReflect.findClassIfExists(
+            "com.oplus.systemui.aod.display.SmoothTransitionController", classLoader,
+        )
+        val allDaySupport = smoothController?.let { type ->
+            AodAllDaySupport(type) { message -> HookLog.i(TAG, message) }
+        }
         val smoothControllerCompanion = ModernReflect.findClassIfExists(
             "com.oplus.systemui.aod.display.SmoothTransitionController\$Companion",
             classLoader,
         )
         val panoramicMethods = smoothControllerCompanion
             ?.declaredMethods
-            ?.filter { method -> method.name == "getInstance" }
+            ?.filter { method -> method.name == "getInstance" && method.returnType == smoothController }
             .orEmpty()
         panoramicMethods.forEach { method ->
             val key = "aod:panoramic:${method.declaringClass.name}#${method.name}"
@@ -139,18 +141,34 @@ internal object SystemUiAodHooker {
                 method,
                 XposedInterface.Hooker { chain ->
                     val instance = chain.proceed()
-                    if (
-                        instance != null &&
-                        LspConfig.isAodAllDayUnlockEnabledXposed() &&
-                        configuredPanoramicInstances.put(instance, true) != true
-                    ) {
-                        setBooleanField(instance, "isSupportPanoramicAllDay")
-                        setBooleanField(instance, "isSupportPanoramicAllDayByPanelFeature")
-                    }
+                    allDaySupport?.apply(instance, LspConfig.isAodAllDayUnlockEnabledXposed())
                     instance
                 },
             )
             installed++
+        }
+
+        // getInstance precedes native initialization. Reapply after the native panel
+        // capability calculation, and on subsequent lookups if the system resets it.
+        val panoramicInitMethods = smoothController?.declaredMethods.orEmpty().filter {
+            it.name == "initSmoothTransitionState" && it.parameterTypes.isEmpty() &&
+                it.returnType == java.lang.Void.TYPE
+        }
+        panoramicInitMethods.forEach { method ->
+            runCatching {
+                ModernHookRegistry.installFast(
+                    "aod:panoramic-init:${method.declaringClass.name}#${method.name}", method,
+                    XposedInterface.Hooker { chain ->
+                        val result = chain.proceed()
+                        allDaySupport?.apply(chain.thisObject, LspConfig.isAodAllDayUnlockEnabledXposed())
+                        result
+                    },
+                )
+                installed++
+            }.onFailure { HookLog.i(TAG, "AOD all-day initialization hook failed: $it") }
+        }
+        if (panoramicInitMethods.isEmpty()) {
+            HookLog.i(TAG, "AOD all-day initialization hook not matched; using controller lookup fallback")
         }
 
         val singleClickCallbackClasses = singleClickCallbackClassNames.mapNotNull { className ->
@@ -211,7 +229,7 @@ internal object SystemUiAodHooker {
             if (installed > 0) {
                 "SystemUI AOD API102 hooks installed in $packageName: " +
                     "init=${dozeServiceMethods.size}, running=${runningMethods.size}, " +
-                    "panoramic=${panoramicMethods.size}, singleClick=$singleClickMethods, " +
+                    "panoramic=${panoramicMethods.size}, panoramicInit=${panoramicInitMethods.size}, singleClick=$singleClickMethods, " +
                     "doubleTapCompat=${doubleTapCompatibilityMethods.size}"
             } else {
                 "SystemUI AOD hooks not matched in $packageName"
@@ -220,12 +238,4 @@ internal object SystemUiAodHooker {
         return installed
     }
 
-    private fun setBooleanField(instance: Any, fieldName: String) {
-        runCatching {
-            instance.javaClass.getDeclaredField(fieldName).apply {
-                isAccessible = true
-                setBoolean(instance, true)
-            }
-        }
-    }
 }

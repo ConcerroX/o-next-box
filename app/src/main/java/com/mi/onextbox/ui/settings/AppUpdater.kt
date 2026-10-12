@@ -235,6 +235,15 @@ object AppUpdater {
     }
 
     private fun findLatestRelease(buildType: UpdateBuildType, includeBeta: Boolean): AvailableUpdate? {
+        val results = AppUpdateRules.releaseSources(includeBeta).map { betaSource ->
+            runCatching { findLatestRepositoryRelease(buildType, betaSource) }
+        }
+        // A failed optional source must not hide updates from the other repository.
+        if (results.all { it.isFailure }) throw results.first().exceptionOrNull()!!
+        return results.mapNotNull { it.getOrNull() }.maxWithOrNull(compareByUpdateVersion)
+    }
+
+    private fun findLatestRepositoryRelease(buildType: UpdateBuildType, includeBeta: Boolean): AvailableUpdate? {
         val apiBase = "https://api.github.com/repos/${AppUpdateRules.repository(includeBeta)}"
         val candidates = mutableListOf<AvailableUpdate>()
         for (page in 1..3) {

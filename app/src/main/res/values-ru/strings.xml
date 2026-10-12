@@ -1091,4 +1091,26 @@
     <string name="update_beta_join_summary">После вступления Beta-обновления будут загружаться из ONextBox_BetaTesting с учётом текущего типа сборки, тестовые версии могут быть нестабильными или содержать ошибки, продолжить</string>
     <string name="update_beta_join_cancel">Не сейчас</string>
     <string name="update_beta_join_confirm">Присоединиться</string>
+    <string name="oshare_title">Share</string>
+    <string name="oshare_unlimited_title">Снять ограничение в 10 минут</string>
+    <string name="oshare_unlimited_summary">Режим видимости для всех действует до ручного изменения; устройства поблизости смогут обнаруживать это устройство</string>
+    <string name="oshare_save_failed">Не удалось сохранить настройки Share</string>
+    <string name="feature_aosp_volume_title">Панель громкости AOSP</string>
+    <string name="feature_aosp_volume_summary">Использовать стандартную панель громкости</string>
+    <string name="feature_aosp_volume_save_failed">Не удалось сохранить настройку панели громкости</string>
+    <string name="feature_screen_capture_group">Снимки и запись экрана</string>
+    <string name="feature_screen_capture_title">Снять ограничения на снимки и запись экрана</string>
+    <string name="feature_screen_capture_summary">Разрешить снимки и запись экрана в защищённых приложениях</string>
+    <string name="feature_screen_capture_save_failed">Не удалось сохранить настройки захвата</string>
+    <string name="feature_large_network_type_title">Крупные значки типа сети</string>
+    <string name="feature_large_network_type_summary">Использовать увеличенные значки типа сети</string>
+    <string name="feature_large_network_type_save_failed">Не удалось сохранить настройки значков сети</string>
+    <string name="feature_large_network_font_title">Использовать системный шрифт</string>
+    <string name="feature_large_network_font_summary">Использовать текущий системный шрифт для крупных значков типа сети</string>
+    <string name="feature_large_network_bold_title">Использовать жирный шрифт</string>
+    <string name="feature_large_network_bold_summary">Выделять тип сети жирным при использовании системного шрифта</string>
+    <string name="feature_large_network_artwork_title">Набор крупных значков типа сети в стандартном стиле</string>
+    <string name="feature_large_network_artwork_summary">Перерисованные значки сети с поддержкой 25 типов сети</string>
+    <string name="feature_large_network_lte_title">Показывать LTE вместо 4G</string>
+    <string name="feature_large_network_lte_summary">Заменять значки 4G и 4G+ на LTE и LTE+ в пользовательском наборе</string>
 </resources>

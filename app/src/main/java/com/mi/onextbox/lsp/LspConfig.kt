@@ -2739,6 +2739,13 @@ object LspConfig {
             setFluidCloudMaterialEnabled(context, false)
             setRoundNotificationClearButtonEnabled(context, false)
             setAospBackPanelEnabled(context, false)
+            AospVolumeSettings.set(context, false)
+            ScreenCaptureSettings.set(context, false)
+            LargeNetworkTypeSettings.set(context, false)
+            LargeNetworkTypeSettings.setSystemFont(context, false)
+            LargeNetworkTypeSettings.setBold(context, false)
+            LargeNetworkTypeSettings.setArtwork(context, false)
+            LargeNetworkTypeSettings.setLte(context, false)
             setHideDisconnectedBluetoothEnabled(context, false)
             StatusBarInteractionFeature.entries.forEach { setStatusBarInteractionFeatureEnabled(context, it, false) }
             BatteryFeature.entries.forEach { setBatteryFeatureEnabled(context, it, false) }

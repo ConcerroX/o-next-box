@@ -91,6 +91,7 @@ class OosLspModuleEntry : XposedModule() {
         NotificationRemovalHooker.hookSystemServer(loader)
         SmallWindowHooker.hookSystemServer(loader)
         KeyguardCaptureHooker.hookSystemServer(loader)
+        ScreenCaptureHooker.hookSystemServer(loader)
         InstallerRedirectHooker.hook(loader)
         NativeFilePickerHooker.hook(loader)
         SettingsGlobalExtremeRefreshRateHooker.hook(classLoader = loader)
@@ -139,9 +140,11 @@ class OosLspModuleEntry : XposedModule() {
 
         when (packageName) {
             PACKAGE_SYSTEM_UI -> {
+                LargeNetworkTypeHooker.hook(classLoader)
                 SideKeySystemUiHooker.hook(classLoader)
                 ImmersiveNavigationHooker.hook(classLoader)
                 AospBackPanelHooker.hook(classLoader)
+                AospVolumeHooker.hook(classLoader)
                 AssistantHooker.hook(packageName, classLoader)
                 SystemUiHooker.hook(packageName, classLoader)
                 DisconnectedBluetoothIconHooker.hook(classLoader)
@@ -211,6 +214,8 @@ class OosLspModuleEntry : XposedModule() {
 
             PhoneManagerSettings.PACKAGE_NAME ->
                 PhoneManagerCountdownHooker.hook(classLoader, target.sourceDir)
+
+            OShareSettings.PACKAGE_NAME -> OShareVisibilityHooker.hook(classLoader)
 
             SoftwareUpdateSettings.PACKAGE_NAME ->
                 SoftwareUpdateHooker.hook(classLoader, target.sourceDir)

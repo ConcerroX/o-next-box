@@ -75,8 +75,10 @@ internal fun LauncherFeatureRows(items: List<LauncherFeatureItem>, hasDividerBel
         owner.lifecycle.addObserver(observer)
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
-    items.forEachIndexed { index, item ->
+    FeatureAnimatedRows(hasDividerBelow = hasDividerBelow) {
+    items.forEach { item ->
         val rowEnabled = item.feature != LauncherFeature.DockBlur || states[LauncherFeature.Dock] == true
+        row(item.feature, visible = rowEnabled) { above, below ->
         SettingsToggleRow(
             title = stringResource(item.title),
             summary = if (item.summary != 0) stringResource(item.summary) else "",
@@ -94,9 +96,10 @@ internal fun LauncherFeatureRows(items: List<LauncherFeatureItem>, hasDividerBel
                     }
                 }
             },
-            hasDividerAbove = index > 0,
-            hasDividerBelow = index < items.lastIndex || hasDividerBelow,
+            hasDividerAbove = above,
+            hasDividerBelow = below,
         )
-        if (index < items.lastIndex || hasDividerBelow) SettingsDivider()
+        }
+    }
     }
 }

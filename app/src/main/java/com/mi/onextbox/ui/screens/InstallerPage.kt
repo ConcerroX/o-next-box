@@ -111,10 +111,9 @@ internal fun InstallerPage() {
     )
     groups.forEach { (groupTitle, options) ->
         SettingsSection(stringResource(groupTitle))
-        SettingsGroup {
-            options.forEachIndexed { index, (feature, title, summary) ->
-                if (index > 0) SettingsDivider()
-                Material3ExpressiveSegmentPosition(index, options.size) {
+        FeatureAnimatedGroup {
+            options.forEach { (feature, title, summary) ->
+                row(feature, visible = feature == Feature.Enabled || flags[Feature.Enabled] == true) { above, below ->
                     SettingsToggleRow(
                         title = stringResource(title), summary = stringResource(summary),
                         checked = flags[feature] == true,
@@ -132,7 +131,7 @@ internal fun InstallerPage() {
                                 }
                             }
                         },
-                        hasDividerAbove = index > 0, hasDividerBelow = index < options.lastIndex,
+                        hasDividerAbove = above, hasDividerBelow = below,
                     )
                 }
             }

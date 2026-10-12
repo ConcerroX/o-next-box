@@ -1,6 +1,5 @@
 package com.mi.onextbox.ui.screens
 
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -119,10 +118,7 @@ internal fun FluidCloudMediaBlacklistPage(modifier: Modifier, backdrop: LayerBac
         try {
             apps = withContext(Dispatchers.IO) {
                 val pm = context.packageManager
-                val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-                pm.queryIntentActivities(intent, 0).asSequence()
-                    .mapNotNull { it.activityInfo?.applicationInfo }
-                    .distinctBy { it.packageName }
+                manageableApplications(pm).asSequence()
                     .map { info -> MediaBlacklistApp(info.packageName,
                         runCatching { pm.getApplicationLabel(info).toString() }.getOrDefault(info.packageName)) }
                     .toList()

@@ -3,6 +3,14 @@ package com.mi.onextbox.lsp
 internal object FluidCloudBrowserRules {
     const val STOCK_BROWSER = "com.heytap.browser"
 
+    fun firstAvailableBrowser(vararg lookups: () -> String?): String? {
+        for (lookup in lookups) {
+            val candidate = runCatching { lookup() }.getOrNull()
+            if (!candidate.isNullOrBlank() && candidate != "android") return candidate
+        }
+        return null
+    }
+
     fun accepts(
         enabled: Boolean,
         textType: Int?,

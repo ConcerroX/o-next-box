@@ -1091,4 +1091,26 @@
     <string name="update_beta_join_summary">참여하면 ONextBox_BetaTesting에서 현재 빌드 유형에 맞는 Beta 업데이트를 받습니다, 테스트 버전은 불안정하거나 기능 오류가 발생할 수 있습니다, 계속할까요</string>
     <string name="update_beta_join_cancel">나중에</string>
     <string name="update_beta_join_confirm">참여</string>
+    <string name="oshare_title">Share</string>
+    <string name="oshare_unlimited_title">10분 제한 해제</string>
+    <string name="oshare_unlimited_summary">직접 변경할 때까지 모든 사용자에게 공개 상태를 유지합니다. 주변 기기에서 계속 이 기기를 검색할 수 있습니다</string>
+    <string name="oshare_save_failed">Share 설정을 저장하지 못했습니다</string>
+    <string name="feature_aosp_volume_title">기본 볼륨 패널</string>
+    <string name="feature_aosp_volume_summary">기본 볼륨 패널 사용</string>
+    <string name="feature_aosp_volume_save_failed">볼륨 패널 설정을 저장하지 못했습니다</string>
+    <string name="feature_screen_capture_group">스크린샷 및 화면 녹화</string>
+    <string name="feature_screen_capture_title">스크린샷 및 녹화 제한 해제</string>
+    <string name="feature_screen_capture_summary">보호된 앱에서 스크린샷 및 화면 녹화 허용</string>
+    <string name="feature_screen_capture_save_failed">캡처 설정을 저장할 수 없습니다</string>
+    <string name="feature_large_network_type_title">큰 네트워크 유형 아이콘</string>
+    <string name="feature_large_network_type_summary">확대된 네트워크 유형 아이콘 사용</string>
+    <string name="feature_large_network_type_save_failed">네트워크 아이콘 설정을 저장할 수 없습니다</string>
+    <string name="feature_large_network_font_title">시스템 글꼴 따르기</string>
+    <string name="feature_large_network_font_summary">큰 네트워크 유형 아이콘에 현재 시스템 글꼴 사용</string>
+    <string name="feature_large_network_bold_title">굵은 글꼴 사용</string>
+    <string name="feature_large_network_bold_summary">시스템 글꼴을 따를 때 네트워크 유형을 굵게 표시</string>
+    <string name="feature_large_network_artwork_title">기본 스타일의 대형 네트워크 유형 아이콘 팩</string>
+    <string name="feature_large_network_artwork_summary">네트워크 유형 아이콘을 새로 디자인하여 총 25가지 네트워크 유형 지원</string>
+    <string name="feature_large_network_lte_title">4G를 LTE로 표시</string>
+    <string name="feature_large_network_lte_summary">사용자 지정 아이콘의 4G 및 4G+를 LTE 및 LTE+로 대체</string>
 </resources>

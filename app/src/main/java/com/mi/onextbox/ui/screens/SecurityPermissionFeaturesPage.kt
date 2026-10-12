@@ -1,13 +1,14 @@
 package com.mi.onextbox.ui.screens
 
-import android.widget.Toast
-import androidx.compose.foundation.layout.Column
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+
 import androidx.compose.runtime.getValue
+
+import android.widget.Toast
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -86,18 +87,18 @@ internal fun SecurityPermissionFeaturesPage() {
     }
 
     SettingsSection(title = stringResource(R.string.feature_permission_start_group))
-    SettingsGroup {
-        FeatureAnimatedSegmentPosition(index = 0, count = if (alwaysAllow) 3 else 2) {
+    FeatureAnimatedGroup {
+        row("old") { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_permission_old_dialog_title),
                 summary = stringResource(R.string.feature_permission_old_dialog_summary),
                 checked = oldDialog,
                 onCheckedChange = { oldDialog = it; save(PermissionFeature.OldAppStartDialog, it) },
-                hasDividerBelow = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
         }
-        SettingsDivider()
-        FeatureAnimatedSegmentPosition(index = 1, count = if (alwaysAllow) 3 else 2) {
+        row("allow") { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_permission_always_allow_title),
                 summary = stringResource(if (oldDialog) R.string.feature_permission_always_allow_old_summary
@@ -105,23 +106,19 @@ internal fun SecurityPermissionFeaturesPage() {
                 checked = alwaysAllow,
                 enabled = !oldDialog,
                 onCheckedChange = { alwaysAllow = it; save(PermissionFeature.AlwaysAllowAppStart, it) },
-                hasDividerAbove = true,
-                hasDividerBelow = alwaysAllow,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
         }
-        FeatureExpandableVisibility(visible = alwaysAllow) {
-            Column {
-                SettingsDivider()
-                Material3ExpressiveSegmentPosition(index = 2, count = 3) {
-                    SettingsCardRow(
-                        title = stringResource(R.string.feature_permission_clear_allow_title),
-                        summary = stringResource(R.string.feature_permission_clear_allow_summary),
-                        onClick = if (clearing) null else ({ confirmClear = true }),
-                        showArrow = true,
-                        hasDividerAbove = true,
-                    )
-                }
-            }
+        row("clear", visible = alwaysAllow && !oldDialog) { above, below ->
+            SettingsCardRow(
+                title = stringResource(R.string.feature_permission_clear_allow_title),
+                summary = stringResource(R.string.feature_permission_clear_allow_summary),
+                onClick = if (clearing) null else ({ confirmClear = true }),
+                showArrow = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
+            )
         }
     }
 

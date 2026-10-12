@@ -40,6 +40,10 @@ internal fun AndroidSystemFeaturesPage(
     SettingsGroup {
         SystemRootDetectionSettingsRow()
     }
+    SettingsSection(title = stringResource(R.string.feature_screen_capture_group))
+    SettingsGroup {
+        ScreenCaptureSettingsRow()
+    }
     SettingsSection(title = stringResource(R.string.installer_group))
     SettingsGroup {
         SettingsCardRow(

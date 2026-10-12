@@ -2,6 +2,7 @@ package com.mi.onextbox.notifications
 
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Binder
 import android.os.IBinder
@@ -48,8 +49,12 @@ class NotificationBatchRootService : RootService() {
 
         override fun guard(target: NotificationAppTarget): NotificationBatchIssue? {
             val info = packageManager.javaClass.getMethod("getApplicationInfoAsUser", String::class.java, intClass, intClass)
-                .invoke(packageManager, target.packageName, 0, target.uid / 100000) as ApplicationInfo
-            if (info.uid != target.uid) return NotificationBatchIssue.IdentityChanged
+                .invoke(packageManager, target.packageName,
+                    PackageManager.MATCH_DISABLED_COMPONENTS or PackageManager.MATCH_UNINSTALLED_PACKAGES,
+                    target.uid / 100000) as ApplicationInfo
+            if (info.uid != target.uid || info.flags and ApplicationInfo.FLAG_INSTALLED == 0) {
+                return NotificationBatchIssue.IdentityChanged
+            }
             if (info.targetSdkVersion < 23 || packageManager.getPackagesForUid(target.uid)?.size != 1) return NotificationBatchIssue.Protected
             val permitted = callVendor("canModifyNotificationPermission", target) as Boolean
             return if (permitted) null else NotificationBatchIssue.Protected

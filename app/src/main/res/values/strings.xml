@@ -1145,4 +1145,26 @@
     <string name="update_beta_join_summary">Beta updates come from ONextBox_BetaTesting and match your installed build type, test builds may be unstable or contain bugs, do you want to join?</string>
     <string name="update_beta_join_cancel">Not now</string>
     <string name="update_beta_join_confirm">Join</string>
+    <string name="oshare_title">Share</string>
+    <string name="oshare_unlimited_title">Remove the 10-minute limit</string>
+    <string name="oshare_unlimited_summary">Keep Everyone visibility enabled until you manually change it; nearby devices can continue to discover this device</string>
+    <string name="oshare_save_failed">Failed to save Share settings</string>
+    <string name="feature_aosp_volume_title">Native volume panel</string>
+    <string name="feature_aosp_volume_summary">Use the native volume panel</string>
+    <string name="feature_aosp_volume_save_failed">Unable to save volume panel setting</string>
+    <string name="feature_screen_capture_group">Screenshots and screen recording</string>
+    <string name="feature_screen_capture_title">Remove screenshot and recording restrictions</string>
+    <string name="feature_screen_capture_summary">Allow screenshots and screen recording in protected apps</string>
+    <string name="feature_screen_capture_save_failed">Unable to save capture setting</string>
+    <string name="feature_large_network_type_title">Large network type icons</string>
+    <string name="feature_large_network_type_summary">Use enlarged network type icons</string>
+    <string name="feature_large_network_type_save_failed">Unable to save network icon setting</string>
+    <string name="feature_large_network_font_title">Follow system font</string>
+    <string name="feature_large_network_font_summary">Use the current system font for large network type icons</string>
+    <string name="feature_large_network_bold_title">Use bold font</string>
+    <string name="feature_large_network_bold_summary">Use bold text when following the system font</string>
+    <string name="feature_large_network_artwork_title">Native-style large network type icon pack</string>
+    <string name="feature_large_network_artwork_summary">Redesigned network type icons, supporting 25 network types</string>
+    <string name="feature_large_network_lte_title">Show 4G as LTE</string>
+    <string name="feature_large_network_lte_summary">Use LTE and LTE+ artwork for 4G and 4G+ in the custom icon pack</string>
 </resources>

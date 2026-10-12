@@ -391,6 +391,9 @@ private sealed interface RootRoute : NavKey {
     data object FeaturePhoneManager : RootRoute
 
     @Serializable
+    data object FeatureOShare : RootRoute
+
+    @Serializable
     data object FeatureSoftwareUpdate : RootRoute
 
     @Serializable
@@ -519,6 +522,7 @@ private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
     FeaturePageMode.Battery -> RootRoute.FeatureBattery
     FeaturePageMode.TrafficManagement -> RootRoute.FeatureTrafficManagement
     FeaturePageMode.PhoneManager -> RootRoute.FeaturePhoneManager
+    FeaturePageMode.OShare -> RootRoute.FeatureOShare
     FeaturePageMode.SoftwareUpdate -> RootRoute.FeatureSoftwareUpdate
     FeaturePageMode.Keyboard -> RootRoute.FeatureKeyboard
     FeaturePageMode.QuickAppServices -> RootRoute.FeatureQuickAppServices
@@ -1026,6 +1030,7 @@ fun Root(
                     subclass(RootRoute.FeatureBattery::class)
                     subclass(RootRoute.FeatureTrafficManagement::class)
                     subclass(RootRoute.FeaturePhoneManager::class)
+                    subclass(RootRoute.FeatureOShare::class)
                     subclass(RootRoute.FeatureSoftwareUpdate::class)
                     subclass(RootRoute.FeatureKeyboard::class)
                     subclass(RootRoute.FeatureQuickAppServices::class)
@@ -2351,6 +2356,9 @@ fun Root(
             }
             entry<RootRoute.FeaturePhoneManager> {
                 featureEntryContent(FeaturePageMode.PhoneManager)
+            }
+            entry<RootRoute.FeatureOShare> {
+                featureEntryContent(FeaturePageMode.OShare)
             }
             entry<RootRoute.FeatureSoftwareUpdate> {
                 featureEntryContent(FeaturePageMode.SoftwareUpdate)

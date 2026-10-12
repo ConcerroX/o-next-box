@@ -1091,4 +1091,26 @@
     <string name="update_beta_join_summary">加入後會從 ONextBox_BetaTesting 接收 Beta 更新，仍然配對目前嘅建構類型，測試版可能唔穩定或者有功能異常，係咪繼續</string>
     <string name="update_beta_join_cancel">暫時唔加入</string>
     <string name="update_beta_join_confirm">加入</string>
+    <string name="oshare_title">互傳</string>
+    <string name="oshare_unlimited_title">解除所有人 10 分鐘限制</string>
+    <string name="oshare_unlimited_summary">揀選「所有人」後唔再自動切換接收範圍，附近裝置可以持續發現呢部裝置，直到手動更改</string>
+    <string name="oshare_save_failed">儲存 互傳設定失敗</string>
+    <string name="feature_aosp_volume_title">原生音量面板</string>
+    <string name="feature_aosp_volume_summary">使用原生音量面板</string>
+    <string name="feature_aosp_volume_save_failed">儲存音量面板設定失敗</string>
+    <string name="feature_screen_capture_group">截圖與螢幕錄影</string>
+    <string name="feature_screen_capture_title">解除截圖錄影限制</string>
+    <string name="feature_screen_capture_summary">允許喺受保護嘅應用程式內截圖同錄影</string>
+    <string name="feature_screen_capture_save_failed">無法儲存截圖錄影設定</string>
+    <string name="feature_large_network_type_title">大號網絡類型圖示</string>
+    <string name="feature_large_network_type_summary">使用放大嘅網絡類型圖示</string>
+    <string name="feature_large_network_type_save_failed">無法儲存網絡圖示設定</string>
+    <string name="feature_large_network_font_title">跟隨系統字型</string>
+    <string name="feature_large_network_font_summary">大號網絡類型圖示使用系統目前字型</string>
+    <string name="feature_large_network_bold_title">使用粗體字型</string>
+    <string name="feature_large_network_bold_summary">跟隨系統字型時加粗網絡類型文字</string>
+    <string name="feature_large_network_artwork_title">仿原生大號網絡類型圖示包</string>
+    <string name="feature_large_network_artwork_summary">重繪網絡類型圖示，共支援25種網絡類型</string>
+    <string name="feature_large_network_lte_title">4G 顯示為 LTE</string>
+    <string name="feature_large_network_lte_summary">將自訂圖示包嘅 4G、4G+ 換成 LTE、LTE+</string>
 </resources>

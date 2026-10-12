@@ -8,8 +8,10 @@ internal object AppUpdateRules {
 
     fun repository(betaPlanEnabled: Boolean): String = if (betaPlanEnabled) BETA_REPOSITORY else MAIN_REPOSITORY
 
+    fun releaseSources(includeBeta: Boolean): List<Boolean> = if (includeBeta) listOf(false, true) else listOf(false)
+
     val versionNameRegex = Regex(
-        """\d+(?:\.\d+)+(?:[-_]BETA(?:[.-]?\d+(?:\.\d+)*)?|-CI-[A-Za-z0-9]+)?""",
+        """\d+(?:\.\d+)+(?:[-_]?BETA(?:[.-]?\d+(?:\.\d+)*)?|-CI-[A-Za-z0-9]+)?""",
         RegexOption.IGNORE_CASE,
     )
 
@@ -38,7 +40,7 @@ internal object AppUpdateRules {
     }
 
     fun isBetaVersion(version: String): Boolean =
-        version.contains("_Beta", ignoreCase = true) || version.contains("-BETA", ignoreCase = true)
+        Regex("(?:[-_]|\\d)BETA", RegexOption.IGNORE_CASE).containsMatchIn(version)
 
     fun releaseVersionName(tag: String, releaseName: String, assetName: String, requireBeta: Boolean = false): String? {
         val versions = listOf(tag, releaseName, assetName).mapNotNull { versionNameRegex.find(it)?.value }
@@ -49,7 +51,10 @@ internal object AppUpdateRules {
         if (!isBetaVersion(remote)) return false
         val a = parse(remote) ?: return false
         val b = parse(current) ?: return false
-        return compareParts(a.parts, b.parts) > 0
+        val baseComparison = compareParts(a.parts, b.parts)
+        if (baseComparison != 0) return baseComparison > 0
+        // Only an installed beta can receive a later beta of the same base version.
+        return b.rank == 2 && compareParts(a.qualifierParts, b.qualifierParts) > 0
     }
 
     fun compareVersions(first: String, second: String): Int {
@@ -73,8 +78,8 @@ internal object AppUpdateRules {
 
     private fun parse(version: String): Version? {
         val comparable = versionNameRegex.find(version.trim().removePrefix("v").removePrefix("V"))?.value ?: return null
-        val separator = comparable.indexOfFirst { it == '-' || it == '_' }
-        val qualifier = if (separator >= 0) comparable.substring(separator + 1).uppercase(Locale.ROOT) else ""
+        val separator = comparable.indexOfFirst { it == '-' || it == '_' || it.isLetter() }
+        val qualifier = if (separator >= 0) comparable.substring(separator).trimStart('-', '_').uppercase(Locale.ROOT) else ""
         val rank = when {
             qualifier.startsWith("CI-") -> 1
             qualifier.startsWith("BETA") -> 2

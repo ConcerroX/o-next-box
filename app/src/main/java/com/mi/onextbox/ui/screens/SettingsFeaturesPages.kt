@@ -1,12 +1,14 @@
 package com.mi.onextbox.ui.screens
 
+import androidx.compose.runtime.setValue
+
+import androidx.compose.runtime.getValue
+
 import android.provider.Settings
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.mi.onextbox.R
@@ -257,15 +259,18 @@ internal fun SettingsFeaturesPage(
     }
 
     if (mode == FeaturePageMode.SettingsRegion) {
-        SettingsGroup {
+        FeatureAnimatedGroup {
+        row(0) { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_settings_force_google_title),
                 summary = stringResource(R.string.feature_settings_force_google_summary),
                 checked = settingsForceGoogleEntryEnabled,
                 onCheckedChange = onSettingsForceGoogleEntryEnabledChange,
-                hasDividerBelow = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
-            SettingsDivider()
+        }
+        row(1) { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_settings_international_title),
                 summary = stringResource(R.string.feature_settings_international_summary),
@@ -278,10 +283,11 @@ internal fun SettingsFeaturesPage(
                         }
                     }
                 },
-                hasDividerAbove = true,
-                hasDividerBelow = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
-            SettingsDivider()
+        }
+        row(2, visible = settingsInternationalEnabled) { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_settings_force_app_auto_start_title),
                 summary = stringResource(R.string.feature_settings_force_app_auto_start_summary),
@@ -295,10 +301,11 @@ internal fun SettingsFeaturesPage(
                         }
                     }
                 },
-                hasDividerAbove = true,
-                hasDividerBelow = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
-            SettingsDivider()
+        }
+        row(3, visible = settingsInternationalEnabled) { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_settings_international_wallet_title),
                 summary = stringResource(R.string.feature_settings_international_wallet_summary),
@@ -312,10 +319,11 @@ internal fun SettingsFeaturesPage(
                         }
                     }
                 },
-                hasDividerAbove = true,
-                hasDividerBelow = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
-            SettingsDivider()
+        }
+        row(4, visible = settingsInternationalEnabled) { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_settings_restore_domestic_about_device_title),
                 summary = stringResource(R.string.feature_settings_restore_domestic_about_device_summary),
@@ -329,10 +337,11 @@ internal fun SettingsFeaturesPage(
                         }
                     }
                 },
-                hasDividerAbove = true,
-                hasDividerBelow = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
-            SettingsDivider()
+        }
+        row(5, visible = settingsInternationalEnabled) { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_settings_restore_smart_lock_title),
                 summary = stringResource(R.string.feature_settings_restore_smart_lock_summary),
@@ -346,10 +355,11 @@ internal fun SettingsFeaturesPage(
                         }
                     }
                 },
-                hasDividerAbove = true,
-                hasDividerBelow = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
-            SettingsDivider()
+        }
+        row(6, visible = settingsInternationalEnabled) { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_settings_restore_domestic_auxiliary_functions_title),
                 summary = stringResource(R.string.feature_settings_restore_domestic_auxiliary_functions_summary),
@@ -365,8 +375,10 @@ internal fun SettingsFeaturesPage(
                         }
                     }
                 },
-                hasDividerAbove = true,
+                hasDividerAbove = above,
+                hasDividerBelow = below,
             )
         }
+    }
     }
 }

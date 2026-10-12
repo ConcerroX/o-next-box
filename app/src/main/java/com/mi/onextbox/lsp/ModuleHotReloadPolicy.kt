@@ -11,7 +11,7 @@ internal object ModuleHotReloadPolicy {
         "com.google.android.googlequicksearchbox", "com.google.android.apps.messaging",
         "com.heytap.market", "com.oplus.battery", "com.oplus.trafficmonitor", "com.oplus.keyboard",
         "com.coloros.filemanager", "com.heytap.mcs", "com.nearme.instant.platform",
-        "com.coloros.assistantscreen",
+        "com.coloros.assistantscreen", "com.coloros.oshare",
     )
 
     fun supportsProcess(processName: String, isSystemServer: Boolean): Boolean =

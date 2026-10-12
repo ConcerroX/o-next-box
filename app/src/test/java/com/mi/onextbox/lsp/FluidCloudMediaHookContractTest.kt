@@ -70,7 +70,7 @@ class FluidCloudMediaHookContractTest {
         assertTrue(source("lsp/FluidCloudMediaBlacklistHooker.kt").contains("native.existingSeedlings(loader)"))
     }
 
-    @Test fun appPickerHasNativeNavigationSearchAndPackageVisibilityWithoutBroadPermissions() {
+    @Test fun appPickerHasNativeNavigationSearchAndFrozenPackageVisibility() {
         val root = source("ui/Root.kt")
         assertTrue(root.contains("entry<RootRoute.FeatureSystemUiFluidCloudMediaBlacklist>"))
         val picker = source("ui/screens/FluidCloudMediaBlacklistPage.kt")
@@ -82,7 +82,14 @@ class FluidCloudMediaHookContractTest {
         assertTrue(picker.contains("FluidCloudMediaRules.isPackageName(it)"))
         val manifest = File(mainDir(), "AndroidManifest.xml").readText()
         assertTrue(manifest.contains("android.intent.category.LAUNCHER"))
-        assertFalse(manifest.contains("QUERY_ALL_PACKAGES"))
+        assertTrue(manifest.contains("QUERY_ALL_PACKAGES"))
+        assertTrue(picker.contains("manageableApplications(pm)"))
+        assertTrue(source("ui/screens/NotificationBatchPage.kt").contains("manageableApplications(pm)"))
+        val catalog = source("ui/screens/ManageableAppCatalog.kt")
+        assertTrue(catalog.contains("MATCH_DISABLED_COMPONENTS"))
+        assertTrue(catalog.contains("MATCH_UNINSTALLED_PACKAGES"))
+        assertTrue(catalog.contains("ApplicationInfo.FLAG_INSTALLED"))
+        assertFalse(catalog.contains("info.enabled"))
     }
 
     @Test fun disabledPreferenceKeepsTheListAndDefaultIsOptIn() {

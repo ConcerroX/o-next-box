@@ -9,6 +9,23 @@ import org.junit.Test
 
 class FluidCloudBrowserRulesTest {
     @Test
+    fun nullEmptyOrUnavailableDefaultLookupFallsBack() {
+        assertEquals("com.quark.browser", FluidCloudBrowserRules.firstAvailableBrowser(
+            { null }, { " " }, { throw SecurityException() }, { "android" }, { "com.quark.browser" },
+        ))
+        assertEquals(null, FluidCloudBrowserRules.firstAvailableBrowser({ null }, { "" }))
+    }
+
+    @Test
+    fun browserRoleWinsAndIsQueriedAgainForEachClick() {
+        var role = "com.quark.browser"
+        val lookup = { role }
+        assertEquals(role, FluidCloudBrowserRules.firstAvailableBrowser(lookup, { error("Not needed") }))
+        role = "mark.via"
+        assertEquals(role, FluidCloudBrowserRules.firstAvailableBrowser(lookup))
+    }
+
+    @Test
     fun recognizedWebLinksCanUseTheSystemDefaultBrowser() {
         assertTrue(accepts())
         assertTrue(accepts(scheme = "http"))

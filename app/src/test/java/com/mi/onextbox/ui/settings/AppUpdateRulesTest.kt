@@ -4,6 +4,25 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AppUpdateRulesTest {
+    @Test fun betaPlanIncludesStableReleasesAndSameBaseStableWins() {
+        assertEquals(listOf(false), AppUpdateRules.releaseSources(false))
+        assertEquals(listOf(false, true), AppUpdateRules.releaseSources(true))
+        for (beta in listOf("17.0.0.69_Beta", "17.0.0.69beta", "17.0.0.69_Beta1", "17.0.0.69_Beta10")) {
+            assertTrue(AppUpdateRules.isNewerVersion("17.0.0.69", beta))
+            assertFalse(AppUpdateRules.isNewerVersion(beta, "17.0.0.69"))
+            assertFalse(AppUpdateRules.isNewerBetaVersion(beta, "17.0.0.69"))
+        }
+        assertTrue(AppUpdateRules.isNewerBetaVersion("17.0.0.69_Beta1", "17.0.0.69_Beta"))
+        assertTrue(AppUpdateRules.isNewerBetaVersion("17.0.0.69_Beta2", "17.0.0.69_Beta1"))
+        assertTrue(AppUpdateRules.isNewerBetaVersion("17.0.0.69_beta10", "17.0.0.69_Beta2"))
+        assertFalse(AppUpdateRules.isNewerBetaVersion("17.0.0.69_Beta2", "17.0.0.69_Beta10"))
+        assertFalse(AppUpdateRules.isNewerBetaVersion("17.0.0.69_Beta2", "17.0.0.69_Beta2"))
+        assertTrue(AppUpdateRules.isNewerBetaVersion("17.0.0.70_Beta", "17.0.0.69"))
+        assertFalse(AppUpdateRules.isNewerVersion("17.0.0.68", "17.0.0.69_Beta"))
+        assertEquals("17.0.0.69beta", AppUpdateRules.releaseVersionName("17.0.0.69beta", "", "", true))
+        val candidates = listOf("17.0.0.69_Beta10", "17.0.0.69", "17.0.0.69_Beta")
+        assertEquals("17.0.0.69", candidates.maxWithOrNull(Comparator(AppUpdateRules::compareVersions)))
+    }
     @Test fun installedBuildTypeSelectsTheMatchingPackageIncludingOptimizedDebug() {
         assertEquals(UpdateBuildType.Release, AppUpdateRules.buildType("release"))
         assertEquals(UpdateBuildType.Debug, AppUpdateRules.buildType("debug"))
@@ -76,7 +95,7 @@ class AppUpdateRulesTest {
         assertFalse(AppUpdateRules.isNewerBetaVersion("17.0.0.47", "17.0.0.45"))
         assertFalse(AppUpdateRules.isNewerBetaVersion("17.0.0.45_Beta", "17.0.0.45-CI-abcdef12"))
         assertFalse(AppUpdateRules.isNewerBetaVersion("17.0.0.45_Beta", "17.0.0.45_Beta"))
-        assertFalse(AppUpdateRules.isNewerBetaVersion("17.0.0.45_Beta2", "17.0.0.45_Beta1"))
+        assertTrue(AppUpdateRules.isNewerBetaVersion("17.0.0.45_Beta2", "17.0.0.45_Beta1"))
     }
 
     @Test fun betaVersionSegmentsUseNumericRatherThanAlphabeticalOrdering() {
