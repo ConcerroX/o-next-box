@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.mi.onextbox.R
@@ -30,6 +31,7 @@ import java.text.Collator
 @Composable
 internal fun NotificationBatchPage(modifier: Modifier, backdrop: LayerBackdrop?, onBack: () -> Unit) {
     val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
     val operation by NotificationBatchOperations.state.collectAsState()
     var apps by remember { mutableStateOf(emptyList<NotificationBatchApp>()) }
     var states by remember { mutableStateOf(emptyList<NotificationAppState>()) }
@@ -49,14 +51,14 @@ internal fun NotificationBatchPage(modifier: Modifier, backdrop: LayerBackdrop?,
     val busy = loading || operation.busy
     val plan = NotificationBatchEngine.plan(states, selected.toSet(), types, confirmation == 1)
 
-    LaunchedEffect(context, reload, operation.revision) {
+    LaunchedEffect(context, locale, reload, operation.revision) {
         if (operation.busy) return@LaunchedEffect
         loading = true
         readFailed = false
         try {
             val catalog = withContext(Dispatchers.IO) {
                 val pm = context.packageManager
-                val collator = Collator.getInstance(context.resources.configuration.locales[0])
+                val collator = Collator.getInstance(locale)
                 pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
                     .mapNotNull { it.activityInfo?.applicationInfo }.distinctBy { it.packageName }
                     .map { NotificationBatchApp(NotificationAppTarget(it.packageName, it.uid), pm.getApplicationLabel(it).toString()) }

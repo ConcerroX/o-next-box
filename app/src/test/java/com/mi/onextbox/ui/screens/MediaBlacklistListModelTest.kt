@@ -61,6 +61,16 @@ class MediaBlacklistListModelTest {
         assertEquals(listOf("Äther", "Zulu"), mediaBlacklistApps(localized, emptySet(), "", locale).map { it.label })
     }
 
+    @Test fun switchingLocaleReordersTheSameAppsWithoutChangingSelection() {
+        val localized = listOf(MediaBlacklistApp("com.test.z", "Zulu"), MediaBlacklistApp("com.test.a", "Äther"))
+        val selected = localized.map { it.packageName }.toSet()
+        assertEquals(listOf("Äther", "Zulu"),
+            mediaBlacklistApps(localized, selected, "", Locale.GERMAN).map { it.label })
+        assertEquals(listOf("Zulu", "Äther"),
+            mediaBlacklistApps(localized, selected, "", Locale.forLanguageTag("sv")).map { it.label })
+        assertEquals(selected, mediaBlacklistApps(localized, selected, "", Locale.GERMAN).map { it.packageName }.toSet())
+    }
+
     @Test fun emptyAndSingleRowResultsRemainValid() {
         assertTrue(mediaBlacklistApps(emptyList(), emptySet(), "", Locale.US).isEmpty())
         assertEquals(listOf(MediaBlacklistApp("com.test.missing", "com.test.missing")),

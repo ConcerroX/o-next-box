@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -84,6 +85,7 @@ private data class SideKeyApp(val packageName: String, val label: String)
 @Composable
 internal fun SideKeyFeaturesPage() {
     val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val initial = remember(context) { SideKeySettings.state(context) }
@@ -144,11 +146,11 @@ internal fun SideKeyFeaturesPage() {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    LaunchedEffect(context) {
+    LaunchedEffect(context, locale) {
         apps = withContext(Dispatchers.IO) {
             runCatching {
                 val manager = context.packageManager
-                val collator = Collator.getInstance(context.resources.configuration.locales[0])
+                val collator = Collator.getInstance(locale)
                 manager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
                     .filter { it.activityInfo.enabled && it.activityInfo.exported }
                     .map { SideKeyApp(it.activityInfo.packageName, it.loadLabel(manager).toString()) }

@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -70,7 +71,7 @@ internal fun FluidCloudMediaBlacklistPage(modifier: Modifier, backdrop: LayerBac
     val listState = rememberLazyListState()
     val search = rememberTextFieldState()
     val query = search.text.toString().trim()
-    val locale = context.resources.configuration.locales[0]
+    val locale = LocalConfiguration.current.locales[0]
     val listed = remember(apps, selected, query, locale) {
         mediaBlacklistApps(apps, selected, query, locale)
     }
