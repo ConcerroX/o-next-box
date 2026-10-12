@@ -1116,16 +1116,23 @@ fun SoftwareUpdateReleaseNotesPage(state: SoftwareUpdateUiState) {
     val versionName = availableUpdate?.versionName ?: currentVersionName
     val versionCode = availableUpdate?.versionCode?.toString()
         ?: currentVersionCode.takeIf { availableUpdate == null }
-    val remoteRelease by produceState<AvailableUpdate?>(
-        initialValue = availableUpdate,
+    val remoteNotes by produceState<String?>(
+        initialValue = availableUpdate?.releaseNotes,
         key1 = availableUpdate,
-        key2 = versionName to state.betaPlanEnabled,
+        key2 = versionName,
     ) {
-        value = availableUpdate ?: runCatching {
-            AppUpdater.findRelease(versionName, state.betaPlanEnabled || AppUpdateRules.isBetaVersion(versionName))
-        }.getOrNull()
+        value = availableUpdate?.releaseNotes
+        if (value.isNullOrBlank()) {
+            value = try {
+                AppUpdater.findReleaseNotes(versionName)
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                null
+            }
+        }
     }
-    val releaseNotesText = remoteRelease?.releaseNotes
+    val releaseNotesText = remoteNotes
         ?.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.software_update_release_notes_empty)
     val versionSummary = buildString {

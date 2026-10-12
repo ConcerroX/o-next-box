@@ -63,28 +63,36 @@ object AppUpdater {
             update.takeIf(::isNewerUpdate)
         }
 
-    suspend fun findRelease(
-        versionName: String,
-        includeBeta: Boolean = AppUpdateRules.isBetaVersion(versionName),
-    ): AvailableUpdate? =
+    internal suspend fun findReleaseNotes(versionName: String): String? =
         withContext(Dispatchers.IO) {
-            val normalizedVersion = versionName.removeVersionPrefix()
-            val tags = listOf(
-                "V$normalizedVersion",
-                "v$normalizedVersion",
-                normalizedVersion,
-            ).distinct()
-            tags.asSequence()
-                .firstNotNullOfOrNull { tagName ->
-                    runCatching {
-                        findLatestReleaseAsset(
-                            "https://api.github.com/repos/${AppUpdateRules.repository(includeBeta)}/releases/tags/$tagName",
-                            AppUpdatePreferences.currentBuildType,
-                            includeBeta,
-                        )
-                    }.getOrNull()
-                }
+            ReleaseNotesLookup.find(versionName,
+                byTag = { repository, tag ->
+                    try {
+                        releaseNotesEntry(JSONObject(getText("https://api.github.com/repos/$repository/releases/tags/$tag")))
+                    } catch (cancel: CancellationException) {
+                        throw cancel
+                    } catch (error: GitHubRequestException) {
+                        if (error.status != 404) throw error
+                        null
+                    }
+                },
+                page = { repository, page ->
+                    val releases = JSONArray(getText("https://api.github.com/repos/$repository/releases?per_page=100&page=$page"))
+                    (0 until releases.length()).map { releaseNotesEntry(releases.getJSONObject(it)) }
+                },
+            )?.body
         }
+
+    private fun releaseNotesEntry(json: JSONObject): ReleaseNotesEntry {
+        val assets = json.optJSONArray("assets") ?: JSONArray()
+        return ReleaseNotesEntry(
+            tag = json.optString("tag_name"),
+            name = json.optString("name"),
+            assetNames = (0 until assets.length()).map { assets.optJSONObject(it)?.optString("name").orEmpty() },
+            body = normalizeReleaseNotes(json.optString("body")),
+            draft = json.optBoolean("draft"),
+        )
+    }
 
     suspend fun downloadAndInstall(
         context: Context,
@@ -438,7 +446,7 @@ object AppUpdater {
             if (code !in 200..299) {
                 val message = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
                 connection.disconnect()
-                error("GitHub request failed: HTTP $code ${message.take(120)}")
+                throw GitHubRequestException(code, "GitHub request failed: HTTP $code ${message.take(120)}")
             }
             return connection
         }
@@ -615,6 +623,8 @@ object AppUpdater {
         return "'${replace("'", "'\\''")}'"
     }
 }
+
+private class GitHubRequestException(val status: Int, message: String) : java.io.IOException(message)
 
 enum class UpdateInstallMode {
     Interactive,
