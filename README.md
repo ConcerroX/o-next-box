@@ -19,7 +19,7 @@ ONextBox 是一款基于 Root 与 Modern Xposed 的 ColorOS 系统优化与扩�
 
 **[📥 下载](https://github.com/MiToverG422/ONextBox/releases) · [🐛 问题反馈](https://github.com/MiToverG422/ONextBox/issues) · [💬 Telegram](https://t.me/ONextBox)**
 
-**[🚀 正式发布](https://t.me/ONextBox/2) · [🧪 测试构建 / CI](https://t.me/ONextBox/4)**
+**[🚀 正式发布](https://github.com/MiToverG422/ONextBox/releases) · [🧪 BetaTesting](https://github.com/MiToverG422/ONextBox_BetaTesting)**
 
 [✨ 功能](#features) · [📱 兼容性](#compatibility) · [🔨 构建](#building) · [📚 引用与致谢](#credits)
 

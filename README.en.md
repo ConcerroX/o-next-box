@@ -19,7 +19,7 @@ ONextBox is a ColorOS optimization and extension toolbox powered by Root and Mod
 
 **[📥 Download](https://github.com/MiToverG422/ONextBox/releases) · [🐛 Report an issue](https://github.com/MiToverG422/ONextBox/issues) · [💬 Telegram](https://t.me/ONextBox)**
 
-**[🚀 Releases](https://t.me/ONextBox/2) · [🧪 CI builds](https://t.me/ONextBox/4)**
+**[🚀 Releases](https://github.com/MiToverG422/ONextBox/releases) · [🧪 BetaTesting](https://github.com/MiToverG422/ONextBox_BetaTesting)**
 
 [✨ Features](#features) · [📱 Compatibility](#compatibility) · [🔨 Building](#building) · [📚 References & credits](#credits)
 
