@@ -73,7 +73,7 @@
     <string name="config_import_success">設定済導入</string>
     <string name="config_import_failed">導入失敗：%1$s</string>
     <string name="config_clear_confirm_title">消去全部設定？</string>
-    <string name="config_clear_confirm_summary">所有頁面選択和機能設定都會復元為既定値，此操作不可復原。</string>
+    <string name="config_clear_confirm_summary">所有頁面選択和機能設定都會復元為既定値，此操作不可復原</string>
     <string name="config_clear_confirm_cancel">取消</string>
     <string name="config_clear_confirm_action">消去</string>
     <string name="config_clear_success">設定済復元為既定値</string>
@@ -381,7 +381,7 @@
     <string name="update_notification_channel_name">軟体更新</string>
     <string name="update_notification_channel_description">発現 ONextBox 新版本時送信通知提醒</string>
     <string name="update_notification_title">発現新版本</string>
-    <string name="update_notification_body">ONextBox %1$s 済発佈，点擊查看更新內容。</string>
+    <string name="update_notification_body">ONextBox %1$s 済発佈，点擊查看更新內容</string>
     <string name="update_notification_action">取得並導入</string>
     <string name="update_checking">正在更新検査</string>
     <string name="update_available">発現新版本</string>
@@ -393,10 +393,10 @@
     <string name="software_update_auto_settings">更新設置</string>
     <string name="software_update_release_notes">查看更新說明</string>
     <string name="software_update_release_notes_title">更新說明</string>
-    <string name="software_update_release_notes_empty">當前版本暂无更新說明。</string>
+    <string name="software_update_release_notes_empty">當前版本暂无更新說明</string>
     <string name="software_update_notice_title">注意事項</string>
-    <string name="software_update_notice_body">1. 在使用过程中遇到任何问题可通过 TG 群组进行反馈和咨询。\n2. 下载更新时请保持网络稳定,安装过程中请尽量不要强制关闭应用。\n3.本页展示之界面内容仅做機能展示,不同设备、 版本、区域可能存在差异,请以实际版本機能及界面为准。</string>
-    <string name="software_update_notice_more">查看更多内容和参与讨论。</string>
+    <string name="software_update_notice_body">1. 在使用过程中遇到任何问题可通过 TG 群组进行反馈和咨询。\n2. 下载更新时请保持网络稳定,安装过程中请尽量不要强制关闭应用。\n3.本页展示之界面内容仅做機能展示,不同设备、 版本、区域可能存在差异,请以实际版本機能及界面为准</string>
+    <string name="software_update_notice_more">查看更多内容和参与讨论</string>
     <string name="software_update_notice_community">前往 TG 群組</string>
     <string name="software_update_version_title">軟件版本</string>
     <string name="software_update_download_install">取得導入包</string>
@@ -419,11 +419,11 @@
     <string name="feature_mobile_network_hide_high_data_sim_card_summary">從行動網絡頁面隱藏大流量卡服務</string>
     <string name="feature_mobile_network_hide_smart_cloud_acceleration_title">隱藏智慧雲端加速入口</string>
     <string name="feature_mobile_network_hide_smart_cloud_acceleration_summary">從行動網絡頁面隱藏智慧雲端加速</string>
-    <string name="onboarding_welcome_first">御機嫌好。</string>
+    <string name="onboarding_welcome_first">御機嫌好</string>
     <string name="onboarding_welcome_second">ONextBox 17\n新体験</string>
     <string name="onboarding_get_started">開始</string>
     <string name="onboarding_language_title">言語選択</string>
-    <string name="onboarding_language_summary">初回設定及 ONextBox 使用言語選択。</string>
+    <string name="onboarding_language_summary">初回設定及 ONextBox 使用言語選択</string>
     <string name="onboarding_appearance_title">画面及主題</string>
     <string name="onboarding_appearance_summary">選択 ONextBox 之画面様式和主題方式</string>
     <string name="onboarding_appearance_theme_note">僅影響 App 外觀，有効化頁面不受影響</string>
@@ -761,10 +761,10 @@
     <string name="feature_google_messages_title">Google 訊息</string>
     <string name="feature_google_messages_chat_section">会話</string>
     <string name="feature_google_messages_gemini_title">Gemini 会話</string>
-    <string name="feature_google_messages_gemini_summary">帳戶及 RCS 條件滿足時、Gemini 入口表示。</string>
+    <string name="feature_google_messages_gemini_summary">帳戶及 RCS 條件滿足時、Gemini 入口表示</string>
     <string name="feature_google_messages_notification_section">通知</string>
     <string name="feature_google_messages_copy_otp_title">驗證碼複製</string>
-    <string name="feature_google_messages_copy_otp_summary">驗證碼含有短信受信時、既讀及回覆旁追加複製。Google 訊息之剪貼簿寫入許可必要、背景実行時亦同。未許可時、通知中複製不可之場合有。</string>
+    <string name="feature_google_messages_copy_otp_summary">驗證碼含有短信受信時、既讀及回覆旁追加複製。Google 訊息之剪貼簿寫入許可必要、背景実行時亦同。未許可時、通知中複製不可之場合有</string>
     <string name="installer_shared_uninstall_summary">解除安装要求選択安装器へ転送、解除安装対応必要</string>
     <string name="installer_intercept_system">系統安装器要求接管</string>
     <string name="installer_intercept_system_summary">系統安装器明確指定之要求、選択安装器へ転送</string>
@@ -839,7 +839,7 @@
     <string name="settings_section_module_hot_reload">模組熱載入</string>
     <string name="setting_module_hot_reload">模組熱載入（試験性）</string>
     <string name="setting_module_hot_reload_summary">既定無効、模組更新後、全作用域之熱載入及実行資源引継を試行、繁忙或不兼容時、仍需再起動、初回啓用後、関連作用域を再起動</string>
-    <string name="setting_module_hot_reload_save_failed">熱載入設定同期不可。Xposed 框架接続確認後、再試行。</string>
+    <string name="setting_module_hot_reload_save_failed">熱載入設定同期不可。Xposed 框架接続確認後、再試行</string>
     <string name="about_logs_title">日誌</string>
     <string name="logs_source">日誌來源</string>
     <string name="logs_source_app">應用日誌</string>
@@ -1113,4 +1113,15 @@
     <string name="feature_large_network_artwork_summary">重绘网络类型图标，共支持25种网络类型</string>
     <string name="feature_large_network_lte_title">4G を LTE と表示</string>
     <string name="feature_large_network_lte_summary">カスタムアイコンの 4G・4G+ を LTE・LTE+ に置き換えます</string>
+    <string name="wallpaper_motion_group">3D 壁紙</string>
+    <string name="wallpaper_motion_title">3D 壁紙感度（實驗性）</string>
+    <string name="wallpaper_motion_summary">調整既有 3D 壁紙之傾斜感度，100% 為原始感度，數值越大反應越明顯，不變更系統角度上限。須於 LSPosed 勾選壁紙與炫彩引擎作用域後重新開啟壁紙</string>
+    <string name="wallpaper_motion_amount">傾斜感度</string>
+    <string name="feature_only_data_sim_signal_title">僅顯示數據卡信號</string>
+    <string name="feature_only_data_sim_signal_summary">雙卡時僅顯示選定行動數據卡之信號與網路類型，切換數據卡後自動跟隨</string>
+    <string name="theme_store_title">主題商店</string>
+    <string name="theme_store_vip_title">解鎖部分 VIP 機能</string>
+    <string name="theme_store_vip_summary">解鎖用戶端部分會員機能並保留試用資源，實際效果因資源而異</string>
+    <string name="theme_store_ads_title">移除廣告</string>
+    <string name="theme_store_ads_summary">封鎖啟動畫面廣告、行銷彈窗與已識別之廣告卡片</string>
 </resources>

@@ -14,10 +14,14 @@ import com.mi.onextbox.R
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Proxy
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.roundToInt
 
 /** Artwork-only replacement. Subscription, visibility, roaming and radio state remain native. */
 internal object LargeNetworkArtworkHooker {
+    internal fun singleSimSidePadding(density: Float): Int = (2f * density).roundToInt().coerceAtLeast(0)
+    internal fun hideDetachedStackedType(enabled: Boolean, hasDualSim: Boolean) = enabled && !hasDualSim
     internal fun supportsModel(name: String) = name ==
         "com.android.systemui.statusbar.pipeline.mobile.domain.model.OplusNetworkTypeTextModel\$DefaultNetworkTypeText"
     internal fun label(value: String?, lte: Boolean): String? {
@@ -156,11 +160,15 @@ internal object LargeNetworkArtworkHooker {
                     report()
                     return@runCatching
                 }
-                val text = SpannableString(view.text)
+                // The ROM styles prefix/suffix separately (e.g. "5G" + "A").
+                // Keeping those MetricAffectingSpans splits a ReplacementSpan into
+                // multiple TextLine runs, measuring/drawing the full icon per run.
+                // Preserve the label but discard ALL native formatting spans.
+                val text = SpannableString(view.text.toString())
                 if (text.isEmpty()) return@runCatching
-                text.getSpans(0, text.length, ArtworkSpan::class.java).forEach(text::removeSpan)
                 val icon = drawable(view.context, key)
-                text.setSpan(ArtworkSpan(icon), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                text.setSpan(ArtworkSpan(icon, singleSimSidePadding(view.resources.displayMetrics.density)),
+                    0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 view.text = text
                 report()
             }.onFailure(::failure)
@@ -168,11 +176,13 @@ internal object LargeNetworkArtworkHooker {
         })
     }
 
-    private class ArtworkSpan(private val icon: Drawable) : ReplacementSpan() {
+    private class ArtworkSpan(private val icon: Drawable, private val sidePadding: Int) : ReplacementSpan() {
         override fun getSize(paint: Paint, text: CharSequence, start: Int, end: Int, fm: Paint.FontMetricsInt?): Int {
             // Preserve the native line box; keep the artwork's original 16dp scale.
             if (fm != null) paint.getFontMetricsInt(fm)
-            return icon.intrinsicWidth
+            // Reserve space in the span itself, without accumulating View padding
+            // on rebind or changing native/Compose layouts when artwork is disabled.
+            return icon.intrinsicWidth + sidePadding * 2
         }
         override fun draw(canvas: Canvas, text: CharSequence, start: Int, end: Int, x: Float,
             top: Int, y: Int, bottom: Int, paint: Paint) {
@@ -180,7 +190,7 @@ internal object LargeNetworkArtworkHooker {
             icon.setBounds(0, 0, icon.intrinsicWidth, icon.intrinsicHeight)
             val save = canvas.save()
             try {
-                canvas.translate(x, (top + bottom - icon.intrinsicHeight) / 2f)
+                canvas.translate(x + sidePadding, (top + bottom - icon.intrinsicHeight) / 2f)
                 icon.draw(canvas)
             } finally { canvas.restoreToCount(save) }
         }
@@ -199,11 +209,34 @@ internal object LargeNetworkArtworkHooker {
         }
         val modifierType = type("androidx.compose.ui.Modifier")
         val defaultModifier = modifierType.getField("Companion").get(null)
+        val composerType = type("androidx.compose.runtime.Composer")
+        val startGroup = composerType.getMethod("startRestartGroup", Int::class.javaPrimitiveType)
+        val endGroup = composerType.getMethod("endRestartGroup")
+        val function2 = type("kotlin.jvm.functions.Function2")
+        val updateScope = type("androidx.compose.runtime.ScopeUpdateScope").getMethod("updateScope", function2)
+        val unit = type("kotlin.Unit").getField("INSTANCE").get(null)
+        val dualSim = type("com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.StackedMobileIconViewModel")
+            .getMethod("getDualSim")
+        // Match the ROM function's restart group, including its null-model path.
+        // Rendering Icon directly into the caller left stale nodes when a SIM disappeared.
+        val groupKey = if (tigo) 0x421f4f0a else 0x642c5f5f
         // Cache only immutable raster artwork, never views/activities or tinted shared drawables.
         val bitmaps = android.util.LruCache<String, Any>(24)
         val entered = AtomicBoolean()
         ModernHookRegistry.installFast("large-network-artwork:compose:$ownerName", method, XposedInterface.Hooker { chain ->
-            if (!LargeNetworkTypeSettings.usesArtworkXposed()) return@Hooker chain.proceed()
+            // A child restart scope may run with the previous text model after the
+            // stacked (dual-SIM) parent has switched to the single-SIM View layout.
+            // Keep the native empty composition so its previous nodes are removed.
+            if (!LargeNetworkTypeSettings.usesArtworkXposed()) {
+                val hasDualSim = runCatching { dualSim.invoke(chain.getArg(0)) != null }.getOrDefault(true)
+                if (hideDetachedStackedType(LargeNetworkTypeSettings.enabledXposed(), hasDualSim)) {
+                    val args = chain.args.toTypedArray()
+                    args[1] = null
+                    args[11] = ((args[11] as Int) and 0x70.inv()) or 0x20
+                    return@Hooker chain.proceed(args)
+                }
+                return@Hooker chain.proceed()
+            }
             if (entered.compareAndSet(false, true)) HookLog.i("ONextBox-LargeNetwork",
                 "Compose artwork entry: model=${chain.getArg(1)?.javaClass?.name}, LTE=${LargeNetworkTypeSettings.usesLteXposed()}")
             val prepared = runCatching {
@@ -230,8 +263,40 @@ internal object LargeNetworkArtworkHooker {
             // All lookup/rendering can fail back before entering Compose. Never fall back
             // after a composable starts: that would corrupt the host's group stack.
             try {
-                iconMethod.invoke(null, prepared.first, prepared.second, chain.getArg(3) ?: defaultModifier,
-                    chain.getArg(2), chain.getArg(10), 0, 0)
+                val arguments = chain.args.toTypedArray()
+                val composer = startGroup.invoke(arguments[10], groupKey)
+                // dualSim is backed by Compose snapshot state. Read it INSIDE our
+                // restart group so SIM changes invalidate this icon, not just its
+                // caller. Keep an empty subscribed group while single-SIM so a
+                // later dual-SIM transition can restore the artwork as well.
+                val hasDualSim = runCatching { dualSim.invoke(arguments[0]) != null }.getOrDefault(true)
+                val modifier = if ((arguments[12] as Int) and 8 != 0) defaultModifier
+                    else arguments[3] ?: defaultModifier
+                if (!hideDetachedStackedType(LargeNetworkTypeSettings.enabledXposed(), hasDualSim)) {
+                    iconMethod.invoke(null, prepared.first, prepared.second, modifier,
+                        arguments[2], composer, 0, 0)
+                }
+                val scope = endGroup.invoke(composer)
+                if (scope != null) {
+                    val restart = Proxy.newProxyInstance(function2.classLoader, arrayOf(function2)) { proxy, called, args ->
+                        when (called.name) {
+                            "invoke" -> {
+                                val next = arguments.copyOf()
+                                next[10] = args!![0]
+                                next[11] = (next[11] as Int) or 1
+                                // Re-enter the hook, re-reading both settings and the model.
+                                try { method.invoke(null, *next) }
+                                catch (error: InvocationTargetException) { throw error.targetException }
+                                unit
+                            }
+                            "equals" -> proxy === args?.getOrNull(0)
+                            "hashCode" -> System.identityHashCode(proxy)
+                            "toString" -> "ONextBoxNetworkArtworkRestart"
+                            else -> null
+                        }
+                    }
+                    updateScope.invoke(scope, restart)
+                }
                 report()
                 null
             } catch (error: InvocationTargetException) { throw error.targetException }

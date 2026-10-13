@@ -5,6 +5,8 @@ import com.mi.onextbox.lsp.compat.HookConfigSnapshot
 
 internal object FluidCloudBrowserSettings {
     const val PACKAGE_NAME = "com.coloros.colordirectservice"
+    const val METIS_PACKAGE_NAME = "com.oplus.metis"
+    val packages = listOf(PACKAGE_NAME, METIS_PACKAGE_NAME)
     const val ENABLED = "fluid_cloud_default_browser_enabled"
 
     fun isEnabled(context: Context): Boolean =

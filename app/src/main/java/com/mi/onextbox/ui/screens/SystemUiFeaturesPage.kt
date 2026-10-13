@@ -170,11 +170,14 @@ internal fun SystemUiFeaturesPage(
             }
             SettingsSection(title = stringResource(R.string.status_bar_group_network))
             SettingsGroup {
+                DataSimSignalSettingsRow()
+                SettingsDivider()
                 SettingsToggleRow(
                     title = stringResource(R.string.feature_international_network_display_title),
                     summary = stringResource(R.string.feature_international_network_display_summary),
                     checked = systemUiInternationalNetworkDisplayEnabled,
                     onCheckedChange = onSystemUiInternationalNetworkDisplayEnabledChange,
+                    hasDividerAbove = true,
                     hasDividerBelow = true,
                 )
                 SettingsDivider()

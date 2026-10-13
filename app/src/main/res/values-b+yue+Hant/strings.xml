@@ -73,7 +73,7 @@
     <string name="config_import_success">設定已匯入</string>
     <string name="config_import_failed">匯入失敗：%1$s</string>
     <string name="config_clear_confirm_title">要清除全部設定？</string>
-    <string name="config_clear_confirm_summary">所有頁面選項同功能設定都會還原成預設值，清除之後冇得復原。</string>
+    <string name="config_clear_confirm_summary">所有頁面選項同功能設定都會還原成預設值，清除之後冇得復原</string>
     <string name="config_clear_confirm_cancel">取消</string>
     <string name="config_clear_confirm_action">清除</string>
     <string name="config_clear_success">設定已還原成預設值</string>
@@ -381,7 +381,7 @@
     <string name="update_notification_channel_name">軟件更新</string>
     <string name="update_notification_channel_description">有 ONextBox 新版本嗰陣，會通知你</string>
     <string name="update_notification_title">有新版本</string>
-    <string name="update_notification_body">ONextBox %1$s 出咗喇，撳入嚟睇更新內容。</string>
+    <string name="update_notification_body">ONextBox %1$s 出咗喇，撳入嚟睇更新內容</string>
     <string name="update_notification_action">下載同安裝</string>
     <string name="update_checking">檢查緊更新</string>
     <string name="update_available">有新版本</string>
@@ -393,10 +393,10 @@
     <string name="software_update_auto_settings">更新設定</string>
     <string name="software_update_release_notes">睇更新說明</string>
     <string name="software_update_release_notes_title">更新說明</string>
-    <string name="software_update_release_notes_empty">呢個版本暫時冇更新說明。</string>
+    <string name="software_update_release_notes_empty">呢個版本暫時冇更新說明</string>
     <string name="software_update_notice_title">注意事項</string>
-    <string name="software_update_notice_body">1. 用嘅時候遇到問題，可以去 TG 群組回報同問吓。\n2. 下載更新嗰陣請保持網絡穩定，安裝期間盡量唔好強制關閉應用程式。\n3. 呢頁嘅介面只作功能展示；唔同裝置、版本同地區可能有分別，請以你實際用緊嘅版本為準。</string>
-    <string name="software_update_notice_more">睇多啲內容，一齊傾吓。</string>
+    <string name="software_update_notice_body">1. 用嘅時候遇到問題，可以去 TG 群組回報同問吓。\n2. 下載更新嗰陣請保持網絡穩定，安裝期間盡量唔好強制關閉應用程式。\n3. 呢頁嘅介面只作功能展示；唔同裝置、版本同地區可能有分別，請以你實際用緊嘅版本為準</string>
+    <string name="software_update_notice_more">睇多啲內容，一齊傾吓</string>
     <string name="software_update_notice_community">去 TG 群組</string>
     <string name="software_update_version_title">軟件版本</string>
     <string name="software_update_download_install">下載安裝檔</string>
@@ -419,7 +419,7 @@
     <string name="feature_mobile_network_hide_high_data_sim_card_summary">喺流動網絡頁面隱藏大流量卡服務</string>
     <string name="feature_mobile_network_hide_smart_cloud_acceleration_title">隱藏智慧雲加速入口</string>
     <string name="feature_mobile_network_hide_smart_cloud_acceleration_summary">喺流動網絡頁面隱藏智慧雲加速</string>
-    <string name="onboarding_welcome_first">你好\nHello.</string>
+    <string name="onboarding_welcome_first">你好\nHello</string>
     <string name="onboarding_welcome_second">ONextBox 17\n全新體驗</string>
     <string name="onboarding_get_started">開始使用</string>
     <string name="onboarding_language_title">揀語言</string>
@@ -761,10 +761,10 @@
     <string name="feature_google_messages_title">Google 訊息</string>
     <string name="feature_google_messages_chat_section">聊天</string>
     <string name="feature_google_messages_gemini_title">Gemini 聊天</string>
-    <string name="feature_google_messages_gemini_summary">帳戶同 RCS 符合要求時顯示 Gemini 入口。</string>
+    <string name="feature_google_messages_gemini_summary">帳戶同 RCS 符合要求時顯示 Gemini 入口</string>
     <string name="feature_google_messages_notification_section">通知</string>
     <string name="feature_google_messages_copy_otp_title">複製驗證碼</string>
-    <string name="feature_google_messages_copy_otp_summary">收到含驗證碼嘅短訊時，喺已讀同回覆旁邊加入複製按鈕。請允許 Google 訊息寫入剪貼簿，包括喺背景執行時；否則可能無法喺通知複製。</string>
+    <string name="feature_google_messages_copy_otp_summary">收到含驗證碼嘅短訊時，喺已讀同回覆旁邊加入複製按鈕。請允許 Google 訊息寫入剪貼簿，包括喺背景執行時；否則可能無法喺通知複製</string>
     <string name="installer_shared_uninstall_summary">將解除安裝請求轉送到所選安裝器，需要安裝器支援解除安裝</string>
     <string name="installer_intercept_system">接管系統安裝器請求</string>
     <string name="installer_intercept_system_summary">將明確指定系統安裝器嘅請求轉送到所選安裝器</string>
@@ -839,7 +839,7 @@
     <string name="settings_section_module_hot_reload">模組熱載入</string>
     <string name="setting_module_hot_reload">模組熱載入（實驗性）</string>
     <string name="setting_module_hot_reload_summary">預設關閉，更新模組後，嘗試為全部作用域熱載入並接管運行資源，忙碌或唔兼容時仍要重啟，首次啟用後，要重啟相關作用域</string>
-    <string name="setting_module_hot_reload_save_failed">同步唔到熱載入設定，請檢查 Xposed 框架連線再試。</string>
+    <string name="setting_module_hot_reload_save_failed">同步唔到熱載入設定，請檢查 Xposed 框架連線再試</string>
     <string name="about_logs_title">日誌</string>
     <string name="logs_source">日誌來源</string>
     <string name="logs_source_app">應用日誌</string>
@@ -1113,4 +1113,15 @@
     <string name="feature_large_network_artwork_summary">重繪網絡類型圖示，共支援25種網絡類型</string>
     <string name="feature_large_network_lte_title">4G 顯示為 LTE</string>
     <string name="feature_large_network_lte_summary">將自訂圖示包嘅 4G、4G+ 換成 LTE、LTE+</string>
+    <string name="wallpaper_motion_group">3D 桌布</string>
+    <string name="wallpaper_motion_title">3D 桌布靈敏度（實驗性）</string>
+    <string name="wallpaper_motion_summary">調校現有 3D 桌布嘅傾斜靈敏度，100% 係原本靈敏度，數值越大反應越明顯，唔會改變系統角度上限。要喺 LSPosed 勾選桌布同炫彩引擎作用域，再重新開啟桌布</string>
+    <string name="wallpaper_motion_amount">傾斜靈敏度</string>
+    <string name="feature_only_data_sim_signal_title">只顯示數據卡訊號</string>
+    <string name="feature_only_data_sim_signal_summary">雙卡時只顯示揀咗用流動數據嗰張卡嘅訊號同網絡類型，轉數據卡後會自動跟隨</string>
+    <string name="theme_store_title">主題商店</string>
+    <string name="theme_store_vip_title">解鎖部分 VIP 功能</string>
+    <string name="theme_store_vip_summary">解鎖用戶端部分會員功能同保留試用資源，實際效果會因資源而異</string>
+    <string name="theme_store_ads_title">去廣告</string>
+    <string name="theme_store_ads_summary">屏蔽開屏廣告、推廣彈窗同已識別嘅廣告卡片</string>
 </resources>

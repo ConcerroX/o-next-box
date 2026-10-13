@@ -41,14 +41,40 @@ class FluidCloudBrowserRulesTest {
 
     @Test
     fun onlyRecognizedWebLinksAndActivityLaunchesAreEligible() {
-        assertFalse(accepts(textType = null))
-        assertFalse(accepts(textType = 29))
-        assertFalse(accepts(textType = 4))
+        // C17 Metis DeepLinkData leaves the type unset; package/action/URL define a browser link.
+        assertTrue(accepts(textType = null))
+        assertTrue(accepts(textType = 29))
+        assertTrue(accepts(textType = 4))
         assertFalse(accepts(intentType = 2))
         assertFalse(accepts(intentType = 0))
         assertFalse(accepts(action = "android.intent.action.WEB_SEARCH"))
         assertFalse(accepts(action = "android.intent.action.SEND"))
         assertFalse(accepts(action = null))
+    }
+
+    @Test
+    fun metisBrowserWrapperExtractsOnlyTheActualWebUrl() {
+        assertEquals("https://example.com/a?q=a%2Bb&x=1#part", FluidCloudBrowserRules.webUrl(
+            "heytapbrowser://webpage?url=https%3A%2F%2Fexample.com%2Fa%3Fq%3Da%252Bb%26x%3D1%23part&source=cloud",
+        ))
+        assertEquals("http://example.com/", FluidCloudBrowserRules.webUrl(
+            "HEYTAPBROWSER://WEBPAGE?url=http%3A%2F%2Fexample.com%2F",
+        ))
+        assertEquals("https://example.com/?x=%2B", FluidCloudBrowserRules.webUrl("https://example.com/?x=%2B"))
+    }
+
+    @Test
+    fun invalidAndNonWebBrowserRoutesRemainUntouched() {
+        listOf(null, "", "heytapbrowser://webpage", "heytapbrowser://search?url=https://example.com",
+            "heytapbrowser://webpage?url=javascript%3Aalert(1)",
+            "heytapbrowser://webpage?url=weixin%3A%2F%2Fscan",
+            "heytapbrowser://webpage?url=https%3A%2F%2F",
+            "heytapbrowser://webpage?url=%ZZ", "heytapbrowser://webpage?url=example.com",
+            "heytapbrowser://webpage?url=https://a.test&url=https://b.test",
+            "heytapbrowser://webpage/other?url=https://example.com",
+            "heytapbrowser://user@webpage?url=https://example.com",
+            "weixin://webpage?url=https://example.com")
+            .forEach { assertEquals(it, null, FluidCloudBrowserRules.webUrl(it)) }
     }
 
     @Test

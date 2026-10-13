@@ -70,10 +70,16 @@ internal fun SettingsSwitchPreference(
     enabled: Boolean = true,
     hiddenHoldDurationMillis: Long? = null,
     onHiddenHold: (() -> Unit)? = null,
+    onRowClick: (() -> Unit)? = null,
+    switchEnabled: Boolean = enabled,
 ) {
     val currentOnCheckedChange by rememberUpdatedState(onCheckedChange)
     val currentOnHiddenHold by rememberUpdatedState(onHiddenHold)
     val hiddenHoldEnabled = hiddenHoldDurationMillis != null && onHiddenHold != null
+    val rowClick: (() -> Unit)? = if (hiddenHoldEnabled) null else onRowClick ?: {
+        currentOnCheckedChange.takeIf { enabled && switchEnabled }?.invoke(!checked)
+        Unit
+    }
     val gestureModifier = if (hiddenHoldEnabled) {
         modifier.pointerInput(checked, enabled, hiddenHoldDurationMillis) {
             var hiddenHoldTriggered = false
@@ -111,8 +117,8 @@ internal fun SettingsSwitchPreference(
                 endActions()
                 MaterialSwitch(
                     checked = checked,
-                    onCheckedChange = currentOnCheckedChange.takeIf { enabled && !hiddenHoldEnabled },
-                    enabled = enabled,
+                    onCheckedChange = currentOnCheckedChange.takeIf { enabled && switchEnabled && !hiddenHoldEnabled },
+                    enabled = enabled && switchEnabled,
                     thumbContent = if (showSwitchIcons && (checked || enabled)) ({
                         MaterialIcon(
                             imageVector = if (checked) Icons.Rounded.Check else Icons.Rounded.Close,
@@ -128,10 +134,8 @@ internal fun SettingsSwitchPreference(
             },
             bottomAction = bottomAction,
             enabled = enabled,
-            onClick = if (hiddenHoldEnabled) null else {
-                { currentOnCheckedChange.takeIf { enabled }?.invoke(!checked) }
-            },
-            role = Role.Switch,
+            onClick = rowClick,
+            role = if (onRowClick == null) Role.Switch else Role.Button,
         )
         return
     }
@@ -152,17 +156,13 @@ internal fun SettingsSwitchPreference(
             }
             ColorOsSwitch(
                 checked = checked,
-                onCheckedChange = currentOnCheckedChange.takeIf { enabled && !hiddenHoldEnabled },
-                enabled = enabled,
+                onCheckedChange = currentOnCheckedChange.takeIf { enabled && switchEnabled && !hiddenHoldEnabled },
+                enabled = enabled && switchEnabled,
             )
         },
         bottomAction = bottomAction,
-        onClick = if (hiddenHoldEnabled) {
-            null
-        } else {
-            { currentOnCheckedChange.takeIf { enabled }?.invoke(!checked) }
-        },
-        role = Role.Switch,
+        onClick = rowClick,
+        role = if (onRowClick == null) Role.Switch else Role.Button,
         holdDownState = holdDownState,
         enabled = enabled,
     )

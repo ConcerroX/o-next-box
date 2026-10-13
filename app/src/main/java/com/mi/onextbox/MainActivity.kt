@@ -537,6 +537,16 @@ class MainActivity : ComponentActivity() {
                 launcherLayoutUnlocked = state.launcherLayoutUnlocked
                 assistantScreenOption = state.assistantScreenOption
             }
+            LaunchedEffect(Unit) {
+                com.mi.onextbox.ui.screens.EnabledFeatureEdits.changes.collect {
+                    val snapshot = withContext(Dispatchers.IO) {
+                        LspConfig.readCachedUiSnapshot(this@MainActivity)
+                    }
+                    applyLspConfigSnapshot(snapshot)
+                    permissionMonitorVisible = queryPermissionMonitorVisibility()
+                    launcherLayoutUnlocked = queryLauncherLayoutUnlocked()
+                }
+            }
             LaunchedEffect(onboardingCompleted) {
                 withFrameNanos { }
                 withContext(Dispatchers.IO) {

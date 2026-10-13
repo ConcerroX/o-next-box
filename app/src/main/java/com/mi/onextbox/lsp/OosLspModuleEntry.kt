@@ -141,6 +141,7 @@ class OosLspModuleEntry : XposedModule() {
         when (packageName) {
             PACKAGE_SYSTEM_UI -> {
                 LargeNetworkTypeHooker.hook(classLoader)
+                DataSimSignalHooker.hook(classLoader)
                 SideKeySystemUiHooker.hook(classLoader)
                 ImmersiveNavigationHooker.hook(classLoader)
                 AospBackPanelHooker.hook(classLoader)
@@ -190,7 +191,13 @@ class OosLspModuleEntry : XposedModule() {
                 EuiccDiagnosticsHooker.hook(classLoader)
             }
 
-            PACKAGE_WALLPAPERS -> WallpapersRedOneEntryHooker.hook(classLoader)
+            PACKAGE_WALLPAPERS -> {
+                WallpapersRedOneEntryHooker.hook(classLoader)
+                WallpaperMotionHooker.hook(classLoader)
+            }
+            WallpaperMotionSettings.ENGINE_PACKAGE -> {
+                WallpaperMotionHooker.hook(classLoader)
+            }
 
             PACKAGE_PHONE -> MobileNetworkHooker.hook(classLoader)
 
@@ -216,6 +223,7 @@ class OosLspModuleEntry : XposedModule() {
                 PhoneManagerCountdownHooker.hook(classLoader, target.sourceDir)
 
             OShareSettings.PACKAGE_NAME -> OShareVisibilityHooker.hook(classLoader)
+            ThemeStoreSettings.PACKAGE_NAME -> ThemeStoreHooker.hook(classLoader)
 
             SoftwareUpdateSettings.PACKAGE_NAME ->
                 SoftwareUpdateHooker.hook(classLoader, target.sourceDir)
@@ -223,7 +231,8 @@ class OosLspModuleEntry : XposedModule() {
             SoftwareUpdateSettings.SYSTEM_FILES_PACKAGE_NAME ->
                 SystemFileUpdateHooker.hook(classLoader, target.sourceDir)
 
-            FluidCloudBrowserSettings.PACKAGE_NAME -> FluidCloudBrowserHooker.hook(classLoader)
+            FluidCloudBrowserSettings.PACKAGE_NAME,
+            FluidCloudBrowserSettings.METIS_PACKAGE_NAME -> FluidCloudBrowserHooker.hook(classLoader)
 
             "com.android.permissioncontroller" ->
                 PermissionUiStyleHooker.hookPermissionController(classLoader)

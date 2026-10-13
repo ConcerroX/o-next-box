@@ -4,6 +4,23 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LargeNetworkArtworkTest {
+    @Test fun singleSimArtworkReservesTwoDpOnEachSide() {
+        assertEquals(2, LargeNetworkArtworkHooker.singleSimSidePadding(1f))
+        assertEquals(3, LargeNetworkArtworkHooker.singleSimSidePadding(1.5f))
+        assertEquals(8, LargeNetworkArtworkHooker.singleSimSidePadding(4f))
+        // Rebinding uses a fresh span: the inset is density-based, not cumulative.
+        repeat(3) { assertEquals(8, LargeNetworkArtworkHooker.singleSimSidePadding(4f)) }
+    }
+    @Test fun singleSimClearsOnlyTheDetachedStackedNetworkType() {
+        assertTrue(LargeNetworkArtworkHooker.hideDetachedStackedType(true, false))
+        assertFalse(LargeNetworkArtworkHooker.hideDetachedStackedType(true, true))
+        assertFalse(LargeNetworkArtworkHooker.hideDetachedStackedType(false, false))
+        assertFalse(LargeNetworkArtworkHooker.hideDetachedStackedType(false, true))
+        // Dual -> single -> dual must not permanently suppress the stacked label.
+        assertEquals(listOf(false, true, false), listOf(true, false, true).map {
+            LargeNetworkArtworkHooker.hideDetachedStackedType(true, it)
+        })
+    }
     @Test fun matchesBinaryNameWithoutDependingOnInnerClassMetadata() {
         assertTrue(LargeNetworkArtworkHooker.supportsModel(
             "com.android.systemui.statusbar.pipeline.mobile.domain.model.OplusNetworkTypeTextModel\$DefaultNetworkTypeText"))

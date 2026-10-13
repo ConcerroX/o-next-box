@@ -26,6 +26,8 @@ fun SettingsToggleRow(
     bottomAction: (@Composable () -> Unit)? = null,
     hiddenHoldDurationMillis: Long? = null,
     onHiddenHold: (() -> Unit)? = null,
+    onRowClick: (() -> Unit)? = null,
+    switchEnabled: Boolean = enabled,
 ) {
     val row: @Composable () -> Unit = { SettingsSwitchPreference(
         modifier = modifier,
@@ -56,6 +58,8 @@ fun SettingsToggleRow(
         bottomAction = bottomAction,
         hiddenHoldDurationMillis = hiddenHoldDurationMillis,
         onHiddenHold = onHiddenHold,
+        onRowClick = onRowClick,
+        switchEnabled = switchEnabled,
     ) }
     if (LocalAppUiStyle.current == AppUiStyle.Material3Expressive) {
         Material3ExpressiveInferredSegmentPosition(hasDividerAbove, hasDividerBelow, row)

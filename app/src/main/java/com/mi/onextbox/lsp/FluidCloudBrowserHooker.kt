@@ -44,14 +44,16 @@ internal object FluidCloudBrowserHooker {
                 val original = chain.args.getOrNull(1) as? Intent ?: return@Hooker chain.proceed()
                 val prepared = runCatching {
                     val oldPackage = packageName.get(owner) as? String
+                    val url = FluidCloudBrowserRules.webUrl(original.dataString) ?: return@runCatching null
+                    val webUri = Uri.parse(url)
                     if (!FluidCloudBrowserRules.accepts(
                             enabled = true,
                             textType = textType.get(owner) as? Int,
                             intentType = intentType.getInt(owner),
                             packageName = oldPackage,
                             action = original.action,
-                            scheme = original.data?.scheme,
-                            host = original.data?.host,
+                            scheme = webUri.scheme,
+                            host = webUri.host,
                             explicitPackage = original.`package`,
                             componentPackage = original.component?.packageName,
                             hasSelector = original.selector != null,
@@ -63,6 +65,7 @@ internal object FluidCloudBrowserHooker {
                     }
                     val redirected = Intent(original).apply {
                         component = null
+                        data = webUri
                         setPackage(target)
                         addCategory(Intent.CATEGORY_BROWSABLE)
                     }

@@ -313,6 +313,9 @@ private sealed interface RootRoute : NavKey {
     data object FeatureDesktop : RootRoute
 
     @Serializable
+    data object FeatureEnabledFeatures : RootRoute
+
+    @Serializable
     data object FeatureDesktopLayout : RootRoute
 
     @Serializable
@@ -389,6 +392,9 @@ private sealed interface RootRoute : NavKey {
 
     @Serializable
     data object FeaturePhoneManager : RootRoute
+
+    @Serializable
+    data object FeatureThemeStore : RootRoute
 
     @Serializable
     data object FeatureOShare : RootRoute
@@ -494,6 +500,7 @@ private sealed interface RootRoute : NavKey {
 }
 
 private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
+    FeaturePageMode.EnabledFeatures -> RootRoute.FeatureEnabledFeatures
     FeaturePageMode.Main -> null
     FeaturePageMode.Desktop -> RootRoute.FeatureDesktop
     FeaturePageMode.DesktopLayout -> RootRoute.FeatureDesktopLayout
@@ -522,6 +529,7 @@ private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
     FeaturePageMode.Battery -> RootRoute.FeatureBattery
     FeaturePageMode.TrafficManagement -> RootRoute.FeatureTrafficManagement
     FeaturePageMode.PhoneManager -> RootRoute.FeaturePhoneManager
+    FeaturePageMode.ThemeStore -> RootRoute.FeatureThemeStore
     FeaturePageMode.OShare -> RootRoute.FeatureOShare
     FeaturePageMode.SoftwareUpdate -> RootRoute.FeatureSoftwareUpdate
     FeaturePageMode.Keyboard -> RootRoute.FeatureKeyboard
@@ -1004,6 +1012,7 @@ fun Root(
                 polymorphic(NavKey::class) {
                     subclass(RootRoute.Main::class)
                     subclass(RootRoute.FeatureDesktop::class)
+                    subclass(RootRoute.FeatureEnabledFeatures::class)
                     subclass(RootRoute.FeatureDesktopLayout::class)
                     subclass(RootRoute.FeatureDesktopIcons::class)
                     subclass(RootRoute.FeatureDesktopRecent::class)
@@ -1030,6 +1039,7 @@ fun Root(
                     subclass(RootRoute.FeatureBattery::class)
                     subclass(RootRoute.FeatureTrafficManagement::class)
                     subclass(RootRoute.FeaturePhoneManager::class)
+                    subclass(RootRoute.FeatureThemeStore::class)
                     subclass(RootRoute.FeatureOShare::class)
                     subclass(RootRoute.FeatureSoftwareUpdate::class)
                     subclass(RootRoute.FeatureKeyboard::class)
@@ -2279,6 +2289,9 @@ fun Root(
             entry<RootRoute.FeatureDesktop> {
                 featureEntryContent(FeaturePageMode.Desktop)
             }
+            entry<RootRoute.FeatureEnabledFeatures> {
+                featureEntryContent(FeaturePageMode.EnabledFeatures)
+            }
             entry<RootRoute.FeatureDesktopLayout> {
                 featureEntryContent(FeaturePageMode.DesktopLayout)
             }
@@ -2356,6 +2369,9 @@ fun Root(
             }
             entry<RootRoute.FeaturePhoneManager> {
                 featureEntryContent(FeaturePageMode.PhoneManager)
+            }
+            entry<RootRoute.FeatureThemeStore> {
+                featureEntryContent(FeaturePageMode.ThemeStore)
             }
             entry<RootRoute.FeatureOShare> {
                 featureEntryContent(FeaturePageMode.OShare)

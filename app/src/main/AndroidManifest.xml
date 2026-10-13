@@ -31,6 +31,7 @@
         <package android:name="com.oplus.ota" />
         <package android:name="com.oplus.sau" />
         <package android:name="com.coloros.colordirectservice" />
+        <package android:name="com.oplus.metis" />
         <package android:name="org.lsposed.manager" />
         <package android:name="io.github.libxposed.manager" />
         <package android:name="com.android.systemui" />
@@ -43,6 +44,8 @@
         <package android:name="com.android.launcher" />
         <package android:name="com.android.launcher3" />
         <package android:name="com.oplus.wallpapers" />
+        <package android:name="com.heytap.colorfulengine" />
+        <package android:name="com.heytap.themestore" />
         <package android:name="com.oplus.launcher" />
         <package android:name="com.oneplus.launcher" />
         <package android:name="com.oplus.aod" />

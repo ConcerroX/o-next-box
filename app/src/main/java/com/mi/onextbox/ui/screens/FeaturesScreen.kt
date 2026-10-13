@@ -113,6 +113,7 @@ import com.mi.onextbox.lsp.EsimDiagnosticsStore
 import com.mi.onextbox.lsp.EsimProfileDiagnostic
 import com.mi.onextbox.lsp.LspConfig
 import com.mi.onextbox.lsp.PhoneManagerSettings
+import com.mi.onextbox.lsp.ThemeStoreSettings
 import com.mi.onextbox.lsp.OShareSettings
 import com.mi.onextbox.lsp.SoftwareUpdateSettings
 import com.mi.onextbox.lsp.FluidCloudBrowserSettings
@@ -196,6 +197,7 @@ enum class FeaturePageMode(val isNestedPage: Boolean = false) {
     Battery,
     TrafficManagement,
     PhoneManager,
+    ThemeStore,
     OShare,
     SoftwareUpdate,
     Keyboard,
@@ -220,6 +222,7 @@ enum class FeaturePageMode(val isNestedPage: Boolean = false) {
     Screenshot,
     ScreenRecording,
     Assistant,
+    EnabledFeatures(true),
 }
 
 data class FeatureLaunchOrigin(
@@ -280,6 +283,7 @@ fun FeatureMainRoute(
             null
         },
         actions = {
+            EnabledFeaturesAction { onOpen(FeaturePageMode.EnabledFeatures, null) }
             FeatureRestartActionButton(
                 contentDescription = stringResource(R.string.feature_restart_all_scope_title),
                 onClick = { showRestartConfirm = true },
@@ -382,6 +386,17 @@ fun FeatureSubRoute(
     val context = LocalContext.current
     val resources = LocalResources.current
     val subPageStateHolder = rememberSaveableStateHolder()
+    if (pageMode == FeaturePageMode.EnabledFeatures) {
+        EnabledFeaturesPage(
+            modifier = modifier.fillMaxSize(),
+            bottomPadding = subPageBottomExtension,
+            blurBackdrop = blurBackdrop,
+            transitionScrollState = transitionScrollState,
+            onBack = onBack,
+            onOpen = onOpenSubPage,
+        )
+        return
+    }
     if (pageMode == FeaturePageMode.AppErrors) {
         AppErrorTrackingRoute(modifier.fillMaxSize(), blurBackdrop, onBack, onOpenDetail = onOpenAppErrorDetail)
         return
@@ -535,6 +550,7 @@ private fun Modifier.extendPastBottom(extra: Dp): Modifier = layout { measurable
 
 @Composable
 internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
+    FeaturePageMode.EnabledFeatures -> stringResource(R.string.enabled_features_title)
     FeaturePageMode.Main -> stringResource(R.string.tab_features)
     FeaturePageMode.Desktop -> stringResource(R.string.section_system_desktop)
     FeaturePageMode.DesktopLayout -> stringResource(R.string.desktop_category_layout)
@@ -563,6 +579,7 @@ internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
     FeaturePageMode.Battery -> stringResource(R.string.battery_page_title)
     FeaturePageMode.TrafficManagement -> stringResource(R.string.traffic_page_title)
     FeaturePageMode.PhoneManager -> stringResource(R.string.phone_manager_title)
+    FeaturePageMode.ThemeStore -> stringResource(R.string.theme_store_title)
     FeaturePageMode.OShare -> stringResource(R.string.oshare_title)
     FeaturePageMode.SoftwareUpdate -> stringResource(R.string.ota_page_title)
     FeaturePageMode.Keyboard -> stringResource(R.string.keyboard_page_title)
@@ -604,7 +621,7 @@ internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when 
     FeaturePageMode.SystemUiFluidCloudMediaBlacklist,
     FeaturePageMode.SystemUiNotificationCenter,
     FeaturePageMode.SystemUiControlCenter -> listOf("com.android.systemui")
-    FeaturePageMode.SystemUiFluidCloud -> listOf("com.android.systemui", FluidCloudBrowserSettings.PACKAGE_NAME)
+    FeaturePageMode.SystemUiFluidCloud -> listOf("com.android.systemui") + FluidCloudBrowserSettings.packages
     FeaturePageMode.SystemUiLockScreen -> listOf("com.android.systemui")
     FeaturePageMode.SystemUiNavigationBar -> listOf("android", "system", "com.android.systemui")
     FeaturePageMode.Screenshot -> listOf("android", "system", "com.oplus.screenshot")
@@ -619,6 +636,7 @@ internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when 
     FeaturePageMode.Battery -> listOf("android", "system", "com.oplus.battery")
     FeaturePageMode.TrafficManagement -> listOf("com.oplus.trafficmonitor")
     FeaturePageMode.PhoneManager -> listOf(PhoneManagerSettings.PACKAGE_NAME)
+    FeaturePageMode.ThemeStore -> listOf(ThemeStoreSettings.PACKAGE_NAME)
     FeaturePageMode.OShare -> listOf(OShareSettings.PACKAGE_NAME)
     FeaturePageMode.SoftwareUpdate -> listOf(SoftwareUpdateSettings.PACKAGE_NAME, SoftwareUpdateSettings.SYSTEM_FILES_PACKAGE_NAME)
     FeaturePageMode.Keyboard -> listOf("com.oplus.keyboard")
@@ -638,7 +656,7 @@ internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when 
         "com.oplus.securitypermission", "com.android.settings",
         "com.android.permissioncontroller", "android", "system",
     )
-    FeaturePageMode.Wallpapers -> listOf("com.oplus.wallpapers")
+    FeaturePageMode.Wallpapers -> listOf("com.oplus.wallpapers", "com.heytap.colorfulengine")
     FeaturePageMode.Aod -> listOf("com.oplus.aod")
     FeaturePageMode.Assistant -> listOf(
         "android",
@@ -646,6 +664,7 @@ internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when 
         "com.android.systemui",
         "com.google.android.googlequicksearchbox",
     )
+    FeaturePageMode.EnabledFeatures,
     FeaturePageMode.Main,
     // C17 flexible handles also live in system_server. Offer no misleading SystemUI-only restart.
     FeaturePageMode.SystemUiSmallWindow,
@@ -955,6 +974,13 @@ private fun featureMainEntries(): List<FeatureMainEntry> = buildList {
                 titleRes = R.string.phone_manager_title,
                 iconPackages = listOf(PhoneManagerSettings.PACKAGE_NAME),
                 pageMode = FeaturePageMode.PhoneManager,
+            )
+        )
+        add(
+            FeatureMainEntry(
+                titleRes = R.string.theme_store_title,
+                iconPackages = listOf(ThemeStoreSettings.PACKAGE_NAME),
+                pageMode = FeaturePageMode.ThemeStore,
             )
         )
         add(
@@ -1485,6 +1511,7 @@ private fun FeatureSubPage(
         FeaturePageMode.Battery -> BatteryFeaturesPage()
         FeaturePageMode.TrafficManagement -> TrafficManagementPage()
         FeaturePageMode.PhoneManager -> PhoneManagerFeaturesPage()
+        FeaturePageMode.ThemeStore -> ThemeStoreFeaturesPage()
         FeaturePageMode.OShare -> OShareFeaturesPage()
         FeaturePageMode.SoftwareUpdate -> SoftwareUpdateFeaturesPage()
         FeaturePageMode.Keyboard -> KeyboardFeaturesPage()
@@ -1541,7 +1568,7 @@ private fun FeatureSubPage(
             assistantNativeCircleEnabled = assistantNativeCircleEnabled,
             onAssistantNativeCircleEnabledChange = onAssistantNativeCircleEnabledChange,
         )
-        FeaturePageMode.Main -> Unit
+        FeaturePageMode.Main, FeaturePageMode.EnabledFeatures -> Unit
     }
 }
 

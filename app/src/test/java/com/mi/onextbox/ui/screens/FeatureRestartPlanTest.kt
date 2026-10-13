@@ -64,7 +64,7 @@ class FeatureRestartPlanTest {
             assertEquals(featureRestartPackages(FeaturePageMode.Desktop), featureRestartPackages(mode))
         }
         assertEquals(listOf("com.android.systemui"), featureRestartPackages(FeaturePageMode.SystemUiControlCenter))
-        assertEquals(listOf("com.android.systemui", FluidCloudBrowserSettings.PACKAGE_NAME),
+        assertEquals(listOf("com.android.systemui", "com.coloros.colordirectservice", "com.oplus.metis"),
             featureRestartPackages(FeaturePageMode.SystemUiFluidCloud))
     }
 

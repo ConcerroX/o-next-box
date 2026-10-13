@@ -5,13 +5,14 @@ internal object ModuleHotReloadPolicy {
     val supportedPackages: Set<String> = setOf(
         "system", "com.android.systemui", "com.oplus.screenshot", "com.oplus.screenrecorder",
         "com.android.settings", "com.oplus.securitypermission", "com.android.permissioncontroller",
-        "com.coloros.phonemanager", "com.coloros.colordirectservice", "com.oplus.ota", "com.oplus.sau",
+        "com.coloros.phonemanager", "com.coloros.colordirectservice", "com.oplus.metis", "com.oplus.ota", "com.oplus.sau",
         "com.android.launcher", "com.oplus.aod",
         "com.oplus.athena", "com.oplus.euicc", "com.oplus.wallpapers", "com.android.phone",
         "com.google.android.googlequicksearchbox", "com.google.android.apps.messaging",
         "com.heytap.market", "com.oplus.battery", "com.oplus.trafficmonitor", "com.oplus.keyboard",
         "com.coloros.filemanager", "com.heytap.mcs", "com.nearme.instant.platform",
-        "com.coloros.assistantscreen", "com.coloros.oshare",
+        "com.coloros.assistantscreen", "com.coloros.oshare", "com.heytap.colorfulengine",
+        "com.heytap.themestore",
     )
 
     fun supportsProcess(processName: String, isSystemServer: Boolean): Boolean =

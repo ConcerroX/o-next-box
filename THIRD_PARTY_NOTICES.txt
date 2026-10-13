@@ -1,0 +1,7 @@
+Theme-store VIP adaptation
+
+Based on UnlockThemeStoreVip in LuckyTool by luckyzyx and contributors.
+Source: https://github.com/luckyzyx/LuckyTool/blob/main/app/src/main/java/com/luckyzyx/luckytool/hook/scopes/themestore/UnlockThemeStoreVip.kt
+License: GNU General Public License version 3 (see LICENSE).
+Modified for ONextBox on 2026-10-14: API 102 hooks, typed getter compatibility,
+live preference checks, per-endpoint fallback, and scoped expiry broadcasts.

@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
 
 @Composable
 internal fun WallpapersFeaturesPage() {
+    WallpaperMotionGroup()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var redOneEntryEnabled by rememberSaveable {
