@@ -149,6 +149,7 @@ internal fun DesktopFeaturesPage(
     }
 
     if (mode == FeaturePageMode.DesktopRecent) {
+        LauncherSwipeTopSettingsGroup()
         SettingsGroup {
             LauncherFeatureRows(LauncherFeatureItems.recent, hasDividerBelow = true)
             RecentTaskRadiusRow(
@@ -163,6 +164,7 @@ internal fun DesktopFeaturesPage(
 
     }
     if (mode == FeaturePageMode.DesktopIcons) {
+        LauncherIconMenuSettingsGroup()
         SettingsSection(title = stringResource(R.string.launcher_group_badges))
         SettingsGroup { LauncherFeatureRows(LauncherFeatureItems.badges) }
 

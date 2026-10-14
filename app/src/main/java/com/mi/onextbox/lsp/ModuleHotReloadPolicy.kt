@@ -12,7 +12,7 @@ internal object ModuleHotReloadPolicy {
         "com.heytap.market", "com.oplus.battery", "com.oplus.trafficmonitor", "com.oplus.keyboard",
         "com.coloros.filemanager", "com.heytap.mcs", "com.nearme.instant.platform",
         "com.coloros.assistantscreen", "com.coloros.oshare", "com.heytap.colorfulengine",
-        "com.heytap.themestore",
+        "com.heytap.themestore", "com.coloros.securepay", "com.oplus.games",
     )
 
     fun supportsProcess(processName: String, isSystemServer: Boolean): Boolean =

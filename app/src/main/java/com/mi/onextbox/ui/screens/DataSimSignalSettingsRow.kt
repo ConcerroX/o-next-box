@@ -1,5 +1,6 @@
 package com.mi.onextbox.ui.screens
 
+import android.content.SharedPreferences
 import android.widget.Toast
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
@@ -21,36 +22,62 @@ internal fun DataSimSignalSettingsRow() {
     val owner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var enabled by remember { mutableStateOf(DataSimSignalSettings.enabled(context)) }
-    var saving by remember { mutableStateOf(false) }
-    DisposableEffect(owner, context) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && !saving) enabled = DataSimSignalSettings.enabled(context)
+    var independentOnly by remember { mutableStateOf(DataSimSignalSettings.independentOnly(context)) }
+    var savingKey by remember { mutableStateOf<String?>(null) }
+    fun refresh() {
+        if (savingKey == null) {
+            enabled = DataSimSignalSettings.enabled(application)
+            independentOnly = DataSimSignalSettings.independentOnly(application)
         }
-        owner.lifecycle.addObserver(observer)
-        onDispose { owner.lifecycle.removeObserver(observer) }
     }
-    SettingsToggleRow(
-        title = stringResource(R.string.feature_only_data_sim_signal_title),
-        summary = stringResource(R.string.feature_only_data_sim_signal_summary),
-        checked = enabled,
-        switchEnabled = !saving,
-        hasDividerBelow = true,
-        onCheckedChange = { next ->
-            if (!saving) {
-                enabled = next
-                saving = true
-                val write = FeatureSettingWriteQueue.application.enqueue { DataSimSignalSettings.set(application, next) }
-                scope.launch {
-                    try { write.await() }
-                    catch (cancel: CancellationException) { throw cancel }
-                    catch (_: Exception) {
-                        Toast.makeText(context, R.string.enabled_features_save_failed, Toast.LENGTH_LONG).show()
-                    } finally {
-                        enabled = DataSimSignalSettings.enabled(application)
-                        saving = false
-                    }
-                }
+    DisposableEffect(owner, context) {
+        val prefs = com.mi.onextbox.lsp.LspPreferenceStore.prefs(application)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key == DataSimSignalSettings.KEY || key == DataSimSignalSettings.INDEPENDENT_ONLY) refresh()
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refresh()
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        owner.lifecycle.addObserver(observer)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener); owner.lifecycle.removeObserver(observer) }
+    }
+    fun save(key: String, next: Boolean) {
+        if (savingKey != null) return
+        savingKey = key
+        if (key == DataSimSignalSettings.KEY) enabled = next else independentOnly = next
+        val write = FeatureSettingWriteQueue.application.enqueue {
+            if (key == DataSimSignalSettings.KEY) DataSimSignalSettings.set(application, next)
+            else DataSimSignalSettings.setIndependentOnly(application, next)
+        }
+        scope.launch {
+            try { write.await() }
+            catch (cancel: CancellationException) { throw cancel }
+            catch (_: Exception) {
+                Toast.makeText(context, R.string.enabled_features_save_failed, Toast.LENGTH_LONG).show()
+            } finally {
+                savingKey = null
+                refresh()
             }
-        },
-    )
+        }
+    }
+    FeatureAnimatedRows(hasDividerBelow = true, animateChanges = true) {
+        row("data-sim") { above, below ->
+            SettingsToggleRow(
+                title = stringResource(R.string.feature_only_data_sim_signal_title),
+                summary = stringResource(R.string.feature_only_data_sim_signal_summary),
+                checked = enabled, switchEnabled = savingKey != DataSimSignalSettings.KEY,
+                hasDividerAbove = above, hasDividerBelow = below,
+                onCheckedChange = { save(DataSimSignalSettings.KEY, it) },
+            )
+        }
+        row("independent-only", visible = enabled) { above, below ->
+            SettingsToggleRow(
+                title = stringResource(R.string.feature_only_data_sim_independent_title), summary = "",
+                checked = independentOnly, switchEnabled = savingKey != DataSimSignalSettings.INDEPENDENT_ONLY,
+                hasDividerAbove = above, hasDividerBelow = below,
+                onCheckedChange = { save(DataSimSignalSettings.INDEPENDENT_ONLY, it) },
+            )
+        }
+    }
 }

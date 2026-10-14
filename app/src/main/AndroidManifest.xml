@@ -27,6 +27,8 @@
         <package android:name="com.android.permissioncontroller" />
         <package android:name="com.oplus.securitypermission" />
         <package android:name="com.coloros.phonemanager" />
+        <package android:name="com.coloros.securepay" />
+        <package android:name="com.oplus.games" />
         <package android:name="com.coloros.oshare" />
         <package android:name="com.oplus.ota" />
         <package android:name="com.oplus.sau" />

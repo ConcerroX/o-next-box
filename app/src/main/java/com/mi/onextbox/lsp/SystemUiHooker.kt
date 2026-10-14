@@ -4,7 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.widget.ImageView
 import android.widget.TextView
 import com.mi.onextbox.lsp.compat.ModernHookBridge as XposedBridge
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
@@ -70,10 +72,6 @@ object SystemUiHooker {
     )
     private const val MOBILE_ROAMING_SPACE_VIEW_ID = 0x7f0a0889
     private const val MOBILE_ROAMING_TEXT_VIEW_ID = 0x7f0a088a
-    private const val WIFI_ACTIVITY_CONTAINER_VIEW_ID = 0x7f0a0689
-    private const val WIFI_ACTIVITY_IN_VIEW_ID = 0x7f0a10c1
-    private const val WIFI_ACTIVITY_COMBINED_VIEW_ID = 0x7f0a10c2
-    private const val WIFI_ACTIVITY_OUT_VIEW_ID = 0x7f0a10c8
     private val installedHookKeys = ConcurrentHashMap.newKeySet<String>()
     private val internationalNetworkDisplayApplied = AtomicBoolean(false)
     private val internationalNotificationStyleApplied = AtomicBoolean(false)
@@ -89,6 +87,7 @@ object SystemUiHooker {
         val layout: View.OnLayoutChangeListener,
         val drawing: ViewTreeObserver.OnPreDrawListener,
         val observer: ViewTreeObserver,
+        val originalVisibility: List<Pair<View, Int>>,
     )
     private val guardedWifiActivityRoots = Collections.synchronizedMap(WeakHashMap<View, WifiGuard>())
     @Volatile private var nativePowerMenuProvider: Any? = null
@@ -106,6 +105,9 @@ object SystemUiHooker {
                         if (guard.observer.isAlive) guard.observer.removeOnPreDrawListener(guard.drawing)
                         if (view.viewTreeObserver !== guard.observer && view.viewTreeObserver.isAlive) {
                             view.viewTreeObserver.removeOnPreDrawListener(guard.drawing)
+                        }
+                        guard.originalVisibility.forEach { (activity, visibility) ->
+                            if (activity.visibility == View.GONE) activity.visibility = visibility
                         }
                     }
                     guardedWifiActivityRoots.clear()
@@ -487,9 +489,8 @@ object SystemUiHooker {
                 hookCount++
             }
 
-        // C17's Wi-Fi icon uses a vendor-combined wifi_inout ImageView, while the retained AOSP
-        // binder still owns wifi_in, wifi_out and their container. Guard all four presentation
-        // views because the coroutine collectors can make them visible again as traffic changes.
+        // Identify Wi-Fi activity views by resource name, not one firmware's numeric IDs. Guard
+        // only activity-only content because collectors can show the arrows again during traffic.
         arrayOf(WIFI_VIEW_BINDER_CLASS, OPLUS_WIFI_SIGNAL_EX_IMPL_CLASS).forEach { className ->
             val binderClass = XposedHelpers.findClassIfExists(className, classLoader)
                 ?: return@forEach
@@ -504,8 +505,9 @@ object SystemUiHooker {
                     XposedBridge.hookMethod(method, object : XC_MethodHook() {
                         override fun afterHookedMethod(param: MethodHookParam) {
                             val root = param.args.firstOrNull() as? View ?: return
-                            guardWifiActivityViews(root)
-                            logNetworkActivityIndicatorHidden("ColorOS 17 Wi-Fi binding")
+                            if (guardWifiActivityViews(root)) {
+                                logNetworkActivityIndicatorHidden("Wi-Fi activity views")
+                            }
                         }
                     })
                     hookCount++
@@ -515,29 +517,38 @@ object SystemUiHooker {
         log("SystemUI hide network activity indicator hooks: $hookCount")
     }
 
-    private fun guardWifiActivityViews(root: View) {
-        if (HotReloadLifecycle.isRetiring) return
-        val activityViews = mutableListOf<View>()
-        intArrayOf(
-            WIFI_ACTIVITY_CONTAINER_VIEW_ID,
-            WIFI_ACTIVITY_IN_VIEW_ID,
-            WIFI_ACTIVITY_COMBINED_VIEW_ID,
-            WIFI_ACTIVITY_OUT_VIEW_ID,
-        ).forEach { viewId ->
-            val view = runCatching { root.findViewById<View>(viewId) }.getOrNull()
-            if (view != null && view !in activityViews) activityViews += view
-        }
-        if (activityViews.isEmpty()) return
+    private fun guardWifiActivityViews(root: View): Boolean {
+        if (HotReloadLifecycle.isRetiring) return false
+        if (guardedWifiActivityRoots.containsKey(root)) return true
+        val activityViews = WifiActivityIndicatorRules.targets(
+            root = root,
+            children = { view ->
+                if (view is ViewGroup) List(view.childCount) { view.getChildAt(it) }
+                else emptyList()
+            },
+            role = { view ->
+                runCatching {
+                    val resources = view.resources
+                    WifiActivityIndicatorRules.role(
+                        resourcePackage = resources.getResourcePackageName(view.id),
+                        resourceType = resources.getResourceTypeName(view.id),
+                        resourceName = resources.getResourceEntryName(view.id),
+                        isImageView = view is ImageView,
+                        isViewGroup = view is ViewGroup,
+                    )
+                }.getOrDefault(WifiActivityIndicatorRules.Role.OTHER)
+            },
+        )
+        if (activityViews.isEmpty()) return false
+        val originalVisibility = activityViews.map { it to it.visibility }
 
         fun hideActivityViews() {
             activityViews.forEach { view ->
                 if (view.visibility != View.GONE) view.visibility = View.GONE
-                if (view.alpha != 0f) view.alpha = 0f
             }
         }
 
         hideActivityViews()
-        if (guardedWifiActivityRoots.containsKey(root)) return
         val layout = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             if (!HotReloadLifecycle.isRetiring) hideActivityViews()
         }
@@ -546,9 +557,10 @@ object SystemUiHooker {
             true
         }
         val observer = root.viewTreeObserver
-        guardedWifiActivityRoots[root] = WifiGuard(layout, drawing, observer)
+        guardedWifiActivityRoots[root] = WifiGuard(layout, drawing, observer, originalVisibility)
         root.addOnLayoutChangeListener(layout)
         observer.addOnPreDrawListener(drawing)
+        return true
     }
 
     private fun logNetworkActivityIndicatorHidden(binding: String) {

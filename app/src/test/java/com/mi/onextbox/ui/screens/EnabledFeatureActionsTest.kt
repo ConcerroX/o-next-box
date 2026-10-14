@@ -5,6 +5,20 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class EnabledFeatureActionsTest {
+    @Test fun independentSignalStyleChildRequiresItsParentAndHasAQuickWriter() {
+        val parent = R.string.feature_only_data_sim_signal_title
+        val child = R.string.feature_only_data_sim_independent_title
+        assertFalse(EnabledFeatureCatalog.isActive(child, setOf(child)))
+        assertTrue(EnabledFeatureCatalog.isActive(child, setOf(parent, child)))
+        assertTrue(EnabledFeatureActions().supports(child))
+    }
+    @Test fun customStatusBarOrderTakesPrecedenceOverTheLegacyNetworkPreset() {
+        val preset = R.string.feature_restore_c16_network_icon_order_title
+        val custom = R.string.statusbar_order_title
+        assertTrue(EnabledFeatureCatalog.isActive(preset, setOf(preset)))
+        assertFalse(EnabledFeatureCatalog.isActive(preset, setOf(preset, custom)))
+        assertTrue(EnabledFeatureCatalog.isActive(custom, setOf(preset, custom)))
+    }
     @Test fun everyInventoryEntryHasAnExplicitWriter() {
         val actions = EnabledFeatureActions()
         EnabledFeatureCatalog.entries.forEach { assertTrue("Missing writer: ${it.title}", actions.supports(it.title)) }

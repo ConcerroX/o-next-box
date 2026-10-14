@@ -495,7 +495,13 @@ fun SettingsCardRow(
             summary = rowSummary,
             startAction = startAction,
             insideMargin = SettingsTokens.RowInsideMargin,
-            endActions = { Text(text = trailing, color = COUITheme.colorScheme.onSurfaceVariantActions) },
+            endActions = {
+                Text(text = trailing, color = COUITheme.colorScheme.onSurfaceVariantActions)
+                if (showExpandArrow || showArrow) {
+                    Spacer(Modifier.width(8.dp))
+                    if (showExpandArrow) SettingsExpandArrow(expanded = expandArrowExpanded) else SettingsJumpArrow()
+                }
+            },
             onClick = onClick,
         )
         showArrow -> BasicComponent(

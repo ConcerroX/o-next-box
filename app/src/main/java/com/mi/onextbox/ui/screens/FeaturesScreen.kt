@@ -114,6 +114,8 @@ import com.mi.onextbox.lsp.EsimProfileDiagnostic
 import com.mi.onextbox.lsp.LspConfig
 import com.mi.onextbox.lsp.PhoneManagerSettings
 import com.mi.onextbox.lsp.ThemeStoreSettings
+import com.mi.onextbox.lsp.SecurePaySettings
+import com.mi.onextbox.lsp.GameAssistantSettings
 import com.mi.onextbox.lsp.OShareSettings
 import com.mi.onextbox.lsp.SoftwareUpdateSettings
 import com.mi.onextbox.lsp.FluidCloudBrowserSettings
@@ -179,6 +181,7 @@ enum class FeaturePageMode(val isNestedPage: Boolean = false) {
     SystemUiNative(true),
     SystemUiDynamicColor(true),
     SystemUiStatusBar(true),
+    SystemUiIconOrder(true),
     SystemUiFluidCloud(true),
     SystemUiFluidCloudMediaBlacklist(true),
     SystemUiNotificationCenter(true),
@@ -198,6 +201,8 @@ enum class FeaturePageMode(val isNestedPage: Boolean = false) {
     TrafficManagement,
     PhoneManager,
     ThemeStore,
+    SecurePay,
+    GameAssistant,
     OShare,
     SoftwareUpdate,
     Keyboard,
@@ -561,6 +566,7 @@ internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
     FeaturePageMode.SystemUiNative -> stringResource(R.string.feature_group_native)
     FeaturePageMode.SystemUiDynamicColor -> stringResource(R.string.feature_group_dynamic_color)
     FeaturePageMode.SystemUiStatusBar -> stringResource(R.string.feature_group_beautify)
+    FeaturePageMode.SystemUiIconOrder -> stringResource(R.string.statusbar_order_title)
     FeaturePageMode.SystemUiFluidCloud -> stringResource(R.string.feature_fluid_cloud_title)
     FeaturePageMode.SystemUiFluidCloudMediaBlacklist -> stringResource(R.string.fluid_media_apps_title)
     FeaturePageMode.SystemUiNotificationCenter -> stringResource(R.string.feature_group_notification_center)
@@ -580,6 +586,8 @@ internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
     FeaturePageMode.TrafficManagement -> stringResource(R.string.traffic_page_title)
     FeaturePageMode.PhoneManager -> stringResource(R.string.phone_manager_title)
     FeaturePageMode.ThemeStore -> stringResource(R.string.theme_store_title)
+    FeaturePageMode.SecurePay -> stringResource(R.string.secure_pay_title)
+    FeaturePageMode.GameAssistant -> stringResource(R.string.game_assistant_title)
     FeaturePageMode.OShare -> stringResource(R.string.oshare_title)
     FeaturePageMode.SoftwareUpdate -> stringResource(R.string.ota_page_title)
     FeaturePageMode.Keyboard -> stringResource(R.string.keyboard_page_title)
@@ -618,6 +626,7 @@ internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when 
     FeaturePageMode.SystemUiNative,
     FeaturePageMode.SystemUiDynamicColor,
     FeaturePageMode.SystemUiStatusBar,
+    FeaturePageMode.SystemUiIconOrder,
     FeaturePageMode.SystemUiFluidCloudMediaBlacklist,
     FeaturePageMode.SystemUiNotificationCenter,
     FeaturePageMode.SystemUiControlCenter -> listOf("com.android.systemui")
@@ -637,6 +646,8 @@ internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when 
     FeaturePageMode.TrafficManagement -> listOf("com.oplus.trafficmonitor")
     FeaturePageMode.PhoneManager -> listOf(PhoneManagerSettings.PACKAGE_NAME)
     FeaturePageMode.ThemeStore -> listOf(ThemeStoreSettings.PACKAGE_NAME)
+    FeaturePageMode.SecurePay -> listOf(SecurePaySettings.PACKAGE_NAME)
+    FeaturePageMode.GameAssistant -> listOf(GameAssistantSettings.PACKAGE_NAME)
     FeaturePageMode.OShare -> listOf(OShareSettings.PACKAGE_NAME)
     FeaturePageMode.SoftwareUpdate -> listOf(SoftwareUpdateSettings.PACKAGE_NAME, SoftwareUpdateSettings.SYSTEM_FILES_PACKAGE_NAME)
     FeaturePageMode.Keyboard -> listOf("com.oplus.keyboard")
@@ -974,6 +985,20 @@ private fun featureMainEntries(): List<FeatureMainEntry> = buildList {
                 titleRes = R.string.phone_manager_title,
                 iconPackages = listOf(PhoneManagerSettings.PACKAGE_NAME),
                 pageMode = FeaturePageMode.PhoneManager,
+            )
+        )
+        add(
+            FeatureMainEntry(
+                titleRes = R.string.secure_pay_title,
+                iconPackages = listOf(SecurePaySettings.PACKAGE_NAME),
+                pageMode = FeaturePageMode.SecurePay,
+            )
+        )
+        add(
+            FeatureMainEntry(
+                titleRes = R.string.game_assistant_title,
+                iconPackages = listOf(GameAssistantSettings.PACKAGE_NAME),
+                pageMode = FeaturePageMode.GameAssistant,
             )
         )
         add(
@@ -1456,6 +1481,7 @@ private fun FeatureSubPage(
         )
         FeaturePageMode.NotificationRemoval -> NotificationRemovalPage()
         FeaturePageMode.SystemUi -> SystemUiCategoriesPage(onOpenSubPage)
+        FeaturePageMode.SystemUiIconOrder -> StatusBarIconOrderPage()
         FeaturePageMode.SystemUiFluidCloud -> FluidCloudFeaturesPage(onOpenSubPage)
         FeaturePageMode.SystemUiFluidCloudMediaBlacklist -> Unit
         FeaturePageMode.SystemUiSmallWindow -> SmallWindowFeaturesPage()
@@ -1512,6 +1538,8 @@ private fun FeatureSubPage(
         FeaturePageMode.TrafficManagement -> TrafficManagementPage()
         FeaturePageMode.PhoneManager -> PhoneManagerFeaturesPage()
         FeaturePageMode.ThemeStore -> ThemeStoreFeaturesPage()
+        FeaturePageMode.SecurePay -> SecurePayFeaturesPage()
+        FeaturePageMode.GameAssistant -> GameAssistantFeaturesPage()
         FeaturePageMode.OShare -> OShareFeaturesPage()
         FeaturePageMode.SoftwareUpdate -> SoftwareUpdateFeaturesPage()
         FeaturePageMode.Keyboard -> KeyboardFeaturesPage()

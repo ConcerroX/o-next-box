@@ -17,6 +17,13 @@ internal object EnabledFeatureCatalog {
         val read: suspend (Context) -> Boolean,
     )
     val entries = listOf(
+        Entry(R.string.statusbar_order_title, FeaturePageMode.SystemUiStatusBar) { StatusBarLayoutSettings.state(it).orderEnabled },
+        Entry(R.string.statusbar_sim_order_title, FeaturePageMode.SystemUiIconOrder, parents = setOf(R.string.statusbar_order_title)) {
+            StatusBarLayoutSettings.state(it).simEnabled
+        },
+        Entry(R.string.statusbar_margins_title, FeaturePageMode.SystemUiStatusBar) { StatusBarLayoutSettings.state(it).marginsEnabled },
+        Entry(R.string.launcher_disable_icon_menu_title, FeaturePageMode.DesktopIcons) { LauncherGestureSettings.menu(it) },
+        Entry(R.string.launcher_swipe_top_title, FeaturePageMode.DesktopRecent) { LauncherGestureSettings.top(it) },
         Entry(R.string.wallpaper_motion_title, FeaturePageMode.Wallpapers) { context -> WallpaperMotionSettings.enabled(context) },
         Entry(R.string.feature_aod_enhance_toggle_title, FeaturePageMode.Aod) { context -> LspConfig.isAodEnhanceEnabled(context) },
         Entry(R.string.feature_aod_all_day_unlock_title, FeaturePageMode.Aod) { context -> LspConfig.isAodAllDayUnlockEnabled(context) },
@@ -66,6 +73,12 @@ internal object EnabledFeatureCatalog {
         Entry(R.string.phone_manager_skip_countdown_title, FeaturePageMode.PhoneManager) { context -> PhoneManagerSettings.isEnabled(context) },
         Entry(R.string.theme_store_vip_title, FeaturePageMode.ThemeStore) { context -> ThemeStoreSettings.enabled(context) },
         Entry(R.string.theme_store_ads_title, FeaturePageMode.ThemeStore) { context -> ThemeStoreSettings.adsEnabled(context) },
+        Entry(R.string.secure_pay_hide_risk_cloud_title, FeaturePageMode.SecurePay) { context -> SecurePaySettings.enabled(context) },
+        Entry(R.string.game_assistant_promotions_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.PROMOTIONS) },
+        Entry(R.string.game_assistant_unlimited_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.UNLIMITED) },
+        Entry(R.string.game_assistant_root_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.BLOCK_ROOT) },
+        Entry(R.string.game_assistant_developer_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.DEVELOPER) },
+        Entry(R.string.game_assistant_skins_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.SKINS) },
         Entry(R.string.feature_express_no_mini_program_title, FeaturePageMode.QuickAppServices) { context -> LspConfig.isExpressNoMiniProgramEnabled(context) },
         Entry(R.string.feature_screen_capture_title, FeaturePageMode.AndroidSystem) { context -> ScreenCaptureSettings.enabled(context) },
         Entry(R.string.feature_permission_old_dialog_title, FeaturePageMode.SecurityPermission) { context -> LspConfig.isPermissionFeatureEnabled(context, LspConfig.PermissionFeature.OldAppStartDialog) },
@@ -105,7 +118,9 @@ internal object EnabledFeatureCatalog {
         Entry(R.string.feature_force_tonal_spot_title, FeaturePageMode.SystemUiDynamicColor) { context -> LspConfig.isSystemUiForceTonalSpotEnabled(context) },
         Entry(R.string.feature_international_network_display_title, FeaturePageMode.SystemUiStatusBar) { context -> LspConfig.isSystemUiInternationalNetworkDisplayEnabled(context) },
         Entry(R.string.feature_only_data_sim_signal_title, FeaturePageMode.SystemUiStatusBar) { context -> DataSimSignalSettings.enabled(context) },
-        Entry(R.string.feature_restore_c16_network_icon_order_title, FeaturePageMode.SystemUiStatusBar) { context -> LspConfig.isSystemUiRestoreC16NetworkIconOrderEnabled(context) },
+        Entry(R.string.feature_only_data_sim_independent_title, FeaturePageMode.SystemUiStatusBar,
+            parents = setOf(R.string.feature_only_data_sim_signal_title)) { context -> DataSimSignalSettings.independentOnly(context) },
+        Entry(R.string.feature_restore_c16_network_icon_order_title, FeaturePageMode.SystemUiStatusBar, excludes = setOf(R.string.statusbar_order_title)) { context -> LspConfig.isSystemUiRestoreC16NetworkIconOrderEnabled(context) },
         Entry(R.string.feature_hide_mobile_roaming_indicator_title, FeaturePageMode.SystemUiStatusBar) { context -> LspConfig.isSystemUiHideMobileRoamingIndicatorEnabled(context) },
         Entry(R.string.feature_hide_network_activity_indicator_title, FeaturePageMode.SystemUiStatusBar) { context -> LspConfig.isSystemUiHideNetworkActivityIndicatorEnabled(context) },
         Entry(R.string.feature_international_notification_style_title, FeaturePageMode.SystemUiNotificationCenter) { context -> LspConfig.isSystemUiInternationalNotificationStyleEnabled(context) },
@@ -182,6 +197,8 @@ internal object EnabledFeatureCatalog {
 
     /** Parameters are read once with the inventory, never by invoking feature setters. */
     fun detail(context: Context, title: Int): String = when (title) {
+        R.string.statusbar_margins_title -> StatusBarLayoutSettings.state(context).let { "${it.left} dp / ${it.right} dp" }
+        R.string.launcher_swipe_top_title -> "${LauncherGestureSettings.width(context)}%"
         R.string.launcher_custom_grid_title -> LauncherGridSettings.state(context).grid.let { "${it.columns} × ${it.rows}" }
         R.string.feature_recent_task_radius_title -> "${LspConfig.getRecentTaskRadiusDp(context)} dp"
         R.string.feature_aod_enhance_toggle_title -> {

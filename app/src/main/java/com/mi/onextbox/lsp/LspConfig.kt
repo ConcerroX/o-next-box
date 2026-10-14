@@ -778,8 +778,8 @@ object LspConfig {
         Enabled("installer_enabled"),
         Uninstall("installer_intercept_uninstall"),
         Session("installer_intercept_session_install"),
-        InterceptSystem("installer_intercept_system", true),
-        RemoveDefaultAppPolicy("installer_remove_default_app_policy", true);
+        InterceptSystem("installer_intercept_system"),
+        RemoveDefaultAppPolicy("installer_remove_default_app_policy");
     }
 
     const val INSTALLER_PACKAGE = "installer_selected_package"
@@ -1228,13 +1228,17 @@ object LspConfig {
     private const val SETTINGS_KEY_LAUNCHER_SEARCH_BAR_MODE = "oost_launcher_taskbar_search_box"
     private const val SETTINGS_KEY_LAUNCHER_SEARCH_COMPATIBILITY = "oost_launcher_search_compatibility"
 
+    // Missing feature preferences must never opt users into a Hook. Share these
+    // defaults across UI snapshots, live readers, Hook fallbacks and explicit reset.
+    private const val DEFAULT_NATIVE_NOTIFY_ICON = false
+    private const val DEFAULT_ASSISTANT_INTERNATIONAL_POWER_CHORD = false
     private const val DEFAULT_RECENT_TASK_RADIUS_DP = FeatureSliderRules.SYSTEM_DEFAULT
     private const val DEFAULT_AOD_INIT_DARK_BRIGHTNESS = FeatureSliderRules.SYSTEM_DEFAULT
     private const val DEFAULT_AOD_INIT_BRIGHT_BRIGHTNESS = FeatureSliderRules.SYSTEM_DEFAULT
     private const val DEFAULT_AOD_RUNNING_BRIGHTNESS_MULTIPLIER = FeatureSliderRules.SYSTEM_DEFAULT_MULTIPLIER
-    private const val DEFAULT_AOD_PANORAMIC_SUPPORT = true
-    private const val DEFAULT_AOD_SETTINGS_SWITCH = true
-    private const val DEFAULT_AOD_SINGLE_CLICK_BLOCK = true
+    private const val DEFAULT_AOD_PANORAMIC_SUPPORT = false
+    private const val DEFAULT_AOD_SETTINGS_SWITCH = false
+    private const val DEFAULT_AOD_SINGLE_CLICK_BLOCK = false
     private const val DEFAULT_NATIVE_NOTIFICATION_BUBBLES = false
     private const val DEFAULT_SYSTEMUI_INTERNATIONAL_NETWORK_DISPLAY = false
     private const val DEFAULT_SYSTEMUI_HIDE_MOBILE_ROAMING_INDICATOR = false
@@ -1325,10 +1329,11 @@ object LspConfig {
         val assistantNativeCircleEnabled: Boolean,
     )
 
-    fun readCachedUiSnapshot(context: Context): UiSnapshot {
-        val prefs = prefs(context)
+    fun readCachedUiSnapshot(context: Context): UiSnapshot = readCachedUiSnapshot(prefs(context))
+
+    internal fun readCachedUiSnapshot(prefs: SharedPreferences): UiSnapshot {
         return UiSnapshot(
-            nativeNotifyIconEnabled = prefs.getBoolean(KEY_NATIVE_NOTIFY_ICON, true),
+            nativeNotifyIconEnabled = prefs.getBoolean(KEY_NATIVE_NOTIFY_ICON, DEFAULT_NATIVE_NOTIFY_ICON),
             nativeNotificationBubblesEnabled = prefs.getBoolean(
                 KEY_NATIVE_NOTIFICATION_BUBBLES,
                 DEFAULT_NATIVE_NOTIFICATION_BUBBLES
@@ -1471,7 +1476,7 @@ object LspConfig {
     }
 
     fun isNativeNotifyIconEnabled(context: Context): Boolean {
-        return LspPreferenceStore.readBoolean(context, KEY_NATIVE_NOTIFY_ICON, true)
+        return LspPreferenceStore.readBoolean(context, KEY_NATIVE_NOTIFY_ICON, DEFAULT_NATIVE_NOTIFY_ICON)
     }
 
     fun setNativeNotifyIconEnabled(context: Context, enabled: Boolean) {
@@ -1612,7 +1617,7 @@ object LspConfig {
     }
 
     fun isAssistantInternationalPowerChordEnabled(context: Context): Boolean {
-        return LspPreferenceStore.readBoolean(context, KEY_ASSISTANT_INTERNATIONAL_POWER_CHORD, true)
+        return LspPreferenceStore.readBoolean(context, KEY_ASSISTANT_INTERNATIONAL_POWER_CHORD, DEFAULT_ASSISTANT_INTERNATIONAL_POWER_CHORD)
     }
 
     fun setAssistantInternationalPowerChordEnabled(context: Context, enabled: Boolean) {
@@ -2757,7 +2762,7 @@ object LspConfig {
             PermissionFeature.entries.forEach { setPermissionFeatureEnabled(context, it, false) }
             NotificationRemovalFeature.entries.forEach { setNotificationRemovalEnabled(context, it, false) }
             InstallerFeature.entries.forEach { setInstallerFeatureEnabled(context, it, it.defaultValue) }
-            setNativeNotifyIconEnabled(context, true)
+            setNativeNotifyIconEnabled(context, DEFAULT_NATIVE_NOTIFY_ICON)
             setExtremeRefresh165Enabled(context, false)
             setRecentTaskRadiusEnabled(context, false)
             setAodEnhanceEnabled(context, false)
@@ -2765,7 +2770,7 @@ object LspConfig {
             setAssistantGestureCircleEnabled(context, false)
             setAssistantGestureCircleC17Enabled(context, false)
             setAssistantNativePowerEnabled(context, false)
-            setAssistantInternationalPowerChordEnabled(context, true)
+            setAssistantInternationalPowerChordEnabled(context, DEFAULT_ASSISTANT_INTERNATIONAL_POWER_CHORD)
             setAssistantNativeCircleEnabled(context, false)
             setRecentTaskRadiusDp(context, DEFAULT_RECENT_TASK_RADIUS_DP)
             setAodInitDarkBrightness(context, DEFAULT_AOD_INIT_DARK_BRIGHTNESS)
@@ -3691,7 +3696,7 @@ object LspConfig {
     }
 
     fun isNativeNotifyIconEnabledXposed(): Boolean {
-        HookConfigSnapshot.boolean(KEY_NATIVE_NOTIFY_ICON, true)?.let { return it }
+        HookConfigSnapshot.boolean(KEY_NATIVE_NOTIFY_ICON, DEFAULT_NATIVE_NOTIFY_ICON)?.let { return it }
         readSystemPropertyToggle(PERSIST_PROP_KEY_NATIVE_NOTIFY_ICON)?.let { return it }
         readSystemPropertyToggle(PROP_KEY_NATIVE_NOTIFY_ICON)?.let { return it }
         readSettingsGlobalToggle(SETTINGS_KEY_NATIVE_NOTIFY_ICON)?.let { return it }
@@ -3699,8 +3704,8 @@ object LspConfig {
         readFlagFile(LEGACY_FLAG_FILE_PATH_NATIVE_NOTIFY_ICON)?.let { return it }
         return runCatching {
             val prefs = xposedPreferences
-            prefs.getBoolean(KEY_NATIVE_NOTIFY_ICON, true)
-        }.getOrDefault(true)
+            prefs.getBoolean(KEY_NATIVE_NOTIFY_ICON, DEFAULT_NATIVE_NOTIFY_ICON)
+        }.getOrDefault(DEFAULT_NATIVE_NOTIFY_ICON)
     }
 
     fun isExtremeRefresh165EnabledXposed(): Boolean {
@@ -3797,7 +3802,7 @@ object LspConfig {
     fun isAssistantInternationalPowerChordEnabledXposed(): Boolean {
         HookConfigSnapshot.boolean(
             KEY_ASSISTANT_INTERNATIONAL_POWER_CHORD,
-            true,
+            DEFAULT_ASSISTANT_INTERNATIONAL_POWER_CHORD,
         )?.let { return it }
         readSystemPropertyToggle(PERSIST_PROP_KEY_ASSISTANT_INTERNATIONAL_POWER_CHORD)
             ?.let { return it }
@@ -3807,8 +3812,8 @@ object LspConfig {
             ?.let { return it }
         return runCatching {
             val prefs = xposedPreferences
-            prefs.getBoolean(KEY_ASSISTANT_INTERNATIONAL_POWER_CHORD, true)
-        }.getOrDefault(true)
+            prefs.getBoolean(KEY_ASSISTANT_INTERNATIONAL_POWER_CHORD, DEFAULT_ASSISTANT_INTERNATIONAL_POWER_CHORD)
+        }.getOrDefault(DEFAULT_ASSISTANT_INTERNATIONAL_POWER_CHORD)
     }
 
     fun isAssistantNativeCircleEnabledXposed(): Boolean {

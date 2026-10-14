@@ -142,6 +142,7 @@ class OosLspModuleEntry : XposedModule() {
             PACKAGE_SYSTEM_UI -> {
                 LargeNetworkTypeHooker.hook(classLoader)
                 DataSimSignalHooker.hook(classLoader)
+                StatusBarLayoutHooker.hook(classLoader)
                 SideKeySystemUiHooker.hook(classLoader)
                 ImmersiveNavigationHooker.hook(classLoader)
                 AospBackPanelHooker.hook(classLoader)
@@ -178,6 +179,7 @@ class OosLspModuleEntry : XposedModule() {
                 AssistantHooker.hook(packageName, classLoader)
                 LauncherHooker.hook(classLoader)
                 LauncherFeaturesHooker.hook(classLoader, target.sourceDir)
+                LauncherGestureHooker.hook(classLoader)
                 ExpressCardHooker.hook(packageName, classLoader)
                 SystemUiRedOneHooker.hookLauncherClock()
             }
@@ -224,6 +226,8 @@ class OosLspModuleEntry : XposedModule() {
 
             OShareSettings.PACKAGE_NAME -> OShareVisibilityHooker.hook(classLoader)
             ThemeStoreSettings.PACKAGE_NAME -> ThemeStoreHooker.hook(classLoader)
+            SecurePaySettings.PACKAGE_NAME -> SecurePayHooker.hook(classLoader, target.sourceDir)
+            GameAssistantSettings.PACKAGE_NAME -> GameAssistantHooker.hook(classLoader, target.sourceDir)
 
             SoftwareUpdateSettings.PACKAGE_NAME ->
                 SoftwareUpdateHooker.hook(classLoader, target.sourceDir)

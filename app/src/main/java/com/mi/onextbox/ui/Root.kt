@@ -340,6 +340,9 @@ private sealed interface RootRoute : NavKey {
     data object FeatureSystemUiStatusBar : RootRoute
 
     @Serializable
+    data object FeatureSystemUiIconOrder : RootRoute
+
+    @Serializable
     data object FeatureSystemUiFluidCloud : RootRoute
 
     @Serializable
@@ -395,6 +398,12 @@ private sealed interface RootRoute : NavKey {
 
     @Serializable
     data object FeatureThemeStore : RootRoute
+
+    @Serializable
+    data object FeatureSecurePay : RootRoute
+
+    @Serializable
+    data object FeatureGameAssistant : RootRoute
 
     @Serializable
     data object FeatureOShare : RootRoute
@@ -511,6 +520,7 @@ private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
     FeaturePageMode.SystemUiNative -> RootRoute.FeatureSystemUiNative
     FeaturePageMode.SystemUiDynamicColor -> RootRoute.FeatureSystemUiDynamicColor
     FeaturePageMode.SystemUiStatusBar -> RootRoute.FeatureSystemUiStatusBar
+    FeaturePageMode.SystemUiIconOrder -> RootRoute.FeatureSystemUiIconOrder
     FeaturePageMode.SystemUiFluidCloud -> RootRoute.FeatureSystemUiFluidCloud
     FeaturePageMode.SystemUiFluidCloudMediaBlacklist -> RootRoute.FeatureSystemUiFluidCloudMediaBlacklist
     FeaturePageMode.SystemUiNotificationCenter -> RootRoute.FeatureSystemUiNotificationCenter
@@ -530,6 +540,8 @@ private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
     FeaturePageMode.TrafficManagement -> RootRoute.FeatureTrafficManagement
     FeaturePageMode.PhoneManager -> RootRoute.FeaturePhoneManager
     FeaturePageMode.ThemeStore -> RootRoute.FeatureThemeStore
+    FeaturePageMode.SecurePay -> RootRoute.FeatureSecurePay
+    FeaturePageMode.GameAssistant -> RootRoute.FeatureGameAssistant
     FeaturePageMode.OShare -> RootRoute.FeatureOShare
     FeaturePageMode.SoftwareUpdate -> RootRoute.FeatureSoftwareUpdate
     FeaturePageMode.Keyboard -> RootRoute.FeatureKeyboard
@@ -1021,6 +1033,7 @@ fun Root(
                     subclass(RootRoute.FeatureSystemUiNative::class)
                     subclass(RootRoute.FeatureSystemUiDynamicColor::class)
                     subclass(RootRoute.FeatureSystemUiStatusBar::class)
+                    subclass(RootRoute.FeatureSystemUiIconOrder::class)
                     subclass(RootRoute.FeatureSystemUiFluidCloud::class)
                     subclass(RootRoute.FeatureSystemUiFluidCloudMediaBlacklist::class)
                     subclass(RootRoute.FeatureSystemUiNotificationCenter::class)
@@ -1040,6 +1053,8 @@ fun Root(
                     subclass(RootRoute.FeatureTrafficManagement::class)
                     subclass(RootRoute.FeaturePhoneManager::class)
                     subclass(RootRoute.FeatureThemeStore::class)
+                    subclass(RootRoute.FeatureSecurePay::class)
+                    subclass(RootRoute.FeatureGameAssistant::class)
                     subclass(RootRoute.FeatureOShare::class)
                     subclass(RootRoute.FeatureSoftwareUpdate::class)
                     subclass(RootRoute.FeatureKeyboard::class)
@@ -2316,6 +2331,9 @@ fun Root(
             entry<RootRoute.FeatureSystemUiStatusBar> {
                 featureEntryContent(FeaturePageMode.SystemUiStatusBar)
             }
+            entry<RootRoute.FeatureSystemUiIconOrder> {
+                featureEntryContent(FeaturePageMode.SystemUiIconOrder)
+            }
             entry<RootRoute.FeatureSystemUiFluidCloud> {
                 featureEntryContent(FeaturePageMode.SystemUiFluidCloud)
             }
@@ -2372,6 +2390,12 @@ fun Root(
             }
             entry<RootRoute.FeatureThemeStore> {
                 featureEntryContent(FeaturePageMode.ThemeStore)
+            }
+            entry<RootRoute.FeatureSecurePay> {
+                featureEntryContent(FeaturePageMode.SecurePay)
+            }
+            entry<RootRoute.FeatureGameAssistant> {
+                featureEntryContent(FeaturePageMode.GameAssistant)
             }
             entry<RootRoute.FeatureOShare> {
                 featureEntryContent(FeaturePageMode.OShare)

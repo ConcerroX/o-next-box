@@ -31,6 +31,11 @@ internal class EnabledFeatureModeMemory {
 internal class EnabledFeatureActions {
     private val modes = EnabledFeatureModeMemory()
     private val writers: Map<Int, suspend (Context, Boolean) -> Unit> = mapOf<Int, suspend (Context, Boolean) -> Unit>(
+        R.string.statusbar_order_title to { context, enabled -> StatusBarLayoutSettings.setOrderEnabled(context, enabled) },
+        R.string.statusbar_sim_order_title to { context, enabled -> StatusBarLayoutSettings.saveSimOrder(context, enabled, StatusBarLayoutSettings.state(context).simOrder) },
+        R.string.statusbar_margins_title to { context, enabled -> StatusBarLayoutSettings.save(context, StatusBarLayoutSettings.state(context).copy(marginsEnabled = enabled)) },
+        R.string.launcher_disable_icon_menu_title to { context, enabled -> LauncherGestureSettings.save(context, LauncherGestureSettings.MENU, enabled) },
+        R.string.launcher_swipe_top_title to { context, enabled -> LauncherGestureSettings.save(context, LauncherGestureSettings.TOP, enabled) },
         R.string.feature_aod_enhance_toggle_title to { context, enabled -> LspConfig.setAodEnhanceEnabled(context, enabled) },
         R.string.feature_aod_all_day_unlock_title to { context, enabled -> LspConfig.setAodAllDayUnlockEnabled(context, enabled) },
         R.string.feature_aod_single_click_block_title to { context, enabled -> LspConfig.setAodSingleClickBlockEnabled(context, enabled) },
@@ -69,6 +74,12 @@ internal class EnabledFeatureActions {
         R.string.wallpaper_motion_title to { context, enabled -> WallpaperMotionSettings.save(context, enabled, WallpaperMotionSettings.amount(context)) },
         R.string.theme_store_vip_title to { context, enabled -> ThemeStoreSettings.set(context, enabled) },
         R.string.theme_store_ads_title to { context, enabled -> ThemeStoreSettings.setAds(context, enabled) },
+        R.string.secure_pay_hide_risk_cloud_title to { context, enabled -> SecurePaySettings.setEnabled(context, enabled) },
+        R.string.game_assistant_promotions_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.PROMOTIONS, enabled) },
+        R.string.game_assistant_unlimited_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.UNLIMITED, enabled) },
+        R.string.game_assistant_root_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.BLOCK_ROOT, enabled) },
+        R.string.game_assistant_developer_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.DEVELOPER, enabled) },
+        R.string.game_assistant_skins_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.SKINS, enabled) },
         R.string.feature_settings_title_collapsed_title to { context, enabled -> LspConfig.setSettingsTitleCollapsedEnabled(context, enabled) },
         R.string.feature_settings_app_info_card_title to { context, enabled -> LspConfig.setSettingsAppInfoCardEnabled(context, enabled) },
         R.string.feature_settings_restore_app_open_button_title to { context, enabled -> LspConfig.setSettingsRestoreAppOpenButtonEnabled(context, enabled) },
@@ -100,6 +111,7 @@ internal class EnabledFeatureActions {
         R.string.feature_force_tonal_spot_title to { context, enabled -> LspConfig.setSystemUiForceTonalSpotEnabled(context, enabled) },
         R.string.feature_international_network_display_title to { context, enabled -> LspConfig.setSystemUiInternationalNetworkDisplayEnabled(context, enabled) },
         R.string.feature_only_data_sim_signal_title to { context, enabled -> DataSimSignalSettings.set(context, enabled) },
+        R.string.feature_only_data_sim_independent_title to { context, enabled -> DataSimSignalSettings.setIndependentOnly(context, enabled) },
         R.string.feature_restore_c16_network_icon_order_title to { context, enabled -> LspConfig.setSystemUiRestoreC16NetworkIconOrderEnabled(context, enabled) },
         R.string.feature_hide_mobile_roaming_indicator_title to { context, enabled -> LspConfig.setSystemUiHideMobileRoamingIndicatorEnabled(context, enabled) },
         R.string.feature_hide_network_activity_indicator_title to { context, enabled -> LspConfig.setSystemUiHideNetworkActivityIndicatorEnabled(context, enabled) },
