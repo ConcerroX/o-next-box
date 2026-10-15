@@ -6,12 +6,13 @@ import com.mi.onextbox.lsp.compat.HookConfigSnapshot
 internal object GameAssistantSettings {
     const val PACKAGE_NAME = GameAssistantRules.PACKAGE_NAME
     const val PROMOTIONS = "game_assistant_hide_promotions"
+    const val REALME_STARTUP_ANIMATION = "game_assistant_block_realme_startup_animation"
     const val UNLIMITED = "game_assistant_unlimited_sidebar"
     const val BLOCK_ROOT = "game_assistant_block_root"
     const val DEVELOPER = "game_assistant_developer_mode"
     const val SKINS = "game_assistant_all_skins"
     const val SKIN = "game_assistant_skin"
-    val toggles = setOf(PROMOTIONS, UNLIMITED, BLOCK_ROOT, DEVELOPER, SKINS)
+    val toggles = setOf(PROMOTIONS, REALME_STARTUP_ANIMATION, UNLIMITED, BLOCK_ROOT, DEVELOPER, SKINS)
     val keys = toggles + SKIN
 
     fun enabled(context: Context, key: String): Boolean {

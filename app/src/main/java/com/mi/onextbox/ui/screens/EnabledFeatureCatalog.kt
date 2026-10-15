@@ -79,6 +79,7 @@ internal object EnabledFeatureCatalog {
         Entry(R.string.theme_store_ads_title, FeaturePageMode.ThemeStore) { context -> ThemeStoreSettings.adsEnabled(context) },
         Entry(R.string.secure_pay_hide_risk_cloud_title, FeaturePageMode.SecurePay) { context -> SecurePaySettings.enabled(context) },
         Entry(R.string.game_assistant_promotions_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.PROMOTIONS) },
+        Entry(R.string.game_assistant_realme_startup_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.REALME_STARTUP_ANIMATION) },
         Entry(R.string.game_assistant_unlimited_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.UNLIMITED) },
         Entry(R.string.game_assistant_root_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.BLOCK_ROOT) },
         Entry(R.string.game_assistant_developer_title, FeaturePageMode.GameAssistant) { GameAssistantSettings.enabled(it, GameAssistantSettings.DEVELOPER) },

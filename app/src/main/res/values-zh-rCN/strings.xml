@@ -1233,6 +1233,8 @@
     <string name="game_assistant_title">游戏助手</string>
     <string name="game_assistant_promotions_title">屏蔽工具推荐与福利推广</string>
     <string name="game_assistant_promotions_summary">屏蔽工具推荐弹窗、已识别的推荐卡片与福利推广通知</string>
+    <string name="game_assistant_realme_startup_title">屏蔽真我性能引擎动画</string>
+    <string name="game_assistant_realme_startup_summary">屏蔽真我机型进入游戏时播放的 GT 性能引擎全屏动画</string>
     <string name="game_assistant_unlimited_title">移除侧栏数量限制</string>
     <string name="game_assistant_unlimited_summary">移除游戏侧栏的应用快捷项与书签数量限制</string>
     <string name="game_assistant_root_title">屏蔽 Root 检测</string>
