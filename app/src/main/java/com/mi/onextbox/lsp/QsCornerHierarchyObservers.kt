@@ -21,14 +21,16 @@ internal class QsCornerHierarchyObservers(key: String, private val found: (View)
     fun watch(root: ViewGroup) {
         synchronized(roots) { roots.getOrPut(root) { Guard(root) } }.attach()
     }
-    private fun scan(view: View) {
-        found(view)
-        if (view is ViewGroup) for (index in 0 until view.childCount) scan(view.getChildAt(index))
-    }
     private inner class Guard(root: ViewGroup) : View.OnAttachStateChangeListener, ViewTreeObserver.OnGlobalLayoutListener {
         private val target = WeakReference(root)
         private var tree: WeakReference<ViewTreeObserver>? = null
         private var listening = false
+        private val discovered = WeakHashMap<View, Boolean>()
+        private fun scan(view: View) {
+            // Layout of an unrelated QS child must not reapply every known card.
+            if (discovered.put(view, true) == null) found(view)
+            if (view is ViewGroup) for (index in 0 until view.childCount) scan(view.getChildAt(index))
+        }
         fun attach() {
             val root = target.get() ?: return
             if (listening) return
@@ -52,6 +54,7 @@ internal class QsCornerHierarchyObservers(key: String, private val found: (View)
             disarm()
             target.get()?.removeOnAttachStateChangeListener(this)
             listening = false
+            discovered.clear()
         }
         override fun onViewAttachedToWindow(view: View) { (view as? ViewGroup)?.let(::arm); onGlobalLayout() }
         override fun onViewDetachedFromWindow(view: View) { disarm() }

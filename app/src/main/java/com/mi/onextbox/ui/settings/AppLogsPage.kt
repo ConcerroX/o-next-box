@@ -256,6 +256,9 @@ internal fun AppLogsRoute(
                 }
             }
             item(key = "count") { SettingsSection(stringResource(R.string.logs_count, visibleRecords.size, records.size)) }
+            if (source == LogSource.MODULE && !loading && moduleLogs.failure == null) {
+                item(key = "hook_evidence") { HookEvidenceSummary(moduleLogs.records) }
+            }
             val failure = if (source == LogSource.MODULE) moduleLogs.failure else null
             if (loading || failure != null || visibleRecords.isEmpty()) {
                 item(key = "status") {

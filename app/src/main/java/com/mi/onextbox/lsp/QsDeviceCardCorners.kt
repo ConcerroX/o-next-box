@@ -6,7 +6,7 @@ import android.view.ViewOutlineProvider
 import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernMethodHook
-import com.mi.onextbox.lsp.compat.ModernReflect as Reflect
+import com.mi.onextbox.lsp.QsCornerReflect as Reflect
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
@@ -22,17 +22,19 @@ internal object QsDeviceCardCorners {
         "NoDeviceEntranceCardView" to "no_device_constraintLayout",
     )
     private val classNames = targets.keys.map { PREFIX + it }.toSet()
-    private data class Clip(val original: ViewOutlineProvider?, val clipped: Boolean, val custom: ViewOutlineProvider, val radius: Float)
+    private data class Clip(val original: ViewOutlineProvider?, val clipped: Boolean, val custom: ViewOutlineProvider, val radius: Float, val weight: Float?)
     private val clips = WeakHashMap<View, Clip>()
     private val applied = WeakHashMap<View, Boolean>()
     private val painted = WeakHashMap<Drawable, Float>()
     private val nativeShape = ThreadLocal<Boolean>()
     private val reported = ConcurrentHashMap.newKeySet<String>()
     private var hierarchy: QsCornerHierarchyObservers? = null
+    private val innerIds = ConcurrentHashMap<Class<*>, Int>()
 
     fun hook(loader: ClassLoader) {
         val observers = QsCornerViewObservers("qs:device-card-views",
-            onLayout = { update(it, refreshPaint = true) }) { update(it) }
+            onLayout = { update(it, refreshPaint = true) },
+            content = ::contentState) { update(it, refreshPaint = true) }
         hierarchy = QsCornerHierarchyObservers("qs:device-card-discovery") { view ->
             if (view.javaClass.name in classNames) {
                 observers.watch(view)
@@ -52,7 +54,8 @@ internal object QsDeviceCardCorners {
                 .forEach { method ->
                     ModernHookRegistry.installCompat("$TAG:${method.toGenericString()}", method, object : ModernMethodHook() {
                         override fun afterHookedMethod(param: MethodHookParam) {
-                            if (param.throwable == null) (param.thisObject as? View)?.let { update(it) }
+                            if (param.throwable == null && nativeShape.get() != true)
+                                (param.thisObject as? View)?.let(observers::invalidate)
                         }
                     })
                 }
@@ -69,53 +72,75 @@ internal object QsDeviceCardCorners {
         (root as? android.view.ViewGroup)?.let { hierarchy?.watch(it) }
     }
 
-    private fun update(view: View, refreshPaint: Boolean = false) {
-        if (HotReloadLifecycle.isRetiring || nativeShape.get() == true || view.javaClass.name !in classNames) return
-        if (view.width <= 0 || view.height <= 0) return
-        runCatching {
+    private fun innerView(view: View): View? {
+        val id = innerIds.getOrPut(view.javaClass) {
+            view.resources.getIdentifier(targets.getValue(view.javaClass.simpleName), "id", "com.android.systemui")
+        }
+        return if (id == 0) null else view.findViewById(id)
+    }
+
+    private fun contentState(view: View): List<Any?>? {
+        if (view.width <= 0 || view.height <= 0) return null
+        val drawable = Reflect.callMethod(view, "getBlurDrawable") as? Drawable ?: return null
+        val path = Reflect.callMethod(drawable, "getPathProvider") ?: return null
+        val inner = innerView(view) ?: return null
+        if (inner.width <= 0 || inner.height <= 0) return null
+        return listOf(System.identityHashCode(drawable), System.identityHashCode(path),
+            Reflect.callMethod(path, "getCornerRadius", drawable), Reflect.callMethod(path, "getCornerWeight", drawable),
+            System.identityHashCode(inner), inner.width, inner.height,
+            System.identityHashCode(view.outlineProvider), view.clipToOutline,
+            System.identityHashCode(inner.outlineProvider), inner.clipToOutline)
+    }
+
+    private fun update(view: View, refreshPaint: Boolean = false): Boolean {
+        if (HotReloadLifecycle.isRetiring || nativeShape.get() == true || view.javaClass.name !in classNames) return false
+        return runCatching {
             val dp = QsTileCornerSettings.radiusXposed()
             if (dp == null) {
                 if (synchronized(applied) { applied.containsKey(view) }) restore(view)
-                return@runCatching
+                return@runCatching true
             }
-            val radius = QsTileCornerRules.pixels(dp, view.resources.displayMetrics.density, view.width, view.height) ?: return@runCatching
+            if (view.width <= 0 || view.height <= 0) return@runCatching false
+            val radius = QsTileCornerRules.pixels(dp, view.resources.displayMetrics.density, view.width, view.height) ?: return@runCatching false
+            val drawable = Reflect.callMethod(view, "getBlurDrawable") as? Drawable ?: return@runCatching false
+            val inner = innerView(view) ?: return@runCatching false
+            if (inner.width <= 0 || inner.height <= 0) return@runCatching false
             synchronized(applied) { applied[view] = true }
-            val drawable = Reflect.callMethod(view, "getBlurDrawable") as? Drawable
-            if (drawable != null) {
-                val path = requireNotNull(Reflect.callMethod(drawable, "getPathProvider"))
-                val current = (Reflect.callMethod(path, "getCornerRadius", drawable) as Number).toFloat()
-                if (current != radius) {
-                    Reflect.callMethod(drawable, "setCornerRadius", radius, 1f)
-                }
-                if (refreshPaint || current != radius || synchronized(painted) { painted[drawable] != radius }) {
-                    // A new PluginDrawable starts with radius=0 even when its
-                    // underlying blur configuration was built with a circle.
-                    // The native equal-value setter otherwise skips propagation.
-                    Reflect.callMethod(drawable, "invalidatePath")
-                    drawable.invalidateSelf()
-                    synchronized(painted) { painted[drawable] = radius }
-                }
+            val path = requireNotNull(Reflect.callMethod(drawable, "getPathProvider"))
+            val weight = (Reflect.callMethod(path, "getCornerWeight", drawable) as? Number)?.toFloat()
+            val current = (Reflect.callMethod(path, "getCornerRadius", drawable) as Number).toFloat()
+            if (current != radius) {
+                Reflect.callMethod(drawable, "setCornerRadius", radius, weight)
             }
-            clip(view, radius)
+            if (refreshPaint || current != radius || synchronized(painted) { painted[drawable] != radius }) {
+                // A new PluginDrawable starts with radius=0 even when its
+                // underlying blur configuration was built with a circle.
+                // The native equal-value setter otherwise skips propagation.
+                Reflect.callMethod(drawable, "invalidatePath")
+                drawable.invalidateSelf()
+                synchronized(painted) { painted[drawable] = radius }
+            }
+            clip(view, radius, weight)
             // The inner layout can also retain its own native circular clip.
             val idName = targets.getValue(view.javaClass.simpleName)
             val id = view.resources.getIdentifier(idName, "id", "com.android.systemui")
-            if (id != 0) view.findViewById<View>(id)?.let { clip(it, radius) }
+            if (id != 0) view.findViewById<View>(id)?.let { clip(it, radius, weight) }
             if (reported.add("applied:${view.javaClass.name}")) HookLog.i(TAG,
-                "Device-plugin corners applied: ${view.javaClass.simpleName}, requested=${dp}dp/${radius}px, drawable=${drawable?.javaClass?.simpleName}")
+                "Device-plugin corners applied: ${view.javaClass.simpleName}, requested=${dp}dp/${radius}px, drawable=${drawable.javaClass.simpleName}")
+            true
         }.onFailure {
             if (reported.add("update")) HookLog.w(TAG, "Device card corner update unavailable", it)
-        }
+        }.getOrDefault(false)
     }
 
-    private fun clip(view: View, radius: Float) {
+    private fun clip(view: View, radius: Float, weight: Float?) {
         val previous = synchronized(clips) { clips[view] }
-        if (previous?.radius == radius && view.outlineProvider === previous.custom && view.clipToOutline) return
+        if (previous?.radius == radius && previous.weight == weight && view.outlineProvider === previous.custom && view.clipToOutline) return
         val owned = previous != null && view.outlineProvider === previous.custom
         val original = if (owned) previous.original else view.outlineProvider
         val clipped = if (owned) previous.clipped else view.clipToOutline
-        val custom = QsCornerClipOutline(radius)
-        synchronized(clips) { clips[view] = Clip(original, clipped, custom, radius) }
+        val custom = QsCornerClipOutline(radius, weight, view.javaClass.classLoader ?: ClassLoader.getSystemClassLoader())
+        synchronized(clips) { clips[view] = Clip(original, clipped, custom, radius, weight) }
         view.outlineProvider = custom
         view.clipToOutline = true
         view.invalidateOutline()

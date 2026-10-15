@@ -1,6 +1,5 @@
 package com.mi.onextbox.lsp
 
-import android.content.Context
 import android.graphics.drawable.Drawable
 import android.view.View
 import android.view.ViewOutlineProvider
@@ -8,7 +7,7 @@ import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernMethodHook
-import com.mi.onextbox.lsp.compat.ModernReflect as Reflect
+import com.mi.onextbox.lsp.QsCornerReflect as Reflect
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
@@ -21,7 +20,7 @@ internal object QsTileCornerHooker {
     private const val MEDIA = "com.oplus.systemui.qs.media.OplusQsBaseMediaPanelView"
     private const val MEDIA_DRAWABLE = "com.oplus.systemui.qs.media.multilight.OplusQsMediaBackgroundDrawable"
     private const val SCENARIO = "com.oplus.systemui.qs.scenario.ui.template.ScenarioTileViewBase"
-    private data class MediaClip(val original: ViewOutlineProvider?, val clipped: Boolean, val custom: ViewOutlineProvider, val radius: Float)
+    private data class MediaClip(val original: ViewOutlineProvider?, val clipped: Boolean, val custom: ViewOutlineProvider, val radius: Float, val weight: Float?)
     private val owned = WeakHashMap<Drawable, QsTileCornerOwnership<Any>>()
     private val mediaClips = WeakHashMap<View, MediaClip>()
     private val reported = ConcurrentHashMap.newKeySet<String>()
@@ -31,7 +30,8 @@ internal object QsTileCornerHooker {
         // Class lookup must not initialize launcher/SystemUI configuration during package loading.
         val provider = Reflect.findClassIfExists("com.oplusos.systemui.common.outline.RoundRectOutlineProvider", loader) ?: return
         val observers = QsCornerViewObservers("qs:corner-views",
-            onLayout = { updateSafely(it, provider, refreshChildren = true) }) { updateSafely(it, provider) }
+            onLayout = { updateSafely(it, provider, refreshChildren = true) },
+            content = ::contentState) { updateSafely(it, provider, refreshChildren = true) }
         val types = listOf(RESIZEABLE, "${RESIZEABLE}OneXOne", "${RESIZEABLE}TwoXOne", "${RESIZEABLE}TwoXTwo",
             "com.oplus.systemui.plugins.qs.customize.view.tile.OplusQSResizeableThreeStageView",
             STANDARD, HIGHLIGHT, MEDIA, SCENARIO,
@@ -59,16 +59,30 @@ internal object QsTileCornerHooker {
                     })
                 }.onFailure { diagnose("Observe ${type.simpleName}", it) }
             }
-            type.declaredMethods.filter { it.name in setOf("onAttachedToWindow", "onOutlineUpdate", "onDrawableUpdate", "dispatchDraw") }.forEach { method ->
+            type.declaredMethods.filter { it.name == "dispatchDraw" }.forEach { method ->
+                runCatching {
+                    ModernHookRegistry.installFast("$TAG:${type.name}:dispatchDraw", method) { chain ->
+                        // Keep discovery for inlined constructors, without compatibility params
+                        // and argument-array copies on every rendered frame.
+                        runCatching { (chain.thisObject as? View)?.let(observers::watch) }
+                            .onFailure { diagnose("Observe tile drawing", it) }
+                        chain.proceed()
+                    }
+                    ModernHookRuntime.requireModule().deoptimize(method)
+                    installed++
+                }.onFailure { diagnose("Hook ${type.simpleName}.dispatchDraw", it) }
+            }
+            type.declaredMethods.filter { it.name in setOf("onAttachedToWindow", "onOutlineUpdate", "onDrawableUpdate") }.forEach { method ->
                 runCatching {
                     ModernHookRegistry.installCompat("$TAG:${type.name}:${method.name}", method, object : ModernMethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam) {
                             (param.thisObject as? View)?.let(observers::watch)
-                            if (method.name == "dispatchDraw") updateSafely(param.thisObject as? View, provider)
+                            // Drawing only discovers missed/inlined constructors. The observer
+                            // performs expensive work when configuration or geometry changes.
                         }
                         override fun afterHookedMethod(param: MethodHookParam) {
                             if (param.throwable == null && method.name != "dispatchDraw") {
-                                updateSafely(param.thisObject as? View, provider, refreshChildren = true)
+                                (param.thisObject as? View)?.let(observers::invalidate)
                             }
                         }
                     })
@@ -118,7 +132,7 @@ internal object QsTileCornerHooker {
                     ModernHookRegistry.installCompat("$TAG:standard-draw", method, object : ModernMethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam) {
                             runCatching { Reflect.getObjectField(requireNotNull(param.thisObject), "this\$0") as? View }
-                                .onSuccess { updateSafely(it, provider) }.onFailure { diagnose("Standard tile owner", it) }
+                                .onSuccess { it?.let(observers::watch) }.onFailure { diagnose("Standard tile owner", it) }
                         }
                     })
                     ModernHookRuntime.requireModule().deoptimize(method)
@@ -135,9 +149,9 @@ internal object QsTileCornerHooker {
                             if (QsTileCornerSettings.radiusXposed() == null && synchronized(owned) { owned.isEmpty() }) return
                             val drawable = param.thisObject as? Drawable ?: return
                             runCatching {
-                                val context = Reflect.getObjectField(drawable, "context") as Context
-                                updateDrawable(drawable, provider, context.resources.displayMetrics.density,
-                                    drawable.bounds.width(), drawable.bounds.height())
+                                val state = synchronized(owned) { owned[drawable] } ?: return@runCatching
+                                // Only the animated light border needs draw-time synchronization.
+                                syncMediaLight(drawable, state.custom)
                             }.onFailure { diagnose("Media background corners", it) }
                         }
                     })
@@ -153,20 +167,24 @@ internal object QsTileCornerHooker {
             synchronized(mediaClips) { mediaClips.keys.toList() }.forEach(::restoreMediaClip)
         })
         HookLog.i(TAG, "Per-tile corner adapters installed: $installed")
+        if (installed > 0) HookEvidence.report("qs_corner", "installed")
     }
 
-    private fun updateSafely(view: View?, provider: Class<*>, refreshChildren: Boolean = false) {
-        if (view == null || HotReloadLifecycle.isRetiring) return
+    private fun updateSafely(view: View?, provider: Class<*>, refreshChildren: Boolean = false): Boolean {
+        if (view == null || HotReloadLifecycle.isRetiring) return false
         val root = generateSequence(view as View?) { it.parent as? View }
             .firstOrNull { it.javaClass.name == "com.oplus.systemui.plugins.qs.OplusQSRootView" }
         (root as? android.view.ViewGroup)?.let { hierarchy?.watch(it) }
         QsDeviceCardCorners.discover(view)
         if (QsTileCornerSettings.radiusXposed() == null && synchronized(owned) { owned.isEmpty() } &&
-            synchronized(mediaClips) { mediaClips.isEmpty() }) return
-        runCatching { update(view, provider, refreshChildren) }.onFailure { diagnose("Native tile corner update", it) }
+            synchronized(mediaClips) { mediaClips.isEmpty() }) return true
+        return runCatching { update(view, provider, refreshChildren) }
+            .onFailure { diagnose("Native tile corner update", it) }.getOrDefault(false)
     }
 
-    private fun update(view: View, provider: Class<*>, refreshChildren: Boolean) {
+    private data class Target(val drawable: Drawable, val bg: View, val media: Boolean)
+
+    private fun target(view: View): Target? {
         val hierarchy = generateSequence(view.javaClass as Class<*>?) { it.superclass }.map { it.name }.toSet()
         val scenario = SCENARIO in hierarchy
         val nativeBackground = RESIZEABLE in hierarchy || MEDIA in hierarchy
@@ -176,13 +194,36 @@ internal object QsTileCornerHooker {
             scenario -> Reflect.callMethod(view, "getBgDrawable")
             nativeBackground -> Reflect.callMethod(view, "getTransitionDrawable")
             else -> Reflect.getObjectField(view, "mBgDrawable")
-        }) as? Drawable ?: return
+        }) as? Drawable ?: return null
         val bg = (when {
             scenarioWide -> Reflect.callMethod(view, "getTileBg")
             scenario -> Reflect.callMethod(view, "getIvBg")
             nativeBackground -> Reflect.callMethod(view, "getBg")
             else -> Reflect.getObjectField(view, "mBg")
-        }) as? View ?: return
+        }) as? View ?: return null
+        return Target(drawable, bg, MEDIA in hierarchy)
+    }
+
+    private fun contentState(view: View): List<Any?>? {
+        val target = target(view) ?: return null
+        val bg = target.bg
+        if (bg.width <= 0 || bg.height <= 0) return null
+        val delegate = Reflect.getObjectField(target.drawable, "delegate") ?: return null
+        // Ignore temporary press/deformation overrides; only observe the persistent provider.
+        val path = Reflect.getObjectField(delegate, "pathProvider") ?: return null
+        return listOf(System.identityHashCode(target.drawable), System.identityHashCode(bg),
+            bg.width, bg.height, System.identityHashCode(path),
+            Reflect.callMethod(path, "getCornerRadius", target.drawable),
+            Reflect.callMethod(path, "getCornerWeight", target.drawable),
+            System.identityHashCode(view.outlineProvider), view.clipToOutline,
+            System.identityHashCode(bg.outlineProvider))
+    }
+
+    private fun update(view: View, provider: Class<*>, refreshChildren: Boolean): Boolean {
+        val target = target(view) ?: return false
+        val drawable = target.drawable
+        val bg = target.bg
+        if (QsTileCornerSettings.radiusXposed() != null && (bg.width <= 0 || bg.height <= 0)) return false
         if (updateDrawable(drawable, provider, view.resources.displayMetrics.density, bg.width, bg.height)) {
             bg.invalidateOutline()
             bg.invalidate()
@@ -193,20 +234,20 @@ internal object QsTileCornerHooker {
             Reflect.callMethod(drawable, "invalidatePath")
             bg.invalidate()
         }
-        if (MEDIA in hierarchy) updateMediaClip(view, drawable)
+        if (target.media) updateMediaClip(view, drawable)
+        return true
     }
 
     private fun updateMediaClip(view: View, drawable: Drawable) {
         if (QsTileCornerSettings.radiusXposed() == null) { restoreMediaClip(view); return }
         val state = synchronized(owned) { owned[drawable] } ?: return
         val previous = synchronized(mediaClips) { mediaClips[view] }
-        if (previous?.radius == state.radius && view.outlineProvider === previous.custom && view.clipToOutline) return
-        // Vendor smooth outlines can report canClip=false. Use a clip-capable
-        // framework round-rect for contents, leaving the native material path intact.
-        val custom = QsCornerClipOutline(state.radius)
+        if (previous?.radius == state.radius && previous.weight == state.weight &&
+            view.outlineProvider === previous.custom && view.clipToOutline) return
+        val custom = QsCornerClipOutline(state.radius, state.weight, view.javaClass.classLoader ?: ClassLoader.getSystemClassLoader())
         val original = if (previous != null && view.outlineProvider === previous.custom) previous.original else view.outlineProvider
         val clipped = if (previous != null && view.outlineProvider === previous.custom) previous.clipped else view.clipToOutline
-        synchronized(mediaClips) { mediaClips[view] = MediaClip(original, clipped, custom, state.radius) }
+        synchronized(mediaClips) { mediaClips[view] = MediaClip(original, clipped, custom, state.radius, state.weight) }
         view.outlineProvider = custom
         view.clipToOutline = true
         view.invalidateOutline()
@@ -235,15 +276,16 @@ internal object QsTileCornerHooker {
             return state != null
         }
         val radius = QsTileCornerRules.pixels(dp, density, width, height) ?: return false
-        if (state?.matches(current, radius) == true) {
+        val original = state?.originalFor(current) ?: current
+        val weight = (Reflect.callMethod(original, "getCornerWeight", drawable) as? Number)?.toFloat()
+        if (state?.matches(current, radius, weight) == true) {
             syncMediaLight(drawable, current)
             return false
         }
-        val original = state?.originalFor(current) ?: current
         // Create a dedicated native provider. Background, blur and gradient stroke
         // consume the same path, while the normal temporary deformation stays intact.
-        val custom = Reflect.newInstance(provider, radius, 1f)
-        val next = QsTileCornerOwnership(original, custom, radius)
+        val custom = Reflect.newInstance(provider, radius, weight)
+        val next = QsTileCornerOwnership(original, custom, radius, weight)
         synchronized(owned) { owned[drawable] = next }
         try {
             Reflect.callMethod(drawable, "setPathProvider", custom)
@@ -262,6 +304,7 @@ internal object QsTileCornerHooker {
             val effective = Reflect.callMethod(drawable, "getPathProvider")
             val actual = effective?.let { Reflect.callMethod(it, "getCornerRadius", drawable) }
             HookLog.i(TAG, "Native tile corners applied: ${drawable.javaClass.simpleName}, requested=${dp}dp/${radius}px, effective=${actual}px")
+            if (reported.add("evidence:observed")) HookEvidence.report("qs_corner", "observed")
         }
         return true
     }

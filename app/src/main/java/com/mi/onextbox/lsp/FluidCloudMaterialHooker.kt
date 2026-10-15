@@ -237,6 +237,7 @@ internal object FluidCloudMaterialHooker {
     }
 
     private fun installFlashlightMaterial(loader: ClassLoader) = runCatching {
+        val flashlight = FluidCloudFlashlightMaterial()
         val target = Reflect.findClass("com.oplus.systemui.qs.detail.flashlight.FlashlightCardBgDrawableUtils", loader)
         val method = target.getDeclaredMethod("create", View::class.java)
         ModernHookRegistry.installFast("$TAG:qs:flashlight", method, XposedInterface.Hooker { chain ->
@@ -247,18 +248,14 @@ internal object FluidCloudMaterialHooker {
                 return@Hooker original
             }
             runCatching {
-                val context = view.context
-                val radius = dimension(context, "qs_detail_bg_corner_radius", "com.android.systemui")
-                val round = Reflect.callStaticMethod(
-                    Reflect.findClass("com.oplusos.systemui.common.util.OplusQsSmoothRoundUtil", loader),
-                    "getRoundParams", context, radius,
-                )
-                val actualRadius = (round?.let { Reflect.callMethod(it, "getRadius") } as? Number)?.toFloat() ?: radius
-                val weight = (round?.let { Reflect.callMethod(it, "getWeight") } as? Number)?.toFloat() ?: 0f
-                material.background(view, actualRadius, weight, original as? Drawable)?.also {
-                    logged("qs", "Control-center flashlight material and black mask replaced")
-                } ?: original
-            }.onFailure { diagnose("Cannot update control-center card", it) }.getOrDefault(original)
+                if (original is Drawable && material.available(view) &&
+                    flashlight.apply(original) { material.flashlightMix(view.context) }) {
+                    logged("qs", "Flashlight native corner/launch chain retained; notification color inputs applied")
+                }
+            }.onFailure { diagnose("Cannot update control-center card", it) }
+            // Returning a generic MaterialDrawable hides PathCornerDrawable from the
+            // launch controller, causing its 53dp fallback radius and an end-frame snap.
+            original
         })
         val caller = Reflect.findClass("com.oplus.systemui.qs.detail.flashlight.OplusQSFlashlightDetailView", loader)
         caller.declaredMethods.filter { it.name in listOf("inflateSecondaryLayout", "onConfigurationChanged") }

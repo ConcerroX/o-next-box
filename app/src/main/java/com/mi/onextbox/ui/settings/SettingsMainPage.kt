@@ -2699,6 +2699,7 @@ fun DeveloperOptionsPage(
     showFpsMonitor: Boolean,
     onShowFpsMonitorChange: (Boolean) -> Unit,
 ) {
+    DeveloperActivationEntry()
     SettingsSection(title = stringResource(R.string.settings_section_display))
     SettingsGroup {
         SettingsToggleRow(

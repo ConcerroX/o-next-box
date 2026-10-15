@@ -24,6 +24,7 @@ internal object FeatureSearchIndex {
         SoftwareUpdateFeatureItems.all.map { Entry(FeaturePageMode.SoftwareUpdate, it.title, it.summary) } +
         SideKeyFeatureItems.actions.filterNot { it.first in setOf(com.mi.onextbox.lsp.SideKeyAction.Stock,
             com.mi.onextbox.lsp.SideKeyAction.None) }.map { Entry(FeaturePageMode.SideKey, it.second) } + listOf(
+        SharedFeatureDefinitions.networkIdentity.searchEntry(),
         Entry(FeaturePageMode.TrafficManagement, R.string.traffic_page_title),
         Entry(FeaturePageMode.PhoneManager, R.string.phone_manager_title),
         Entry(FeaturePageMode.ThemeStore, R.string.theme_store_title),
@@ -110,6 +111,7 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.SystemUiNative, R.string.feature_native_power_menu_title, R.string.feature_native_power_menu_summary),
         Entry(FeaturePageMode.SystemUiNative, R.string.feature_aosp_back_panel_title, R.string.feature_aosp_back_panel_summary),
         Entry(FeaturePageMode.SystemUiNative, R.string.feature_aosp_volume_title, R.string.feature_aosp_volume_summary),
+        SharedFeatureDefinitions.stackedSignal.searchEntry(),
         Entry(FeaturePageMode.SystemUiNative, R.string.feature_force_native_clipboard_overlay_title, R.string.feature_force_native_clipboard_overlay_summary),
         Entry(FeaturePageMode.SystemUiLockScreen, R.string.keyguard_page_title, R.string.keyguard_page_entry_summary),
         Entry(FeaturePageMode.SystemUiLockScreen, R.string.keyguard_face_tap_title, R.string.keyguard_face_tap_summary),
@@ -156,7 +158,7 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.SystemUiNotificationCenter, R.string.feature_international_notification_style_title, R.string.feature_international_notification_style_summary),
         Entry(FeaturePageMode.SystemUiNotificationCenter, R.string.feature_round_notification_clear_button_title, R.string.feature_round_notification_clear_button_summary),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.feature_group_control_center),
-        Entry(FeaturePageMode.SystemUiControlCenter, R.string.qs_tile_corner_title, R.string.qs_tile_corner_summary),
+        SharedFeatureDefinitions.qsCorner.searchEntry(),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.qs_tile_corner_radius),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.feature_hide_qs_edit_title, R.string.feature_hide_qs_edit_summary),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.feature_hide_qs_settings_title, R.string.feature_hide_qs_settings_summary),

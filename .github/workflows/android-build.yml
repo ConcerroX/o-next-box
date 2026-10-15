@@ -21,15 +21,15 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: telegram_bot
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -249,7 +249,7 @@ jobs:
           (cd dist && sha256sum -- *.apk > SHA256SUMS)
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: onextbox-${{ steps.version.outputs.version_name }}-${{ steps.version.outputs.version_code_label }}
           path: |

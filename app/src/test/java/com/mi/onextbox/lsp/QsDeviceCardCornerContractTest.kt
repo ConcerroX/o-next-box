@@ -23,9 +23,10 @@ class QsDeviceCardCornerContractTest {
     @Test fun nativePluginPaintAndBothClippingLevelsAreUpdatedWithoutChangingCardData() {
         val hook = source("QsDeviceCardCorners")
         assertTrue(hook.contains("\"getBlurDrawable\""))
-        assertTrue(hook.contains("\"setCornerRadius\", radius, 1f"))
-        assertTrue(hook.contains("clip(view, radius)"))
-        assertTrue(hook.contains("view.findViewById<View>(id)?.let { clip(it, radius) }"))
+        assertTrue(hook.contains("\"setCornerRadius\", radius, weight"))
+        assertTrue(hook.contains("\"getCornerWeight\", drawable"))
+        assertTrue(hook.contains("clip(view, radius, weight)"))
+        assertTrue(hook.contains("view.findViewById<View>(id)?.let { clip(it, radius, weight) }"))
         assertTrue(hook.contains("if (current != radius)"))
         for (unsafe in listOf("setDeviceState", "setShapeType", "setBackground(", "setLayoutParams", "setPadding")) {
             assertFalse(unsafe, hook.contains(unsafe))

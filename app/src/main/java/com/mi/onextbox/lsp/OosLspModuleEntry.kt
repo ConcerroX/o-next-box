@@ -150,6 +150,7 @@ class OosLspModuleEntry : XposedModule() {
                 ImmersiveNavigationHooker.hook(classLoader)
                 AospBackPanelHooker.hook(classLoader)
                 AospVolumeHooker.hook(classLoader)
+                C16StackedSignalHooker.hook(classLoader)
                 AssistantHooker.hook(packageName, classLoader)
                 SystemUiHooker.hook(packageName, classLoader)
                 DisconnectedBluetoothIconHooker.hook(classLoader)
@@ -204,7 +205,10 @@ class OosLspModuleEntry : XposedModule() {
                 WallpaperMotionHooker.hook(classLoader)
             }
 
-            PACKAGE_PHONE -> MobileNetworkHooker.hook(classLoader)
+            PACKAGE_PHONE -> {
+                MobileNetworkHooker.hook(classLoader)
+                NetworkIdentityHooker.hook(classLoader, processName)
+            }
 
             PACKAGE_APP_MARKET -> AppMarketHooker.hook(classLoader)
             TrafficManagementRules.PACKAGE_NAME ->

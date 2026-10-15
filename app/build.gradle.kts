@@ -11,6 +11,23 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Isolated donor bytecode links to SystemUI's Compose runtime, never the module's Compose.
+val c16Smali by configurations.creating
+dependencies { c16Smali("org.smali:smali:2.5.2") }
+val c16Assets = layout.buildDirectory.dir("generated/c16StackedSignal/assets")
+val assembleC16StackedSignal by tasks.registering(JavaExec::class) {
+    classpath = c16Smali
+    mainClass.set("org.jf.smali.Main")
+    inputs.dir("src/c16StackedSignal")
+    outputs.file(c16Assets.map { it.file("c16-stacked-signal.dex") })
+    doFirst {
+        val output = c16Assets.get().file("c16-stacked-signal.dex").asFile
+        output.parentFile.mkdirs()
+        args = listOf("assemble", file("src/c16StackedSignal").absolutePath, "-o", output.absolutePath)
+    }
+}
+tasks.named("preBuild").configure { dependsOn(assembleC16StackedSignal) }
+
 val ciVersionName = (project.findProperty("ONEXTBOX_VERSION_NAME") as String?)
     ?.takeIf { it.isNotBlank() }
     ?: "17.0"
@@ -53,6 +70,7 @@ val hasExternalReleaseSigning =
     file(releaseStoreFilePath).exists()
 
 android {
+    sourceSets.getByName("main").assets.srcDir(c16Assets.get().asFile)
     namespace = "com.mi.onextbox"
     compileSdk {
         version = release(37)

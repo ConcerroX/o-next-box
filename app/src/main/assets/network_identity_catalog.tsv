@@ -1,0 +1,518 @@
+# Registry snapshot 2026-10-15; assignments are not a guarantee of an active public network.
+# US: https://imsiadmin.com/assignments/hni/ (excludes returned, test, reserved and unavailable codes)
+# HK: https://www.ofca.gov.hk/filemanager/ofca/common/datagovhk/mnc_en_sc.csv (public mobile assignments)
+# TW: https://www-api.moda.gov.tw/File/Get/moda/zh-tw/ObekpgecC87g7iV (MNC assignments)
+# CN: AOSP TelephonyProvider assets/latest_carrier_id/carrier_list.textpb, blob c34a40fcb3d542e472d8e233b4330e37b805c18f
+# CN supplementary: https://android.googlesource.com/device/sample/+/refs/heads/main/etc/apns-full-conf.xml
+# Names and numeric identifiers are factual registry data; no implementation copied from Nrfr.
+# region\tnumeric\tassignee
+cn	46000	China Mobile
+cn	46001	China Unicom
+cn	46002	China Mobile
+cn	46003	China Telecom
+cn	46004	China Mobile
+cn	46006	China Unicom
+cn	46007	China Mobile
+cn	46008	China Mobile
+cn	46009	China Unicom
+cn	46011	China Telecom
+cn	46013	China Mobile
+cn	46015	China Broadnet
+cn	46060	China Broadnet
+hk	45400	Hong Kong Telecommunications (HKT) Limited
+hk	45401	CITIC Telecom International Limited 中信国际电讯有限公司
+hk	45402	Hong Kong Telecommunications (HKT) Limited
+hk	45403	Hutchison Telephone Company Limited 和记电话有限公司
+hk	45404	Hutchison Telephone Company Limited 和记电话有限公司
+hk	45405	Hutchison Telephone Company Limited 和记电话有限公司
+hk	45406	SmarTone Mobile Communications Limited 数码通电讯有限公司
+hk	45407	China Unicom (Hong Kong) Operations Limited 中国联通(香港)运营有限公司
+hk	45408	1GLOBAL Operations (Hong Kong) Limited
+hk	45410	Hong Kong Telecommunications (HKT) Limited
+hk	45411	China-Hongkong Telecom Limited 中港通电讯有限公司
+hk	45412	China Mobile Hong Kong Company Limited 中国移动香港有限公司
+hk	45413	China Mobile Hong Kong Company Limited 中国移动香港有限公司
+hk	45414	Hutchison Telephone Company Limited 和记电话有限公司
+hk	45415	SmarTone Mobile Communications Limited 数码通电讯有限公司
+hk	45416	Hong Kong Telecommunications (HKT) Limited
+hk	45417	SmarTone Mobile Communications Limited 数码通电讯有限公司
+hk	45418	Hong Kong Telecommunications (HKT) Limited
+hk	45419	Hong Kong Telecommunications (HKT) Limited
+hk	45420	Hong Kong Telecommunications (HKT) Limited
+hk	45421	VNET Group Limited 世纪互联集团有限公司
+hk	45422	HuiYinBi Telecom (Hong Kong) Limited 回音壁电信(香港)有限公司
+hk	45424	Multibyte Info Technology Limited 博元讯息科技有限公司
+hk	45430	China Mobile Hong Kong Company Limited 中国移动香港有限公司
+hk	45431	China Telecom Global Limited 中国电信国际有限公司
+hk	45435	Webbing Hong Kong Limited
+hk	454382	South China Telecommunications (H.K.) Limited 中国南方电信(香港)有限公司
+hk	454384	China Mobile International Limited 中国移动国际有限公司
+tw	46601	Far EasTone
+tw	46602	Far EasTone
+tw	46603	Far EasTone
+tw	46605	Far EasTone
+tw	46611	Chunghwa Telecom
+tw	46612	Far EasTone
+tw	46615	Chunghwa Telecom
+tw	46616	Chunghwa Telecom
+tw	46617	Chunghwa Telecom
+tw	46618	Chunghwa Telecom
+tw	46619	Chunghwa Telecom
+tw	46688	Far EasTone
+tw	46689	Taiwan Mobile
+tw	46692	Chunghwa Telecom
+tw	46693	Taiwan Mobile
+tw	46697	Taiwan Mobile
+tw	46699	Taiwan Mobile
+us	310010	Verizon Wireless
+us	310012	Verizon Wireless
+us	310013	Verizon Wireless
+us	310016	AT&T Mobility
+us	310020	Union Telephone Company
+us	310030	AT&T Mobility
+us	310040	Minute Wireless LLC
+us	310050	Alaska Wireless Networks
+us	310060	Karrier One
+us	310070	AT&T Mobility
+us	310080	AT&T Mobility
+us	310090	AT&T Mobility
+us	310100	New Mexico RSA 4 East Limited Partnership
+us	310110	PTI Pacifica, Inc
+us	310120	T-Mobile USA
+us	310130	Carolina West Wireless, Inc
+us	310140	GTA Wireless, LLC
+us	310150	AT&T Mobility
+us	310160	T-Mobile USA
+us	310170	AT&T Mobility
+us	310180	West Central Wireless
+us	310190	Alaska Wireless Networks
+us	310200	T-Mobile USA
+us	310210	T-Mobile USA
+us	310220	T-Mobile USA
+us	310230	T-Mobile USA
+us	310240	T-Mobile USA
+us	310250	T-Mobile USA
+us	310260	T-Mobile USA
+us	310270	T-Mobile USA
+us	310280	AT&T Mobility
+us	310290	Minute Wireless LLC
+us	310310	T-Mobile USA
+us	310320	Smith Bagley, Inc. dba CellularOne
+us	310330	Wireless Partners, LLC
+us	310340	Limitless Mobile, LLC
+us	310350	Verizon Wireless
+us	310370	Docomo Pacific
+us	310380	AT&T Mobility
+us	310390	TX-11 Acquisition, LLC
+us	310410	AT&T Mobility
+us	310420	World Mobile Networks, LLC
+us	310430	GCI Communication, Corp
+us	310440	Numerex Corp
+us	310450	North East Cellular, Inc
+us	310460	Eseye, LLC
+us	310470	Docomo Pacific
+us	310480	PTI Pacifica, Inc
+us	310490	T-Mobile USA
+us	310500	Public Service Cellular, Inc
+us	310510	Nsight
+us	310520	Transactions Network Services
+us	310530	T-Mobile USA
+us	310550	Syniverse Technologies
+us	310570	Broadpoint, LLC (former PetroCom, LLC) c/o MTPCS, LLC dba CellularOne
+us	310580	Inland Cellular Telephone Company
+us	310590	Verizon Wireless
+us	310591	Verizon Wireless
+us	310592	Verizon Wireless
+us	310593	Verizon Wireless
+us	310594	Verizon Wireless
+us	310595	Verizon Wireless
+us	310596	Verizon Wireless
+us	310597	Verizon Wireless
+us	310598	Verizon Wireless
+us	310599	Verizon Wireless
+us	310600	NewCell dba Cellcom
+us	310620	Nsighttel Wireless, LLC
+us	310630	Choice Wireless
+us	310640	Numerex Corp
+us	310650	JASPER TECHNOLOGIES, Inc
+us	310660	T-Mobile USA
+us	310670	AT&T Mobility
+us	310680	AT&T Mobility
+us	310690	Limitless Mobile, LLC
+us	310700	Cross Valiant Cellular Partnership
+us	310710	Arctic Slope Telephone Association Cooperative
+us	310720	Syniverse Technologies
+us	310740	Viaero Wireless
+us	310750	East Kentucky Network, LLC dba Appalachian Wireless
+us	310760	Lynch 3G Communications Corporation
+us	310770	T-Mobile USA
+us	310790	RECLAIMED 12/15/25 (310-790)
+us	310800	T-Mobile USA
+us	310810	Pacific Lightwave, Inc
+us	310820	Verizon Wireless
+us	310830	T-Mobile USA
+us	310840	Telecom North America Mobile, Inc
+us	310850	Aeris Communications, Inc
+us	310880	Advantage Cellular Systems, Inc
+us	310890	Verizon Wireless
+us	310891	Verizon Wireless
+us	310892	Verizon Wireless
+us	310893	Verizon Wireless
+us	310894	Verizon Wireless
+us	310895	Verizon Wireless
+us	310896	Verizon Wireless
+us	310897	Verizon Wireless
+us	310898	Verizon Wireless
+us	310899	Verizon Wireless
+us	310910	Verizon Wireless
+us	310920	James Valley Wireless, LLC
+us	310930	Copper Valley Wireless
+us	310940	Tyntec Limited
+us	310950	AT&T Mobility
+us	310960	UBET Wireless
+us	310970	Globalstar USA
+us	310990	Evolve Cellular, Inc
+us	311030	Indigo Wireless, Inc
+us	311040	Commnet Wireless, LLC
+us	311050	Thumb Cellular, LLC
+us	311060	Space Data Corporation
+us	311070	AT&T Mobility
+us	311080	Pine Telephone Company dba Pine Cellular
+us	311090	AT&T Mobility
+us	311100	Nex-Tech Wireless, LLC
+us	311110	Verizon Wireless
+us	311120	PTI Pacifica, Inc
+us	311140	Cross Telephone Company
+us	311170	Tampnet (formerly Broadpoint, LLC (former PetroCom, LLC)) c/o MTPCS, LLC
+us	311180	AT&T Mobility
+us	311190	AT&T Mobility
+us	311200	Dish Wireless
+us	311210	Telnyx, LLC
+us	311225	T-Mobile USA
+us	311228	T-Mobile USA
+us	311229	T-Mobile USA
+us	311230	Cellular South, Inc. dba C Spire
+us	311240	Cordova Wireless Communications, Inc
+us	311260	T-Mobile USA
+us	311270	Verizon Wireless
+us	311271	Verizon Wireless
+us	311272	Verizon Wireless
+us	311273	Verizon Wireless
+us	311274	Verizon Wireless
+us	311275	Verizon Wireless
+us	311276	Verizon Wireless
+us	311277	Verizon Wireless
+us	311278	Verizon Wireless
+us	311279	Verizon Wireless
+us	311280	Verizon Wireless
+us	311281	Verizon Wireless
+us	311282	Verizon Wireless
+us	311283	Verizon Wireless
+us	311284	Verizon Wireless
+us	311285	Verizon Wireless
+us	311286	Verizon Wireless
+us	311287	Verizon Wireless
+us	311288	Verizon Wireless
+us	311289	Verizon Wireless
+us	311320	Commnet Wireless, LLC
+us	311330	Bug Tussel Wireless, LLC
+us	311340	Illinois Valley Cellular
+us	311350	Sagebrush Cellular, Inc
+us	311360	RECLAIMED 12/15/25 (311-360)
+us	311370	GCI Communication, Corp
+us	311380	New Dimension Wireless, Ltd
+us	311390	Verizon Wireless
+us	311420	Northwest Cell
+us	311430	RSA 1 Limited Partnership dba Cellular 29 Plus
+us	311440	Verizon Wireless
+us	311450	Panhandle Telecommunication Systems, Inc
+us	311470	Vitelcom Cellular D/B/A Innovative Wireless
+us	311480	Verizon Wireless
+us	311481	Verizon Wireless
+us	311482	Verizon Wireless
+us	311483	Verizon Wireless
+us	311484	Verizon Wireless
+us	311485	Verizon Wireless
+us	311486	Verizon Wireless
+us	311487	Verizon Wireless
+us	311488	Verizon Wireless
+us	311489	Verizon Wireless
+us	311490	T-Mobile USA
+us	311500	Minute Wireless LLC
+us	311510	Ligado Networks
+us	311530	WorldCell Solutions, LLC
+us	311540	Coeur Rochester, Inc
+us	311550	Commnet Wireless, LLC
+us	311560	OTZ Telecommunications, LLC
+us	311570	Mediacom
+us	311580	T-Mobile USA
+us	311588	T-Mobile USA
+us	311589	T-Mobile USA
+us	311590	Verizon Wireless
+us	311600	Limitless Mobile, LLC
+us	311620	Terrestar Networks, Inc
+us	311630	Cellular South, Inc. dba C Spire
+us	311640	Standing Rock Telecommunications
+us	311650	United Wireless, Inc
+us	311660	MetroPCS Wireless, Inc
+us	311670	Pine Belt Cellular, Inc. d/b/a Pine Belt Wireless
+us	311680	GreenFly, LLC
+us	311690	RECLAIMED 12/15/25 (311-690)
+us	311720	RECLAIMED 12/15/25 (311-720)
+us	311740	Telalaska Cellular
+us	311760	RECLAIMED 06/21/2016
+us	311770	Altiostar Networks, Inc
+us	311780	The American Samoa Telecommunications Authority
+us	311790	Coleman County Telephone Cooperative, Inc
+us	311800	Verizon Wireless
+us	311810	Verizon Wireless
+us	311820	Ribbon Communications
+us	311830	Thumb Cellular, LLC
+us	311840	Nsight
+us	311850	Nsight
+us	311860	Uintah Basin Electronic Telecommunications
+us	311870	T-Mobile USA
+us	311880	T-Mobile USA
+us	311882	T-Mobile USA
+us	311890	Globecomm Network Services Corporation
+us	311900	Gigsky, Inc
+us	311940	T-Mobile USA
+us	311960	RECLAIMED 11/09/2017
+us	311970	Big River Broadband, LLC
+us	311990	VTel Wireless
+us	312020	Infrastructure Networks, LLC
+us	312030	Cross Wireless
+us	312040	Custer Telephone Cooperative, Inc
+us	312080	South Georgia Regional Information Technology Authority
+us	312090	AT&T Mobility
+us	312100	ClearSky Technologies, Inc
+us	312120	East Kentucky Network, LLC dba Appalachian Wireless
+us	312130	East Kentucky Network, LLC dba Appalachian Wireless
+us	312150	Northwest Cell
+us	312160	RSA1 Limited Partnership DBA Chat Mobility
+us	312180	Limitless Mobile, LLC
+us	312190	T-Mobile USA
+us	312200	RECLAIMED 06/21/2016
+us	312210	ASPENTA, LLC
+us	312250	T-Mobile USA
+us	312260	WorldCell Solutions, LLC
+us	312280	Cellular Network Partnership dba Pioneer Cellular
+us	312290	Uintah Basin Electronic Telecommunications
+us	312300	Telecom North America Mobile, Inc
+us	312310	Clear Stream Communications, LLC
+us	312320	S and R Communications, LLC
+us	312330	Nemont Communications, Inc
+us	312350	Triangle Communication System, Inc
+us	312360	Wes-Tex Telecommunications, Ltd
+us	312370	Commnet Wireless, LLC
+us	312380	Copper Valley Wireless
+us	312390	FTC Communications, LLC
+us	312410	Eltopia Communications, LLC
+us	312420	Nex-Tech Wireless, LLC
+us	312430	Silver Star Communications
+us	312450	Cable & Communications Corporation
+us	312460	KPU Telecommunications Division
+us	312470	Carolina West Wireless, Inc
+us	312480	Sagebrush Cellular, Inc
+us	312510	Wue
+us	312530	T-Mobile USA
+us	312560	RECLAIMED 06/21/2016
+us	312570	MHG Telco, LLC
+us	312580	Google, LLC
+us	312590	Northern Michigan University
+us	312600	Sagebrush Cellular, Inc
+us	312620	Airlinq, Inc
+us	312630	NetGenuity, Inc
+us	312650	Brightlink
+us	312670	AT&T Mobility
+us	312680	AT&T Mobility
+us	312690	Tecore Global Services, LLC
+us	312700	Wireless Partners, LLC
+us	312710	Great North Woods Wireless, LLC
+us	312720	Southern Communications Services, Inc. D/B/A Southern L, Inc
+us	312730	Triangle Communication System, Inc
+us	312750	Artemis
+us	312770	Verizon Wireless
+us	312780	RedZone Wireless, LLC
+us	312790	Gila Electronics
+us	312800	Cirrus Core Networks
+us	312830	Kings County Office of Education
+us	312840	South Georgia Regional Information Technology Authority
+us	312850	Onvoy Spectrum, LLC
+us	312870	Gigsky, Inc
+us	312880	Albemarle County Public Schools
+us	312890	Circle Gx
+us	312900	Flat West Wireless, LLC
+us	312910	East Kentucky Network, LLC dba Appalachian Wireless
+us	312930	Hewlett Packard Enterprise (HNI)
+us	312950	Custer Telephone Cooperative, Inc
+us	312970	IOSAZ Intellectual Property, LLC
+us	312980	Mark Twain Communications Company
+us	313010	Cross Wireless, LLC dba Bravado Wireless
+us	313020	CTC Telecom, INC. dba CTC Wireless
+us	313040	Nucla-Naturita Telephone Company
+us	313060	Country Wireless
+us	313061	Country Wireless
+us	313070	Midwest Network Solutions Hub, LLC
+us	313090	Vivint Wireless, Inc
+us	313100	AT&T FirstNet
+us	313110	AT&T FirstNet
+us	313120	AT&T FirstNet
+us	313130	AT&T FirstNet
+us	313140	AT&T FirstNet
+us	313210	AT&T Mobility
+us	313220	Custer Telephone Cooperative, Inc
+us	313230	Velocity Communications, Inc
+us	313250	Imperial County Office of Education
+us	313260	Expeto Wireless, Inc
+us	313280	King Street Wireless, LP
+us	313290	RECLAIMED 12/15/25 (313-290)
+us	313300	Southern California Edison
+us	313320	Paladin Wireless
+us	313330	CenturyTel Broadband Services, LLC
+us	313340	Dish Network
+us	313350	Dish Network
+us	313360	Dish Network
+us	313370	Red Truck Wireless, LLC
+us	313380	OptimERA, Inc
+us	313390	Altice USA Wireless, Inc
+us	313400	Texoma Communications, LLC
+us	313410	Anterix, Inc
+us	313420	Hudson Valley Wireless
+us	313450	Spectrum Wireless Holdings, LLC
+us	313460	Minute Wireless LLC
+us	313470	San Diego Gas & Electric Company
+us	313480	Ready Wireless, LLC
+us	313490	RECLAIMED 12/15/25 (313-490)
+us	313500	Shelcomm, Inc
+us	313510	Puerto Rico Telephone Company
+us	313520	RECLAIMED 3/7/2023
+us	313530	Available for Assignment
+us	313540	Nokia Innovations US, LLC
+us	313550	Mile High Networks, LLC
+us	313560	Boldyn Networks Transit US, LLC
+us	313580	Telecall Telecommuncations, Corp
+us	313590	Southern Communications Services, Inc. D/B/A Southern L, Inc
+us	313610	Point Broadband Fiber Holding, LLC
+us	313620	Omniprophis Corporation
+us	313630	LICT Corporation
+us	313640	Geoverse
+us	313650	Chevron USA, Inc
+us	313700	Ameren Services Company
+us	313710	Extenet Systems
+us	313720	1st Point Communications, LLC
+us	313730	TruAccess Networks
+us	313740	RTO Wireless
+us	313750	CellTex Networks, LLC
+us	313760	Hologram
+us	313770	Tango networks
+us	313780	Windstream Services, LLC
+us	313790	Liberty Cablevision of Puerto Rico, LLC
+us	313810	W.A.T.C.H. TV Co. dba Watch Communications
+us	313820	Inland Cellular Telephone Company
+us	313830	360 Communications, Inc
+us	313840	Celblox Acquisitions
+us	313850	Softcom Internet Communications, Inc
+us	313860	AMG Technology Investment Group, LLC dba Nextlink Internet
+us	313870	RECLAIMED 12/15/25 (313-870)
+us	313880	Shuttle Wireless Solutions, Inc
+us	313890	Tulare County Office of Education
+us	313900	All Tribal Networks
+us	313910	San Diego Gas & Electric Company
+us	313920	JCI US, Inc
+us	313930	Standing Rock Telecommunications
+us	313940	Motorola Solutions, Inc
+us	313950	Cheyenne and Arapaho Development Group
+us	313960	Townes 5G, LLC
+us	313970	Tychron Corporation
+us	313990	Ericsson US
+us	314010	Boingo Wireless, Inc
+us	314020	Spectrum Wireless Holdings, LLC
+us	314030	Baicells Technologies North America, Inc
+us	314060	Texas A&M University System - RELLIS Campus
+us	314070	Texas A&M University System - RELLIS Campus
+us	314080	Texas A&M University System - RELLIS Campus
+us	314090	Southern Communications Services, Inc. D/B/A Southern L, Inc
+us	314200	XF Wireless Investments (314-200)
+us	314210	Telecom Resource Center
+us	314220	Secrus Technologies
+us	314230	Trace-Tek
+us	314240	XF Wireless Investments (314-200)
+us	314260	AT&T Mobility
+us	314270	AT&T Mobility
+us	314280	Pollen Mobile, LLC
+us	314290	Wave
+us	314310	Terranet Communications, LLC
+us	314320	Agri-Valley Communications, Inc
+us	314330	Nova Labs, Inc
+us	314340	E-MARCONI, LLC
+us	314350	Evergy
+us	314360	Oceus Networks, LLC
+us	314370	Texas A&M University - ITEC
+us	314380	Circle Computer Resources, Inc
+us	314390	AT&T
+us	314400	Cellular South, Inc. dba C Spire
+us	314410	Peeringhub, Inc
+us	314420	Cox Communications, Inc
+us	314430	Highway9 Networks, Inc
+us	314440	Tecore Global Services, LLC
+us	314450	NUWAVE Communications, Inc
+us	314460	Texas A&M University
+us	314470	Manhattan Telecommunications Corporation, LLC
+us	314480	Xcel Energy Services, Inc
+us	314490	Utah Education and Telehealth Network
+us	314500	Aetheros, Inc
+us	314510	SI Wireless, LLC
+us	314520	Oklahoma Gas & Electric Company
+us	314530	Agile Networks
+us	314540	RGTN USA, Inc
+us	314550	REALLY COMMUNICATIONS
+us	314560	Private Tech, Inc., dba Cape
+us	314570	Newmont Corporation
+us	314580	Lower Colorado River Authority
+us	314590	Lynk Global, Inc
+us	314600	XNET, Inc
+us	314610	IMSI.AI
+us	314630	Private Tech, Inc., dba Cape
+us	314640	Private Tech, Inc., dba Cape
+us	314650	Private Tech, Inc., dba Cape
+us	314660	Private Tech, Inc., dba Cape
+us	314670	Wi-DAS, LLC
+us	314680	Comcast OTR1, LLC
+us	314690	Agri-Valley Communications, Inc
+us	314700	Tampa Electric Company
+us	314710	Tribal Ready, PBC
+us	314720	OXIO, Inc
+us	314730	TextNow, Inc
+us	314740	Ringer Mobile, LLC
+us	314750	SDF, Inc.
+us	314760	Broadband Antenna Tracking Systems, Inc
+us	314770	Westbold, LLC
+us	314780	Saint Regis Mohawk Tribe
+us	314790	Neuner Mobile Technologies, LLC
+us	314800	Boost Network
+us	314810	ORCID - The Open RAN Center for Integration and Deployment
+us	314820	Sequoia Wireless, LLC
+us	314840	Memphis Light, Gas, and Water
+us	314850	Space Exploration Technologies Corp.
+us	314860	Exelon
+us	314870	Exelon
+us	314880	Oncor License Holdings Company, LLC
+us	314890	Central Council of Tlingit and Haida Indian Tribes of Alaska
+us	314900	Inland Cellular Telephone Company
+us	314910	Business Telecommunications Services, Inc
+us	314920	Barr Tell USA, Inc.
+us	314930	Granite Telecommunications, LLC
+us	314940	NxGenComm
+us	314950	Snowcloud Services LLC.
+us	314960	Utah DOT Traffic Operation
+us	314970	Popcorn Labs, Inc.
+us	314980	Buffalo Rock Communications
+us	314990	Abc-Hosters LLC
+us	316020	Heddian
+us	316030	x2n
+us	316040	PACIFIC GAS AND ELECTRIC COMPANY
+us	316050	TriceTel,Inc.
+us	316060	Popcorn Labs, Inc.
+us	316070	AST & Science, LLC
+us	316080	Talus Communications

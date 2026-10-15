@@ -125,6 +125,7 @@ internal fun AppMarketFeaturesPage() {
 
 @Composable
 internal fun MobileNetworkFeaturesPage() {
+    NetworkIdentitySettingsGroup()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var hideAiLinkBoost by rememberSaveable {

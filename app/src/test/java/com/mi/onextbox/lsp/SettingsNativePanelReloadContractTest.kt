@@ -7,6 +7,27 @@ import org.junit.Test
 
 /** COUI host classes are unavailable in JVM tests; guard the verified teardown contract. */
 class SettingsNativePanelReloadContractTest {
+    @Test fun collapsedPressUsesTheWholeNativeCardSurface() {
+        val source = source()
+        assertTrue(source.contains("call(view, \"consumeDispatchingEventForState\", true)"))
+        assertTrue(source.contains("view.setOnClickListener"))
+        val update = source.substringAfter("private fun updatePressOwner() {")
+            .substringBefore("private fun adapter()")
+        assertTrue(update.contains("call(view, \"resetBackgroundAnimation\")"))
+        assertTrue(update.contains("call(view, \"setBackgroundAnimationEnabled\", !expanded)"))
+        assertTrue(update.contains("call(root, \"setBackgroundAnimationEnabled\", expanded)"))
+        val change = source.substringAfter("private fun changeState(").substringBefore("private fun updatePressOwner()")
+        assertTrue(change.indexOf("updatePressOwner()") > change.indexOf("expanded = value"))
+    }
+
+    @Test fun recycledHeaderDoesNotRestoreAnInsetPressMask() {
+        val bind = source().substringAfter("private fun bind(").substringBefore("private fun connector()")
+        assertTrue(bind.contains("call(root, \"setBackgroundAnimationEnabled\", expanded)"))
+        assertTrue(bind.contains("call(root, \"setBackgroundAnimationEnabled\", true)"))
+        // Keep the original geometry/animation guard; removing its footer skips COUI expansion.
+        assertTrue(source().contains("list.minimumHeight = root.measuredHeight + maxOf(1, view.paddingBottom)"))
+    }
+
     @Test fun disposalBypassesTheNullRejectingCouiAdapterOverloads() {
         val detach = source().substringAfter("private fun detachAdapter() {")
             .substringBefore("private fun refreshAll()")

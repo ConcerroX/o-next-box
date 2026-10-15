@@ -92,8 +92,11 @@ class QsControlCenterCornerContractTest {
         assertTrue(hook.contains("view.outlineProvider = previous.original"))
         assertTrue(hook.contains("view.clipToOutline = previous.clipped"))
         assertTrue(hook.contains("updateMediaClip(view, drawable)"))
-        assertTrue(hook.contains("QsCornerClipOutline(state.radius)"))
-        assertTrue(source("QsCornerClipOutline").contains("outline.setRoundRect(0, 0, view.width, view.height, radius)"))
+        assertTrue(hook.contains("QsCornerClipOutline(state.radius, state.weight,"))
+        val clip = source("QsCornerClipOutline")
+        assertTrue(clip.contains("outline.setPath(path)"))
+        assertTrue(clip.contains("\"addSmoothRoundRect\""))
+        assertTrue(clip.contains("width != view.width || height != view.height"))
     }
     @Test fun liveViewCallbacksAreWeakOwnedAndDetachedBeforeModuleRetirement() {
         val observers = source("QsCornerViewObservers")
@@ -110,8 +113,10 @@ class QsControlCenterCornerContractTest {
     }
     @Test fun initialAndRebuiltLayoutsRepropagateCornersWithoutAFrameByFramePathReset() {
         val observers = source("QsCornerViewObservers")
-        assertTrue(observers.contains("ViewTreeObserver.OnGlobalLayoutListener"))
-        assertTrue(observers.contains("removeOnGlobalLayoutListener(this)"))
+        assertTrue(observers.contains("View.OnLayoutChangeListener"))
+        assertFalse(observers.contains("OnGlobalLayoutListener"))
+        assertTrue(observers.contains("removeOnLayoutChangeListener(this)"))
+        assertTrue(observers.contains("gate.changed(state)"))
         assertTrue(source("QsTileCornerHooker").contains("onLayout = { updateSafely(it, provider, refreshChildren = true) }"))
     }
     @Test fun actualMediaSubclassesAreObservedEvenWhenNativeFactoriesInlineConstructors() {
@@ -120,5 +125,36 @@ class QsControlCenterCornerContractTest {
         assertTrue(hook.contains(".any { it.name in types }"))
         assertTrue(hook.contains("observers.watch(view)"))
         assertTrue(hook.contains("com.oplus.systemui.plugins.qs.OplusQSRootView"))
+    }
+
+    @Test fun observersCommitOnlySuccessfulUpdatesAndRetryIdleInitialLayouts() {
+        val observer = source("QsCornerViewObservers")
+        assertTrue(observer.contains("if (success)"))
+        assertTrue(observer.contains("gate.applied(state.copy(content = after))"))
+        assertTrue(observer.contains("view.postDelayed(retry, 250L)"))
+        assertTrue(observer.contains("if (retries < 8)"))
+        assertTrue(observer.contains("view.removeCallbacks(retry); disarm()"))
+        for (name in listOf("QsTileCornerHooker", "QsDeviceCardCorners", "QsControlCenterSliderCorners")) {
+            assertTrue(name, source(name).contains("content = ::contentState"))
+            assertTrue(name, source(name).contains(".getOrDefault(false)"))
+        }
+        val tile = source("QsTileCornerHooker")
+        assertTrue(tile.contains("System.identityHashCode(target.drawable)"))
+        assertTrue(tile.contains("bg.width, bg.height, System.identityHashCode(path)"))
+        assertTrue(tile.contains("if (bg.width <= 0 || bg.height <= 0) return null"))
+    }
+
+    @Test fun cheapScheduleRunsBeforeAnyDeepInspectionAndNativeEventsMarkDirty() {
+        val observer = source("QsCornerViewObservers")
+        assertTrue(observer.indexOf("schedule.shouldProbe") < observer.indexOf("val snapshot ="))
+        assertTrue(observer.contains("schedule.invalidate()"))
+        for (name in listOf("QsTileCornerHooker", "QsDeviceCardCorners", "QsControlCenterSliderCorners"))
+            assertTrue(name, source(name).contains("observers::invalidate") || source(name).contains("observers.invalidate(view)"))
+        val slider = source("QsControlCenterSliderCorners")
+        assertTrue(slider.contains("state.sameMaterial(last)"))
+        val cornerOnly = slider.substringAfter("private fun updateMaterialCorner").substringBefore("private fun configureMaterial")
+        assertFalse(cornerOnly.contains("updateBaseMixColorDrawableRadius"))
+        assertTrue(cornerOnly.contains("getGradientStrokeCornerParam"))
+        assertTrue(cornerOnly.contains("applyBlurConfig"))
     }
 }

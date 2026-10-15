@@ -8,6 +8,8 @@ import java.lang.reflect.Executable
  * the API 102 interceptor chain.
  */
 internal object ModernHookBridge {
+    private data class FailureKey(val phase: String, val method: Executable, val errorType: Class<*>)
+    private val failures = HookFailureLimiter<FailureKey>()
     /**
      * Direct API 102 path for methods called at frame/policy frequency. Unlike [hookMethod], this
      * does not allocate a compatibility MethodHookParam or copy the immutable argument list.
@@ -95,10 +97,14 @@ internal object ModernHookBridge {
         return runCatching(block).fold(
             onSuccess = { true },
             onFailure = { error ->
-                ModernHookRuntime.log(
+                val suppressed = failures.record(
+                    FailureKey(phase, executable, error.javaClass), android.os.SystemClock.uptimeMillis(),
+                )
+                if (suppressed != null) ModernHookRuntime.log(
                     priority = android.util.Log.ERROR,
                     tag = "ONextBox-LSP",
-                    message = "$phase callback failed: ${executable.declaringClass.name}#${executable.name}",
+                    message = "$phase callback failed: ${executable.declaringClass.name}#${executable.name}" +
+                        if (suppressed > 0) " ($suppressed repeated failures suppressed)" else "",
                     throwable = error,
                 )
                 false

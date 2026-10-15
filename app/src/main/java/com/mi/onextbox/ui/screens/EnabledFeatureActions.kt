@@ -31,6 +31,7 @@ internal class EnabledFeatureModeMemory {
 internal class EnabledFeatureActions {
     private val modes = EnabledFeatureModeMemory()
     private val writers: Map<Int, suspend (Context, Boolean) -> Unit> = mapOf<Int, suspend (Context, Boolean) -> Unit>(
+        SharedFeatureDefinitions.networkIdentity.action(),
         R.string.statusbar_order_title to { context, enabled -> StatusBarLayoutSettings.setOrderEnabled(context, enabled) },
         R.string.statusbar_sim_order_title to { context, enabled -> StatusBarLayoutSettings.saveSimOrder(context, enabled, StatusBarLayoutSettings.state(context).simOrder) },
         R.string.statusbar_margins_title to { context, enabled -> StatusBarLayoutSettings.save(context, StatusBarLayoutSettings.state(context).copy(marginsEnabled = enabled)) },
@@ -57,7 +58,7 @@ internal class EnabledFeatureActions {
         R.string.feature_fluid_cloud_battery_title to { context, enabled -> LspConfig.setFluidCloudBatteryEnabled(context, enabled) },
         R.string.feature_fluid_cloud_material_title to { context, enabled -> LspConfig.setFluidCloudMaterialEnabled(context, enabled) },
         R.string.carrier_name_title to { context, enabled -> CarrierNameSettings.setEnabled(context, enabled) },
-        R.string.qs_tile_corner_title to { context, enabled -> QsTileCornerSettings.setEnabled(context, enabled) },
+        SharedFeatureDefinitions.qsCorner.action(),
         R.string.keyboard_material_unlock_title to { context, enabled -> LspConfig.setKeyboardMaterialUnlocked(context, enabled) },
         R.string.keyboard_bottom_lift_fix_title to { context, enabled -> LspConfig.setKeyboardBottomLiftFixEnabled(context, enabled) },
         R.string.keyboard_hide_dismiss_title to { context, enabled -> LspConfig.setKeyboardDismissHidden(context, enabled) },
@@ -161,6 +162,7 @@ internal class EnabledFeatureActions {
         R.string.keyguard_screen_off_recording_title to { context, enabled -> LspConfig.setKeyguardFeatureEnabled(context, LspConfig.KeyguardFeature.ScreenOffRecording, enabled) },
         R.string.feature_recent_task_radius_title to { context, enabled -> LspConfig.setRecentTaskRadiusEnabled(context, enabled) },
         R.string.feature_aosp_volume_title to { context, enabled -> AospVolumeSettings.set(context, enabled) },
+        SharedFeatureDefinitions.stackedSignal.action(),
         R.string.app_errors_enable to { context, enabled -> AppErrorTrackingSettings.setEnabled(context, enabled) },
         R.string.feature_assistant_native_combined_title to { context, enabled -> LspConfig.setAssistantNativePowerEnabled(context, enabled); LspConfig.setAssistantNativeCircleEnabled(context, enabled) },
         R.string.feature_launcher_layout_unlock_title to { context, enabled -> check(applyLauncherLayoutUnlocked(enabled).success) },

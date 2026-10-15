@@ -9,6 +9,16 @@ class QsTileCornerContractTest {
     private fun file(path: String) = listOf(File("src/$path"), File("app/src/$path")).first { it.isFile }
     private fun source(name: String) = file("main/java/com/mi/onextbox/$name.kt").readText()
 
+    @Test fun tileDrawDiscoveryAvoidsCompatibilityAllocationAndAlwaysCallsNativeDraw() {
+        val draw = source("lsp/QsTileCornerHooker")
+            .substringAfter("type.declaredMethods.filter { it.name == \"dispatchDraw\" }")
+            .substringBefore("type.declaredMethods.filter { it.name in setOf")
+        assertTrue(draw.contains("ModernHookRegistry.installFast"))
+        assertFalse(draw.contains("installCompat"))
+        assertTrue(draw.contains("observers::watch"))
+        assertTrue(draw.contains("chain.proceed()"))
+    }
+
     @Test fun hookInstallationIsSystemUiOnlyAndDoesNotInitializeStaticConfiguration() {
         val entry = source("lsp/OosLspModuleEntry")
         assertEquals(1, Regex("QsTileCornerHooker.hook").findAll(entry).count())
@@ -27,7 +37,8 @@ class QsTileCornerContractTest {
         }
         assertTrue(hook.contains("\"getTransitionDrawable\""))
         assertTrue(hook.contains("\"mBgDrawable\""))
-        assertTrue(hook.contains("Reflect.newInstance(provider, radius, 1f)"))
+        assertTrue(hook.contains("Reflect.newInstance(provider, radius, weight)"))
+        assertTrue(hook.contains("Reflect.callMethod(original, \"getCornerWeight\", drawable)"))
         for (unsafe in listOf("StdQSResPool", "SepQSResPool", "View::class.java", "GradientDrawable::class.java", "setBackground(", "setBackgroundColor(", "getStatic")) {
             assertFalse(unsafe, hook.contains(unsafe))
         }
@@ -50,7 +61,7 @@ class QsTileCornerContractTest {
         assertFalse(hook.contains("\"setBlockPathProvider\""))
         assertFalse(hook.contains("\"setDeformFraction\""))
         assertFalse(hook.contains("\"setAnimationEnable\""))
-        assertTrue(hook.contains("state?.matches(current, radius) == true"))
+        assertTrue(hook.contains("state?.matches(current, radius, weight) == true"))
         assertTrue(hook.contains("next.accepted(accepted)"))
         assertTrue(hook.contains("if (bg == null || bg.width <= 0 || bg.height <= 0) return@runCatching"))
         assertFalse(hook.contains("setObjectField(view, \"viewRadius\""))
@@ -77,7 +88,7 @@ class QsTileCornerContractTest {
         assertTrue(ui.contains("setRadius(context, QsTileCornerRules.DEFAULT_DP)"))
         assertTrue(source("ui/screens/SystemUiFeaturesPage").substringAfter("FeaturePageMode.SystemUiControlCenter ->").contains("QsTileCornerSettingsGroup()"))
         for (name in listOf("FeatureSearchIndex", "EnabledFeatureCatalog", "EnabledFeatureActions")) {
-            assertTrue(name, source("ui/screens/$name").contains("R.string.qs_tile_corner_title"))
+            assertTrue(name, source("ui/screens/$name").contains("SharedFeatureDefinitions.qsCorner"))
         }
     }
     @Test fun allNineLocalesContainCompleteTextWithoutTrailingPeriods() {

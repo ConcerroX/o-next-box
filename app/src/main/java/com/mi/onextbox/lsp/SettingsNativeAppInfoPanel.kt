@@ -47,7 +47,13 @@ internal class SettingsNativeAppInfoPanel(
         // Inner native rows remain rectangular; no corner flags are switched on click.
         view.orientation = LinearLayout.VERTICAL
         call(view, "setPositionInGroup", 4)
-        call(view, "setBackgroundAnimationEnabled", false)
+        // The collapsed card includes COUI head/tail padding and the expansion footer.
+        // Let its own native mask cover that entire surface, not just the inner row.
+        call(view, "consumeDispatchingEventForState", true)
+        view.setOnClickListener {
+            if (!disposed && canToggle()) setExpanded(!expanded, true)
+        }
+        updatePressOwner()
         list.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         list.isNestedScrollingEnabled = false
         list.overScrollMode = View.OVER_SCROLL_NEVER
@@ -155,7 +161,18 @@ internal class SettingsNativeAppInfoPanel(
     private fun changeState(value: Boolean, animate: Boolean) {
         if (expanded == value) return
         expanded = value
+        updatePressOwner()
         onStateChanged(value, animate)
+    }
+
+    private fun updatePressOwner() {
+        // Never leave a pressed outer mask over all children during expansion.
+        call(view, "resetBackgroundAnimation")
+        call(view, "setBackgroundAnimationEnabled", !expanded)
+        headerView?.get()?.let { root ->
+            call(root, "resetBackgroundAnimation")
+            call(root, "setBackgroundAnimationEnabled", expanded)
+        }
     }
 
     private fun adapter(): Any = proxy(type("com.coui.appcompat.expandable.COUIExpandableRecyclerAdapter")) { name, args ->
@@ -205,7 +222,13 @@ internal class SettingsNativeAppInfoPanel(
         call(root, "setPositionInGroup", 2)
         // One native outer surface owns the card color. Keep only each row's native press mask.
         root.background = null
-        if (preference === header) headerView = WeakReference(root)
+        if (preference === header) {
+            headerView = WeakReference(root)
+            // Binding/recycling must not restore a second, inset press mask.
+            call(root, "setBackgroundAnimationEnabled", expanded)
+        } else {
+            call(root, "setBackgroundAnimationEnabled", true)
+        }
         holders[holder] = preference
     }
 

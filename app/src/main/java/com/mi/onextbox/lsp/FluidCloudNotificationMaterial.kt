@@ -178,6 +178,11 @@ internal class FluidCloudNotificationMaterial(
 
     fun panelMix(): Any? = blurManager?.get()?.let(::panelMix)
 
+    fun flashlightMix(context: Context): Any? {
+        val native = api()
+        return native.mixForContext(context)
+    }
+
     fun isPanelMaterialActive(proxy: Any): Boolean {
         if (Reflect.callMethod(proxy, "getBlurEnabled") != true) return false
         val type = Reflect.callMethod(proxy, "getBlurType")
@@ -266,6 +271,9 @@ internal class FluidCloudNotificationMaterial(
         fun newConfig(context: Context, radius: Float, weight: Float): Any =
             Reflect.newInstance(config, 0, 0, null, null, null, null, false, null, null, 0, null, 33554431)
                 .also { update(it, context, radius, weight, key(context, 0, 0, 0)) }
+
+        fun mixForContext(context: Context): Any? =
+            mix(manager(), mode.getField(key(context, 0, 0, 0).mode).get(null)!!)
 
         fun key(context: Context, width: Int, height: Int, revision: Int): FluidCloudMaterialRules.StyleKey {
             // Remote template contexts can be forced dark even when the system is light.

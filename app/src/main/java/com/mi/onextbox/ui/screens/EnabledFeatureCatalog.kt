@@ -17,7 +17,8 @@ internal object EnabledFeatureCatalog {
         val read: suspend (Context) -> Boolean,
     )
     val entries = listOf(
-        Entry(R.string.qs_tile_corner_title, FeaturePageMode.SystemUiControlCenter) { QsTileCornerSettings.state(it).enabled },
+        SharedFeatureDefinitions.networkIdentity.catalogEntry(),
+        SharedFeatureDefinitions.qsCorner.catalogEntry(),
         Entry(R.string.statusbar_order_title, FeaturePageMode.SystemUiStatusBar) { StatusBarLayoutSettings.state(it).orderEnabled },
         Entry(R.string.statusbar_sim_order_title, FeaturePageMode.SystemUiIconOrder, parents = setOf(R.string.statusbar_order_title)) {
             StatusBarLayoutSettings.state(it).simEnabled
@@ -33,6 +34,7 @@ internal object EnabledFeatureCatalog {
         Entry(R.string.feature_aod_all_day_unlock_title, FeaturePageMode.Aod) { context -> LspConfig.isAodAllDayUnlockEnabled(context) },
         Entry(R.string.feature_aod_single_click_block_title, FeaturePageMode.Aod) { context -> LspConfig.isAodSingleClickBlockEnabled(context) },
         Entry(R.string.feature_aosp_volume_title, FeaturePageMode.SystemUiNative) { context -> AospVolumeSettings.enabled(context) },
+        SharedFeatureDefinitions.stackedSignal.catalogEntry(),
         Entry(R.string.app_errors_enable, FeaturePageMode.AppErrors) { context -> AppErrorTrackingSettings.isEnabled(context) },
         Entry(R.string.feature_assistant_native_combined_title, FeaturePageMode.Assistant) { context -> LspConfig.isAssistantNativePowerEnabled(context) && LspConfig.isAssistantNativeCircleEnabled(context) },
         Entry(R.string.feature_assistant_international_power_chord_title, FeaturePageMode.Assistant, parents = setOf(R.string.feature_assistant_native_combined_title)) { context -> LspConfig.isAssistantInternationalPowerChordEnabled(context) },

@@ -109,6 +109,8 @@ internal fun SystemUiFeaturesPage(
                 SettingsDivider()
                 AospVolumeSettingsRow()
                 SettingsDivider()
+                C16StackedSignalSettingsRow()
+                SettingsDivider()
                 SettingsToggleRow(
                     title = stringResource(R.string.feature_force_native_clipboard_overlay_title),
                     summary = stringResource(R.string.feature_force_native_clipboard_overlay_summary),
