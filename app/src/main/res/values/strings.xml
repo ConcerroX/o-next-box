@@ -510,8 +510,9 @@
     <string name="onboarding_next">Next</string>
     <string name="onboarding_back">Back</string>
     <string name="onboarding_refresh">Check again</string>
-    <string name="onboarding_agreements_title">Before you begin</string>
-    <string name="onboarding_agreements_summary">Read and select all six required confirmations to continue</string>
+    <string name="onboarding_agreements_title">Agreements and notices</string>
+    <string name="onboarding_agreements_summary">Tap a title to expand each of the six agreements, then confirm them together to continue</string>
+    <string name="onboarding_agreements_accept_all">I have read and accept all agreements and notices above</string>
     <string name="onboarding_view_details">View details</string>
     <string name="onboarding_required">Required</string>
     <string name="onboarding_background_updates_title">Allow background update checks</string>
@@ -557,6 +558,7 @@
     <string name="onboarding_complete_title">Everything is ready</string>
     <string name="onboarding_enter_app">Enter ONextBox</string>
     <string name="onboarding_save_failed">Activation state could not be saved. Please try again</string>
+    <string name="onboarding_agreements_required">Please read and accept all required agreements before continuing</string>
     <string name="feature_wallpapers_title">Wallpapers &amp; personalization</string>
     <string name="feature_wallpapers_clock_group">More</string>
     <string name="feature_wallpapers_red_one_entry_title">Show OnePlus red 1 entry</string>
@@ -1120,7 +1122,7 @@
     <string name="ota_package_details_summary">Add package details to the software update menu, view cached versions, sizes and checksums and copy download links</string>
     <string name="ota_save_failed">Could not save this setting</string>
     <string name="ota_details_menu">Update package details</string>
-    <string name="ota_details_loading">Reading cached package information…</string>
+    <string name="ota_details_loading">Reading cached packages and resolving download links…</string>
     <string name="ota_details_empty">No cached update packages, check for updates manually in Software update first</string>
     <string name="ota_details_failed">Could not read the update package cache</string>
     <string name="ota_copy_details">Copy details</string>
@@ -1132,7 +1134,13 @@
     <string name="ota_details_size">Size: %1$s</string>
     <string name="ota_details_checksum">MD5: %1$s</string>
     <string name="ota_details_links">Download links:\n%1$s</string>
-    <string name="ota_details_auth_notice">This page only reads cached information, some links require authentication and may not work outside the updater</string>
+    <string name="ota_details_source_links">Original links:\n%1$s</string>
+    <string name="ota_details_link_failed_code">Link resolution failed (code %1$d)</string>
+    <string name="ota_details_link_auth_unavailable">Device authentication unavailable, original check links retained</string>
+    <string name="ota_details_link_timeout">Link resolution timed out, reopen this page to retry</string>
+    <string name="ota_details_link_network">Could not connect to the download server, original links retained</string>
+    <string name="ota_details_link_failed">The server did not return a usable package link, original links retained</string>
+    <string name="ota_details_auth_notice">Only cached packages are resolved, no OTA download or installation is started; download links may expire, reopen this page to resolve them again</string>
     <string name="ota_blocking_group">Update blocking</string>
     <string name="ota_block_system_title">Block system updates</string>
     <string name="ota_block_system_summary">Prevent discovery of new system OTA versions</string>
@@ -1196,6 +1204,9 @@
     <string name="statusbar_layout_group">Icons and margins</string>
     <string name="statusbar_order_title">Status bar icon order</string>
     <string name="statusbar_margins_title">Status bar side margins</string>
+    <string name="statusbar_vertical_margins_title">Status bar top and bottom margins</string>
+    <string name="statusbar_margin_top">Top margin offset</string>
+    <string name="statusbar_margin_bottom">Bottom margin offset</string>
     <string name="statusbar_margin_left">Left margin offset</string>
     <string name="statusbar_margin_right">Right margin offset</string>
     <string name="statusbar_order_up">Move earlier</string>
@@ -1213,6 +1224,8 @@
     <string name="statusbar_icon_nfc">NFC</string>
     <string name="statusbar_icon_cast">Cast</string>
     <string name="launcher_icon_interaction_group">Icon interactions</string>
+    <string name="launcher_widgets_menu_title">Show widgets in icon menus</string>
+    <string name="launcher_widgets_menu_summary">Show the native widget picker in the long-press menus of apps that provide widgets</string>
     <string name="launcher_disable_icon_menu_title">Disable secondary menus</string>
     <string name="launcher_disable_icon_menu_summary">Hide secondary menus for app icons</string>
     <string name="launcher_swipe_gesture_group">Swipe-up gestures</string>
@@ -1233,6 +1246,7 @@
     <string name="game_assistant_skins_title">Change Game Assistant skin</string>
     <string name="game_assistant_skin_title">Interface skin</string>
     <string name="game_assistant_developer_restart">Restart Game Assistant after changing debug options; opening this page does not enable any options</string>
+    <string name="game_assistant_developer_failed">Unable to open or save this debug option, check the module logs</string>
     <string name="game_assistant_skin_default">Default</string>
     <string name="game_assistant_skin_cyber">Cyber Competition</string>
     <string name="game_assistant_skin_snipe">Precision Sniping</string>
@@ -1255,4 +1269,19 @@
     <string name="statusbar_icon_dynamic_info">Dynamic information</string>
     <string name="statusbar_order_reset">Restore defaults</string>
     <string name="feature_only_data_sim_independent_title">Only for separate signal icons</string>
+    <string name="carrier_name_group">Carrier names</string>
+    <string name="carrier_name_title">Custom carrier names</string>
+    <string name="carrier_name_summary">Rename carrier text shown by SystemUI without changing SIM or network settings</string>
+    <string name="carrier_name_sim1">SIM 1 carrier name</string>
+    <string name="carrier_name_sim2">SIM 2 carrier name</string>
+    <string name="carrier_name_original">Use original name</string>
+    <string name="carrier_name_hint">Leave blank to use the original name, up to %1$d characters</string>
+    <string name="carrier_name_reset">Restore carrier names</string>
+    <string name="qs_tile_corner_group">Control Center appearance</string>
+    <string name="qs_tile_corner_title">Custom Control Center corners</string>
+    <string name="qs_tile_corner_summary">Adjust corners for Control Center tiles, the media card, and brightness/volume sliders; turn off to restore system shapes</string>
+    <string name="qs_tile_corner_radius">Corner radius</string>
+    <string name="launcher_group_effects">Visual effects</string>
+    <string name="launcher_force_blur_title">Force launcher blur effects</string>
+    <string name="launcher_force_blur_summary">Try to unlock native desktop, icon menu and animated blur on restricted models while respecting system blur, power saving and theme settings; may increase power use and requires native firmware support; restart the launcher after changing</string>
 </resources>

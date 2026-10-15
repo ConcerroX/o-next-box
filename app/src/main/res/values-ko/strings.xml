@@ -453,8 +453,9 @@
     <string name="onboarding_next">다음</string>
     <string name="onboarding_back">뒤로</string>
     <string name="onboarding_refresh">다시 확인하세요</string>
-    <string name="onboarding_agreements_title">시작하기 전에</string>
-    <string name="onboarding_agreements_summary">계속하려면 필수 확인 6개를 모두 읽고 선택하세요</string>
+    <string name="onboarding_agreements_title">약관 및 안내</string>
+    <string name="onboarding_agreements_summary">제목을 눌러 6개 약관을 펼쳐 읽은 후 한 번에 동의하여 계속하세요</string>
+    <string name="onboarding_agreements_accept_all">위의 모든 약관 및 안내를 읽고 동의합니다</string>
     <string name="onboarding_view_details">자세히 보기</string>
     <string name="onboarding_required">필수</string>
     <string name="onboarding_background_updates_title">백그라운드 업데이트 확인 허용</string>
@@ -500,6 +501,7 @@
     <string name="onboarding_complete_title">준비가 완료되었습니다</string>
     <string name="onboarding_enter_app">ONextBox를 입력하세요</string>
     <string name="onboarding_save_failed">활성화 상태를 저장할 수 없습니다. 다시 시도해 주세요</string>
+    <string name="onboarding_agreements_required">계속하려면 모든 필수 약관을 읽고 동의해 주세요</string>
     <string name="feature_wallpapers_title">배경화면 및 개인화</string>
     <string name="feature_wallpapers_clock_group">더 보기</string>
     <string name="feature_wallpapers_red_one_entry_title">OnePlus 빨간색 1 항목 표시</string>
@@ -1066,7 +1068,7 @@
     <string name="ota_package_details_summary">업데이트 메뉴에 세부 정보 추가, 캐시된 버전, 크기, 체크섬 확인 및 다운로드 링크 복사</string>
     <string name="ota_save_failed">설정을 저장하지 못했습니다</string>
     <string name="ota_details_menu">업데이트 패키지 세부 정보</string>
-    <string name="ota_details_loading">패키지 캐시 읽는 중…</string>
+    <string name="ota_details_loading">패키지를 읽고 다운로드 링크를 분석하는 중…</string>
     <string name="ota_details_empty">캐시된 업데이트 패키지가 없습니다, 먼저 소프트웨어 업데이트에서 수동으로 확인하세요</string>
     <string name="ota_details_failed">업데이트 패키지 캐시를 읽지 못했습니다</string>
     <string name="ota_copy_details">세부 정보 복사</string>
@@ -1078,7 +1080,13 @@
     <string name="ota_details_size">크기: %1$s</string>
     <string name="ota_details_checksum">MD5: %1$s</string>
     <string name="ota_details_links">다운로드 링크:\n%1$s</string>
-    <string name="ota_details_auth_notice">이 페이지는 캐시만 읽습니다, 일부 링크는 인증이 필요하며 업데이트 앱 밖에서는 사용할 수 없을 수 있습니다</string>
+    <string name="ota_details_source_links">원본 링크:\n%1$s</string>
+    <string name="ota_details_link_failed_code">링크 분석 실패 (오류 코드 %1$d)</string>
+    <string name="ota_details_link_auth_unavailable">기기 인증을 완료할 수 없어 원본 인증 링크를 유지합니다</string>
+    <string name="ota_details_link_timeout">링크 분석 시간이 초과되었습니다, 이 페이지를 다시 열어 재시도하세요</string>
+    <string name="ota_details_link_network">다운로드 서버에 연결할 수 없어 원본 링크를 유지합니다</string>
+    <string name="ota_details_link_failed">사용 가능한 업데이트 패키지 링크가 반환되지 않아 원본 링크를 유지합니다</string>
+    <string name="ota_details_auth_notice">캐시된 패키지만 분석하며 OTA 다운로드나 설치를 시작하지 않습니다; 링크가 만료되면 이 페이지를 다시 여세요</string>
     <string name="ota_blocking_group">업데이트 차단</string>
     <string name="ota_block_system_title">시스템 업데이트 차단</string>
     <string name="ota_block_system_summary">새 시스템 OTA 버전 검색을 차단</string>
@@ -1130,6 +1138,9 @@
     <string name="statusbar_layout_group">아이콘 및 여백</string>
     <string name="statusbar_order_title">상태 표시줄 아이콘 순서</string>
     <string name="statusbar_margins_title">상태 표시줄 좌우 여백</string>
+    <string name="statusbar_vertical_margins_title">상태 표시줄 위아래 여백</string>
+    <string name="statusbar_margin_top">위쪽 여백 오프셋</string>
+    <string name="statusbar_margin_bottom">아래쪽 여백 오프셋</string>
     <string name="statusbar_margin_left">왼쪽 여백 오프셋</string>
     <string name="statusbar_margin_right">오른쪽 여백 오프셋</string>
     <string name="statusbar_order_up">앞으로 이동</string>
@@ -1147,6 +1158,8 @@
     <string name="statusbar_icon_nfc">NFC</string>
     <string name="statusbar_icon_cast">화면 전송</string>
     <string name="launcher_icon_interaction_group">아이콘 조작</string>
+    <string name="launcher_widgets_menu_title">길게 누르기 메뉴에 위젯 표시</string>
+    <string name="launcher_widgets_menu_summary">위젯을 제공하는 앱의 아이콘 길게 누르기 메뉴에 기본 위젯 선택 항목 표시</string>
     <string name="launcher_disable_icon_menu_title">보조 메뉴 비활성화</string>
     <string name="launcher_disable_icon_menu_summary">앱 아이콘의 보조 메뉴 숨기기</string>
     <string name="launcher_swipe_gesture_group">위로 스와이프 제스처</string>
@@ -1167,6 +1180,7 @@
     <string name="game_assistant_skins_title">게임 어시스턴트 스킨 변경</string>
     <string name="game_assistant_skin_title">화면 스킨</string>
     <string name="game_assistant_developer_restart">디버그 옵션 변경 후 게임 도우미를 다시 시작하세요. 이 페이지를 열기만 하면 옵션은 활성화되지 않음</string>
+    <string name="game_assistant_developer_failed">이 디버그 옵션을 열거나 저장할 수 없음, 모듈 로그를 확인하세요</string>
     <string name="game_assistant_skin_default">기본</string>
     <string name="game_assistant_skin_cyber">사이버 경쟁</string>
     <string name="game_assistant_skin_snipe">정밀 저격</string>
@@ -1189,4 +1203,19 @@
     <string name="statusbar_icon_dynamic_info">동적 정보</string>
     <string name="statusbar_order_reset">기본값 복원</string>
     <string name="feature_only_data_sim_independent_title">개별 표시에서만 적용</string>
+    <string name="carrier_name_group">통신사 이름</string>
+    <string name="carrier_name_title">통신사 이름 사용자 지정</string>
+    <string name="carrier_name_summary">SIM 및 네트워크 설정을 바꾸지 않고 시스템 UI에 표시되는 통신사 이름 변경</string>
+    <string name="carrier_name_sim1">SIM 1 통신사 이름</string>
+    <string name="carrier_name_sim2">SIM 2 통신사 이름</string>
+    <string name="carrier_name_original">원래 이름 사용</string>
+    <string name="carrier_name_hint">비워 두면 원래 이름 사용, 최대 %1$d자</string>
+    <string name="carrier_name_reset">통신사 이름 복원</string>
+    <string name="qs_tile_corner_group">제어 센터 모양</string>
+    <string name="qs_tile_corner_title">제어 센터 모서리 맞춤 설정</string>
+    <string name="qs_tile_corner_summary">제어 센터 타일, 미디어 카드, 밝기 및 음량 슬라이더의 모서리를 조절하며 끄면 시스템 모양으로 복원</string>
+    <string name="qs_tile_corner_radius">모서리 반경</string>
+    <string name="launcher_group_effects">시각 효과</string>
+    <string name="launcher_force_blur_title">홈 화면 흐림 효과 강제 활성화</string>
+    <string name="launcher_force_blur_summary">홈 배경, 길게 누르기 메뉴 및 흐림 애니메이션의 기종 제한 해제를 시도하며 시스템 흐림, 절전 및 테마 설정을 따름; 전력 소비가 늘 수 있고 펌웨어의 기본 지원이 필요함; 변경 후 런처를 다시 시작해야 함</string>
 </resources>

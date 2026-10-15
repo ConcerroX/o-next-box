@@ -453,8 +453,9 @@
     <string name="onboarding_next">次へ</string>
     <string name="onboarding_back">戻る</string>
     <string name="onboarding_refresh">もう一度確認してください</string>
-    <string name="onboarding_agreements_title">始める前に</string>
-    <string name="onboarding_agreements_summary">続行するには、6 つの必要な確認をすべて読んで選択してください</string>
+    <string name="onboarding_agreements_title">同意事項と通知</string>
+    <string name="onboarding_agreements_summary">見出しをタップして6件の同意事項を開き、読んだ後にまとめて同意して続行してください</string>
+    <string name="onboarding_agreements_accept_all">上記のすべての同意事項と通知を読み、同意します</string>
     <string name="onboarding_view_details">詳細を見る</string>
     <string name="onboarding_required">必須</string>
     <string name="onboarding_background_updates_title">バックグラウンド更新チェックを許可する</string>
@@ -500,6 +501,7 @@
     <string name="onboarding_complete_title">準備ができました</string>
     <string name="onboarding_enter_app">ONextBox を入力してください</string>
     <string name="onboarding_save_failed">アクティベーション状態を保存できませんでした。もう一度試してください</string>
+    <string name="onboarding_agreements_required">続行する前に、必要なすべての同意事項を読んで同意してください</string>
     <string name="feature_wallpapers_title">壁紙とカスタマイズ</string>
     <string name="feature_wallpapers_clock_group">もっと見る</string>
     <string name="feature_wallpapers_red_one_entry_title">OnePlus 赤 1 エントリを表示</string>
@@ -1066,7 +1068,7 @@
     <string name="ota_package_details_summary">更新メニューに詳細を追加、キャッシュ内のバージョン、サイズ、チェックサムを表示しダウンロードリンクをコピー</string>
     <string name="ota_save_failed">設定を保存できませんでした</string>
     <string name="ota_details_menu">更新パッケージの詳細</string>
-    <string name="ota_details_loading">パッケージのキャッシュを読み込み中…</string>
+    <string name="ota_details_loading">パッケージを読み込み、ダウンロードリンクを解析中…</string>
     <string name="ota_details_empty">キャッシュされた更新パッケージがありません、先にソフトウェア更新で手動確認してください</string>
     <string name="ota_details_failed">更新パッケージのキャッシュを読み込めませんでした</string>
     <string name="ota_copy_details">詳細をコピー</string>
@@ -1078,7 +1080,13 @@
     <string name="ota_details_size">サイズ：%1$s</string>
     <string name="ota_details_checksum">MD5：%1$s</string>
     <string name="ota_details_links">ダウンロードリンク：\n%1$s</string>
-    <string name="ota_details_auth_notice">このページはキャッシュのみを読み取ります、一部のリンクには認証が必要で更新アプリ外では利用できない場合があります</string>
+    <string name="ota_details_source_links">元のリンク：\n%1$s</string>
+    <string name="ota_details_link_failed_code">リンクの解析に失敗しました（エラーコード %1$d）</string>
+    <string name="ota_details_link_auth_unavailable">端末認証を完了できません、元の認証リンクを保持します</string>
+    <string name="ota_details_link_timeout">リンクの解析がタイムアウトしました、このページを開き直して再試行してください</string>
+    <string name="ota_details_link_network">ダウンロードサーバーに接続できません、元のリンクを保持します</string>
+    <string name="ota_details_link_failed">有効な更新パッケージリンクが返されませんでした、元のリンクを保持します</string>
+    <string name="ota_details_auth_notice">キャッシュ済みパッケージのみを解析し、OTA のダウンロードやインストールは開始しません；リンクが失効した場合はこのページを開き直してください</string>
     <string name="ota_blocking_group">更新のブロック</string>
     <string name="ota_block_system_title">システム更新をブロック</string>
     <string name="ota_block_system_summary">新しいシステム OTA バージョンの検出を停止</string>
@@ -1130,6 +1138,9 @@
     <string name="statusbar_layout_group">アイコンと余白</string>
     <string name="statusbar_order_title">ステータスバーのアイコン順序</string>
     <string name="statusbar_margins_title">ステータスバーの左右余白</string>
+    <string name="statusbar_vertical_margins_title">ステータスバーの上下余白</string>
+    <string name="statusbar_margin_top">上側余白のオフセット</string>
+    <string name="statusbar_margin_bottom">下側余白のオフセット</string>
     <string name="statusbar_margin_left">左側余白のオフセット</string>
     <string name="statusbar_margin_right">右側余白のオフセット</string>
     <string name="statusbar_order_up">前に移動</string>
@@ -1147,6 +1158,8 @@
     <string name="statusbar_icon_nfc">NFC</string>
     <string name="statusbar_icon_cast">キャスト</string>
     <string name="launcher_icon_interaction_group">アイコン操作</string>
+    <string name="launcher_widgets_menu_title">長押しメニューにウィジェットを表示</string>
+    <string name="launcher_widgets_menu_summary">ウィジェットを提供するアプリのアイコン長押しメニューに標準の選択画面への入口を表示</string>
     <string name="launcher_disable_icon_menu_title">サブメニューを無効化</string>
     <string name="launcher_disable_icon_menu_summary">アプリアイコンのサブメニューを非表示</string>
     <string name="launcher_swipe_gesture_group">上スワイプジェスチャー</string>
@@ -1167,6 +1180,7 @@
     <string name="game_assistant_skins_title">ゲームアシスタントのスキンを変更</string>
     <string name="game_assistant_skin_title">画面スキン</string>
     <string name="game_assistant_developer_restart">デバッグ設定変更後はゲームアシスタントを再起動してください。この画面を開くだけでは設定は有効になりません</string>
+    <string name="game_assistant_developer_failed">このデバッグ設定を開くか保存することができません。モジュールログを確認してください</string>
     <string name="game_assistant_skin_default">標準</string>
     <string name="game_assistant_skin_cyber">サイバー競技</string>
     <string name="game_assistant_skin_snipe">精密狙撃</string>
@@ -1189,4 +1203,19 @@
     <string name="statusbar_icon_dynamic_info">動的情報</string>
     <string name="statusbar_order_reset">デフォルトに戻す</string>
     <string name="feature_only_data_sim_independent_title">独立表示でのみ有効</string>
+    <string name="carrier_name_group">通信事業者名</string>
+    <string name="carrier_name_title">通信事業者名をカスタマイズ</string>
+    <string name="carrier_name_summary">SIM やネットワーク設定を変更せず、システム UI に表示する通信事業者名を変更</string>
+    <string name="carrier_name_sim1">SIM 1 の通信事業者名</string>
+    <string name="carrier_name_sim2">SIM 2 の通信事業者名</string>
+    <string name="carrier_name_original">元の名前を使用</string>
+    <string name="carrier_name_hint">空欄で元の名前を使用、最大 %1$d 文字</string>
+    <string name="carrier_name_reset">通信事業者名を元に戻す</string>
+    <string name="qs_tile_corner_group">コントロールセンターの外観</string>
+    <string name="qs_tile_corner_title">コントロールセンターの角丸をカスタマイズ</string>
+    <string name="qs_tile_corner_summary">コントロールセンターのタイル、メディアカード、明るさ・音量スライダーの角丸を調整、オフでシステムの形状に戻ります</string>
+    <string name="qs_tile_corner_radius">角丸の半径</string>
+    <string name="launcher_group_effects">視覚効果</string>
+    <string name="launcher_force_blur_title">ホームのぼかし効果を強制的に有効化</string>
+    <string name="launcher_force_blur_summary">ホーム背景、長押しメニュー、ぼかしアニメーションの機種制限の解除を試みます。システムのぼかし、省電力、テーマ設定を尊重します。消費電力が増える場合があり、ファームウェアのネイティブ対応が必要です。変更後はホームを再起動してください</string>
 </resources>

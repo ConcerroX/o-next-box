@@ -6,8 +6,11 @@ import android.app.Dialog
 import android.content.Context
 import android.content.DialogInterface
 import android.content.SharedPreferences
+import android.content.res.XmlResourceParser
+import android.util.TypedValue
 import android.view.View
 import android.widget.Button
+import android.widget.CompoundButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
@@ -28,12 +31,13 @@ internal object GameAssistantDeveloperController {
     private const val ANDROID = "http://schemas.android.com/apk/res/android"
     private var activity = WeakReference<Activity>(null)
     private var dialog: Dialog? = null
+    private var choiceDialog: Dialog? = null
 
     fun hook(loader: ClassLoader) {
         HotReloadLifecycle.register(
             "game-assistant-developer-dialog", capture = { activity.get() },
-            canReload = { dialog?.isShowing != true },
-            detach = { dialog?.dismiss(); dialog = null; activity.clear() },
+            canReload = { dialog?.isShowing != true && choiceDialog?.isShowing != true },
+            detach = { dismissDialogs(); activity.clear() },
             restore = { state -> activity = WeakReference(state as? Activity) },
         )
         ModernHookRegistry.installCompat("$TAG:resume", Activity::class.java.getDeclaredMethod("onPostResume"),
@@ -47,7 +51,7 @@ internal object GameAssistantDeveloperController {
             object : ModernMethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     if (param.thisObject !== activity.get()) return
-                    dialog?.dismiss(); dialog = null; activity.clear()
+                    dismissDialogs(); activity.clear()
                 }
             })
         val owner = ModernReflect.findClass("business.gamespace.service.impl.setting.SettingAssistantImpl", loader)
@@ -55,7 +59,7 @@ internal object GameAssistantDeveloperController {
         ModernHookRegistry.installFast("$TAG:entry", entry, XposedInterface.Hooker { chain ->
             if (!GameAssistantSettings.enabledXposed(GameAssistantSettings.DEVELOPER)) return@Hooker chain.proceed()
             val host = activity.get()?.takeUnless { it.isFinishing || it.isDestroyed } ?: return@Hooker chain.proceed()
-            runCatching { showCategories(host, loader) }.onFailure { HookLog.w(TAG, "Developer options unavailable", it) }
+            action(host, "entry") { showCategories(host, loader) }
             null
         })
         // The vendor removed the entry body in release builds; ART may have inlined that
@@ -81,7 +85,7 @@ internal object GameAssistantDeveloperController {
         val layout = column(host)
         categories.forEach { (title, id) -> layout.addView(Button(host).apply {
             text = title
-            setOnClickListener { showOptions(host, loader, title, id) }
+            setOnClickListener { action(host, "category") { showOptions(host, loader, title, id) } }
         }) }
         show(host, loader, text(host, R.string.game_assistant_developer_title), scroll(host, layout))
     }
@@ -97,19 +101,29 @@ internal object GameAssistantDeveloperController {
                     val titleId = xml.getAttributeResourceValue(ANDROID, "title", 0)
                     if (!key.isNullOrBlank() && titleId != 0) {
                         val label = host.getString(titleId)
-                        val defaultValue = xml.getAttributeValue(ANDROID, "defaultValue").orEmpty()
+                        val defaultValue = defaultValue(host, xml)
                         if (xml.name.endsWith("SwitchPreference")) {
                             layout.addView(Switch(host).apply {
                                 text = label
                                 setPadding(0, dp(host, 10), 0, dp(host, 10))
-                                isChecked = (prefs.all[key] as? Boolean) ?: (defaultValue == "true")
-                                setOnCheckedChangeListener { _, checked ->
-                                    if (!prefs.edit().putBoolean(key, checked).commit()) {
-                                        setOnCheckedChangeListener(null)
-                                        isChecked = (prefs.all[key] as? Boolean) ?: (defaultValue == "true")
-                                        Toast.makeText(host, text(host, R.string.enabled_features_save_failed), Toast.LENGTH_LONG).show()
+                                var saved = GameAssistantDeveloperPreferences.boolean(prefs, key, defaultValue == "true")
+                                isChecked = saved
+                                lateinit var listener: CompoundButton.OnCheckedChangeListener
+                                listener = CompoundButton.OnCheckedChangeListener { button, checked ->
+                                    if (action(host, "switch:$key") {
+                                            check(GameAssistantDeveloperPreferences.saveBoolean(prefs, key, checked)) { "Native preference commit failed" }
+                                            saved = checked
+                                        }) return@OnCheckedChangeListener
+                                    button.setOnCheckedChangeListener(null)
+                                    try {
+                                        saved = runCatching { GameAssistantDeveloperPreferences.boolean(prefs, key, defaultValue == "true") }
+                                            .getOrDefault(saved)
+                                        button.isChecked = saved
+                                    } finally {
+                                        button.setOnCheckedChangeListener(listener)
                                     }
                                 }
+                                setOnCheckedChangeListener(listener)
                             })
                             count++
                         } else {
@@ -121,7 +135,7 @@ internal object GameAssistantDeveloperController {
                                 if (entries.size == values.size && entries.isNotEmpty()) {
                                     layout.addView(Button(host).apply {
                                         text = label
-                                        setOnClickListener { choose(host, label, prefs, key, entries, values, defaultValue) }
+                                        setOnClickListener { action(host, "choice:$key") { choose(host, label, prefs, key, entries, values, defaultValue) } }
                                     })
                                     count++
                                 }
@@ -138,21 +152,21 @@ internal object GameAssistantDeveloperController {
 
     private fun choose(host: Activity, title: String, prefs: SharedPreferences, key: String,
         entries: Array<String>, values: Array<String>, defaultValue: String) {
-        val selected = (prefs.all[key] ?: defaultValue).toString()
-        AlertDialog.Builder(host).setTitle(title).setSingleChoiceItems(entries, values.indexOf(selected)) { choice, index ->
-            val value = values[index]
-            val editor = prefs.edit()
-            if (GameAssistantRules.developerIntKey(key)) {
-                val number = value.toIntOrNull() ?: return@setSingleChoiceItems
-                editor.putInt(key, number)
-            } else editor.putString(key, value)
-            if (!editor.commit()) Toast.makeText(host, text(host, R.string.enabled_features_save_failed), Toast.LENGTH_LONG).show()
-            choice.dismiss()
-        }.setNegativeButton(android.R.string.cancel, null).show()
+        val selected = GameAssistantDeveloperPreferences.selection(prefs, key, defaultValue)
+        choiceDialog?.dismiss()
+        val popup = AlertDialog.Builder(host).setTitle(title).setSingleChoiceItems(entries, values.indexOf(selected)) { choice, index ->
+            if (action(host, "selection:$key") {
+                    require(index in values.indices) { "Native choice index unavailable" }
+                    check(GameAssistantDeveloperPreferences.saveSelection(prefs, key, values[index])) { "Native preference commit failed" }
+                }) choice.dismiss()
+        }.setNegativeButton(android.R.string.cancel, null).create()
+        choiceDialog = popup
+        popup.setOnDismissListener { if (choiceDialog === popup) choiceDialog = null }
+        popup.show()
     }
 
     private fun show(host: Activity, loader: ClassLoader, title: String, content: View) {
-        dialog?.dismiss()
+        dismissDialogs()
         val close = DialogInterface.OnClickListener { popup, _ -> popup.dismiss() }
         // Prefer the exact host's COUI builder, with a stock Android fallback for other versions.
         dialog = runCatching {
@@ -166,6 +180,29 @@ internal object GameAssistantDeveloperController {
         }.getOrElse { AlertDialog.Builder(host).setTitle(title).setView(content).setPositiveButton(android.R.string.ok, close).create() }
         dialog?.show()
         Toast.makeText(host, text(host, R.string.game_assistant_developer_restart), Toast.LENGTH_LONG).show()
+    }
+
+    private fun dismissDialogs() {
+        choiceDialog?.dismiss(); choiceDialog = null
+        dialog?.dismiss(); dialog = null
+    }
+
+    /** No XML, backend or window failure should escape a click callback into the host. */
+    private fun action(host: Activity, name: String, block: () -> Unit): Boolean {
+        if (host.isFinishing || host.isDestroyed || HotReloadLifecycle.isRetiring ||
+            !GameAssistantSettings.enabledXposed(GameAssistantSettings.DEVELOPER)) return false
+        return runCatching { block(); true }.onFailure {
+            HookLog.w(TAG, "Developer action unavailable: $name", it)
+            runCatching { Toast.makeText(host, text(host, R.string.game_assistant_developer_failed), Toast.LENGTH_LONG).show() }
+        }.getOrDefault(false)
+    }
+
+    private fun defaultValue(host: Activity, xml: XmlResourceParser): String {
+        val id = xml.getAttributeResourceValue(ANDROID, "defaultValue", 0)
+        if (id == 0) return xml.getAttributeValue(ANDROID, "defaultValue").orEmpty()
+        val value = TypedValue()
+        host.resources.getValue(id, value, true)
+        return value.coerceToString()?.toString().orEmpty()
     }
 
     private fun column(host: Activity) = LinearLayout(host).apply {

@@ -6,6 +6,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LauncherFeatureItemsTest {
+    @Test fun `forced blur belongs to layout effects and supports enabled feature actions`() {
+        val item = LauncherFeatureItems.effects.single { it.feature == LspConfig.LauncherFeature.ForceBlur }
+        assertEquals(FeaturePageMode.DesktopLayout, FeatureSearchIndex.entries.single { it.title == item.title }.page)
+        assertEquals(FeaturePageMode.DesktopLayout, EnabledFeatureCatalog.entries.single { it.title == item.title }.page)
+        assertTrue(LauncherFeatureItems.all.contains(item))
+        assertTrue(item.summary != 0)
+    }
+
     @Test fun `task auto focus and icon details belong only to recent tasks`() {
         for (feature in listOf(
             LspConfig.LauncherFeature.DisablePreviousTaskAutoFocus,

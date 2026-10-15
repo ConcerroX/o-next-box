@@ -47,20 +47,46 @@ internal object StatusBarLayoutHooker {
         val first = pair.getMethod("getFirst")
         val second = pair.getMethod("getSecond")
         val reached = AtomicBoolean()
+        val verticalReached = AtomicBoolean()
+        val verticalFailure = AtomicBoolean()
         ModernHookRegistry.installCompat("$TAG:margins", method, object : ModernMethodHook() {
             override fun afterHookedMethod(param: MethodHookParam) {
                 if (param.throwable != null) return
-                val offsets = StatusBarLayoutSettings.marginsXposed() ?: return
+                val offsets = StatusBarLayoutSettings.marginsXposed()
+                val vertical = StatusBarLayoutSettings.verticalMarginsXposed()
+                if (offsets == null && vertical == null) return
                 val original = param.result as? Rect ?: return
-                val density = (context.get(param.thisObject) as Context).resources.displayMetrics.density
-                val cutouts = param.args[2] ?: return
-                val leftSafe = (first.invoke(cutouts) as Number).toInt()
-                val rightSafe = (second.invoke(cutouts) as Number).toInt()
-                // Return a copy, keep native top/bottom and cutout avoidance, and never
-                // accumulate offsets on the View or change lock-screen padding.
-                param.result = Rect(StatusBarLayoutRules.padding(original.left, offsets.first, density, leftSafe), original.top,
-                    StatusBarLayoutRules.padding(original.right, offsets.second, density, rightSafe), original.bottom)
-                if (reached.compareAndSet(false, true)) HookLog.i(TAG, "Native home status-bar margins adjusted")
+                val ownerContext = context.get(param.thisObject) as Context
+                val density = ownerContext.resources.displayMetrics.density
+                // Always start with native geometry. Neither axis accumulates offsets
+                // on a View, and the separate keyguard padding path is untouched.
+                val result = Rect(original)
+                if (offsets != null) {
+                    val cutouts = param.args[2]
+                    if (cutouts != null) {
+                        val leftSafe = (first.invoke(cutouts) as Number).toInt()
+                        val rightSafe = (second.invoke(cutouts) as Number).toInt()
+                        result.left = StatusBarLayoutRules.padding(original.left, offsets.first, density, leftSafe)
+                        result.right = StatusBarLayoutRules.padding(original.right, offsets.second, density, rightSafe)
+                        if (reached.compareAndSet(false, true)) HookLog.i(TAG, "Native home status-bar side margins adjusted")
+                    }
+                }
+                if (vertical != null) runCatching {
+                    // The provider refreshes this height for the current rotation and
+                    // display before returning the Rect. Retain the native icon height.
+                    val height = (ModernReflect.getObjectField(requireNotNull(param.thisObject), "statusBarHeight") as Number).toInt()
+                    val resources = ownerContext.resources
+                    val iconId = resources.getIdentifier("status_bar_icon_container_height", "dimen", "com.android.systemui")
+                    if (iconId == 0) return@runCatching
+                    val padding = StatusBarLayoutRules.verticalPadding(original.top, original.bottom,
+                        vertical.first, vertical.second, density, height, resources.getDimensionPixelSize(iconId))
+                    result.top = padding.first
+                    result.bottom = padding.second
+                    if (verticalReached.compareAndSet(false, true)) HookLog.i(TAG, "Native home status-bar vertical margins adjusted")
+                }.onFailure {
+                    if (verticalFailure.compareAndSet(false, true)) HookLog.w(TAG, "Vertical margins unavailable; native geometry retained", it)
+                }
+                param.result = result
             }
         })
         ModernReflect.findClassIfExists("com.oplus.systemui.statusbar.phone.PhoneStatusBarViewExImpl", loader)
@@ -68,6 +94,6 @@ internal object StatusBarLayoutHooker {
                 runCatching { ModernHookRuntime.requireModule().deoptimize(it) }
                     .onFailure { error -> HookLog.w(TAG, "Padding caller deoptimization unavailable", error) }
             }
-        HookLog.i(TAG, "Native side-margin hook installed")
+        HookLog.i(TAG, "Native side/vertical-margin hook installed")
     }
 }

@@ -165,6 +165,7 @@ internal fun SystemUiFeaturesPage(
         }
         FeaturePageMode.SystemUiStatusBar -> {
             StatusBarLayoutSettingsGroup { onOpenSubPage(FeaturePageMode.SystemUiIconOrder) }
+            CarrierNameSettingsGroup()
             SettingsSection(title = stringResource(R.string.feature_large_network_type_title))
             SettingsGroup {
                 LargeNetworkTypeSettingsRow()
@@ -261,6 +262,7 @@ internal fun SystemUiFeaturesPage(
             }
         }
         FeaturePageMode.SystemUiControlCenter -> {
+            QsTileCornerSettingsGroup()
             SettingsGroup {
                 SettingsToggleRow(
                     title = stringResource(R.string.feature_hide_qs_edit_title),

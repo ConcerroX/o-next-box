@@ -143,6 +143,9 @@ class OosLspModuleEntry : XposedModule() {
                 LargeNetworkTypeHooker.hook(classLoader)
                 DataSimSignalHooker.hook(classLoader)
                 StatusBarLayoutHooker.hook(classLoader)
+                CarrierNameHooker.hook(classLoader)
+                runCatching { QsTileCornerHooker.hook(classLoader) }
+                    .onFailure { HookLog.w("ONextBox-QsTileCorner", "Tile corner adapter unavailable", it) }
                 SideKeySystemUiHooker.hook(classLoader)
                 ImmersiveNavigationHooker.hook(classLoader)
                 AospBackPanelHooker.hook(classLoader)

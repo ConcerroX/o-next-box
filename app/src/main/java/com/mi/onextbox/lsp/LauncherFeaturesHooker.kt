@@ -24,6 +24,7 @@ internal object LauncherFeaturesHooker {
     fun hook(classLoader: ClassLoader, apkPath: String) {
         LauncherGridHooker.hook(classLoader, apkPath)
         LauncherRecentInteractionHooker.hook(classLoader)
+        LauncherBlurHooker.hook(classLoader, apkPath)
         if (enabled(LauncherFeature.RightmostCategories)) LauncherCategoryPageHooker.hook(classLoader)
         if (enabled(LauncherFeature.OldClearButton) || enabled(LauncherFeature.HideClearButton)) {
             install("clear-button") { hookClearButton(classLoader) }

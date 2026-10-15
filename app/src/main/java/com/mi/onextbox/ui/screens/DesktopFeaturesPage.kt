@@ -146,6 +146,9 @@ internal fun DesktopFeaturesPage(
 
         SettingsSection(title = stringResource(R.string.launcher_group_dock))
         SettingsGroup { LauncherFeatureRows(LauncherFeatureItems.dock) }
+
+        SettingsSection(title = stringResource(R.string.launcher_group_effects))
+        SettingsGroup { LauncherFeatureRows(LauncherFeatureItems.effects) }
     }
 
     if (mode == FeaturePageMode.DesktopRecent) {

@@ -453,8 +453,9 @@
     <string name="onboarding_next">Далее</string>
     <string name="onboarding_back">Назад</string>
     <string name="onboarding_refresh">Проверьте еще раз</string>
-    <string name="onboarding_agreements_title">Прежде чем начать</string>
-    <string name="onboarding_agreements_summary">Прочтите и выберите все шесть необходимых подтверждений для продолжения</string>
+    <string name="onboarding_agreements_title">Соглашения и уведомления</string>
+    <string name="onboarding_agreements_summary">Нажмите на заголовки, чтобы раскрыть шесть соглашений, прочитайте их и подтвердите все сразу для продолжения</string>
+    <string name="onboarding_agreements_accept_all">Я прочитал(а) и принимаю все соглашения и уведомления выше</string>
     <string name="onboarding_view_details">Посмотреть подробности</string>
     <string name="onboarding_required">Требуется</string>
     <string name="onboarding_background_updates_title">Разрешить фоновую проверку обновлений</string>
@@ -500,6 +501,7 @@
     <string name="onboarding_complete_title">Всё готово</string>
     <string name="onboarding_enter_app">Введите ONextBox</string>
     <string name="onboarding_save_failed">Не удалось сохранить состояние активации. Пожалуйста, попробуйте еще раз</string>
+    <string name="onboarding_agreements_required">Прочитайте и примите все обязательные соглашения, прежде чем продолжить</string>
     <string name="feature_wallpapers_title">Обои и персонализация</string>
     <string name="feature_wallpapers_clock_group">Ещё</string>
     <string name="feature_wallpapers_red_one_entry_title">Показать OnePlus красный 1 запись</string>
@@ -1066,7 +1068,7 @@
     <string name="ota_package_details_summary">Добавить сведения в меню обновления, показывать кешированные версии, размеры и контрольные суммы и копировать ссылки</string>
     <string name="ota_save_failed">Не удалось сохранить настройку</string>
     <string name="ota_details_menu">Сведения о пакетах обновления</string>
-    <string name="ota_details_loading">Чтение кеша пакетов…</string>
+    <string name="ota_details_loading">Чтение пакетов и получение ссылок загрузки…</string>
     <string name="ota_details_empty">В кеше нет пакетов обновления, сначала проверьте обновления вручную</string>
     <string name="ota_details_failed">Не удалось прочитать кеш пакетов обновления</string>
     <string name="ota_copy_details">Копировать сведения</string>
@@ -1078,7 +1080,13 @@
     <string name="ota_details_size">Размер: %1$s</string>
     <string name="ota_details_checksum">MD5: %1$s</string>
     <string name="ota_details_links">Ссылки загрузки:\n%1$s</string>
-    <string name="ota_details_auth_notice">Эта страница только читает кеш, некоторые ссылки требуют авторизации и могут не работать вне приложения обновления</string>
+    <string name="ota_details_source_links">Исходные ссылки:\n%1$s</string>
+    <string name="ota_details_link_failed_code">Не удалось получить ссылку (код ошибки %1$d)</string>
+    <string name="ota_details_link_auth_unavailable">Аутентификация устройства недоступна, исходные ссылки проверки сохранены</string>
+    <string name="ota_details_link_timeout">Время получения ссылки истекло, откройте страницу заново</string>
+    <string name="ota_details_link_network">Нет соединения с сервером загрузки, исходные ссылки сохранены</string>
+    <string name="ota_details_link_failed">Сервер не вернул доступную ссылку на пакет, исходные ссылки сохранены</string>
+    <string name="ota_details_auth_notice">Обрабатываются только кешированные пакеты, загрузка и установка OTA не запускаются; ссылки могут истечь, откройте страницу заново для их обновления</string>
     <string name="ota_blocking_group">Блокировка обновлений</string>
     <string name="ota_block_system_title">Блокировать обновления системы</string>
     <string name="ota_block_system_summary">Запретить поиск новых версий OTA системы</string>
@@ -1130,6 +1138,9 @@
     <string name="statusbar_layout_group">Значки и отступы</string>
     <string name="statusbar_order_title">Порядок значков строки состояния</string>
     <string name="statusbar_margins_title">Боковые отступы строки состояния</string>
+    <string name="statusbar_vertical_margins_title">Верхний и нижний отступы строки состояния</string>
+    <string name="statusbar_margin_top">Смещение сверху</string>
+    <string name="statusbar_margin_bottom">Смещение снизу</string>
     <string name="statusbar_margin_left">Смещение слева</string>
     <string name="statusbar_margin_right">Смещение справа</string>
     <string name="statusbar_order_up">Переместить раньше</string>
@@ -1147,6 +1158,8 @@
     <string name="statusbar_icon_nfc">NFC</string>
     <string name="statusbar_icon_cast">Трансляция</string>
     <string name="launcher_icon_interaction_group">Действия со значками</string>
+    <string name="launcher_widgets_menu_title">Виджеты в меню значков</string>
+    <string name="launcher_widgets_menu_summary">Показывать встроенный выбор виджетов в меню долгого нажатия значков приложений с виджетами</string>
     <string name="launcher_disable_icon_menu_title">Отключить подменю</string>
     <string name="launcher_disable_icon_menu_summary">Скрыть подменю значков приложений</string>
     <string name="launcher_swipe_gesture_group">Жесты смахивания вверх</string>
@@ -1167,6 +1180,7 @@
     <string name="game_assistant_skins_title">Изменить оформление игрового помощника</string>
     <string name="game_assistant_skin_title">Обложка интерфейса</string>
     <string name="game_assistant_developer_restart">После изменения параметров отладки перезапустите игровой помощник; открытие страницы ничего не включает</string>
+    <string name="game_assistant_developer_failed">Не удалось открыть или сохранить параметр отладки, проверьте журнал модуля</string>
     <string name="game_assistant_skin_default">По умолчанию</string>
     <string name="game_assistant_skin_cyber">Киберсоревнование</string>
     <string name="game_assistant_skin_snipe">Точный выстрел</string>
@@ -1189,4 +1203,19 @@
     <string name="statusbar_icon_dynamic_info">Динамическая информация</string>
     <string name="statusbar_order_reset">Восстановить по умолчанию</string>
     <string name="feature_only_data_sim_independent_title">Только для раздельных значков сигнала</string>
+    <string name="carrier_name_group">Названия операторов</string>
+    <string name="carrier_name_title">Свои названия операторов</string>
+    <string name="carrier_name_summary">Изменить названия операторов в системном интерфейсе, не меняя настройки SIM и сети</string>
+    <string name="carrier_name_sim1">Название оператора SIM 1</string>
+    <string name="carrier_name_sim2">Название оператора SIM 2</string>
+    <string name="carrier_name_original">Исходное название</string>
+    <string name="carrier_name_hint">Оставьте пустым для исходного названия, до %1$d символов</string>
+    <string name="carrier_name_reset">Восстановить названия операторов</string>
+    <string name="qs_tile_corner_group">Внешний вид центра управления</string>
+    <string name="qs_tile_corner_title">Углы центра управления</string>
+    <string name="qs_tile_corner_summary">Настройка углов плиток, медиакарточки и ползунков яркости и громкости в центре управления; отключите для восстановления системной формы</string>
+    <string name="qs_tile_corner_radius">Радиус скругления</string>
+    <string name="launcher_group_effects">Визуальные эффекты</string>
+    <string name="launcher_force_blur_title">Принудительное размытие рабочего стола</string>
+    <string name="launcher_force_blur_summary">Попытаться снять ограничения модели для фона, меню значков и анимированного размытия, сохраняя системные настройки размытия, энергосбережения и темы; возможно увеличение расхода энергии, нужна встроенная поддержка прошивки; после изменения перезапустите лаунчер</string>
 </resources>

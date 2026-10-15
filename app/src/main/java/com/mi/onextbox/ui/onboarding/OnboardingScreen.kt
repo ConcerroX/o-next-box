@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
@@ -12,6 +13,8 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
@@ -30,6 +33,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -116,11 +120,13 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import android.widget.Toast
 import com.mi.onextbox.R
 import com.mi.onextbox.lsp.LspStatus
 import com.mi.onextbox.lsp.LsposedScopeRequester
 import com.mi.onextbox.ui.common.ONextBoxLogo
 import com.mi.onextbox.ui.common.AppLocale
+import com.mi.onextbox.ui.common.AppLogStore
 import com.mi.onextbox.ui.common.AppUiTokens
 import com.mi.onextbox.ui.common.ColorOsPopupMiniatureMaterial
 import com.mi.onextbox.ui.common.ColorOsPopupPreviewShape
@@ -136,6 +142,7 @@ import com.mi.onextbox.ui.common.lspStatusText
 import com.mi.onextbox.ui.common.LspMissingScopesNotice
 import com.mi.onextbox.ui.onboarding.OnboardingPreferences.Agreement
 import com.mi.onextbox.ui.onboarding.OnboardingPreferences.DraftStep
+import com.mi.onextbox.ui.onboarding.OnboardingPreferences.CompletionResult
 import com.mi.onextbox.ui.platform.findActivity
 import com.mi.onextbox.ui.screens.FeatureLaunchIcon
 import com.mi.onextbox.ui.screens.FeaturePageMode
@@ -149,6 +156,7 @@ import io.github.suqi8.coui.kmp.icon.COUIIcons
 import io.github.suqi8.coui.kmp.icon.extended.Back
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ExpandMore
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import io.github.suqi8.coui.kmp.theme.ColorSchemeMode
 import io.github.suqi8.coui.kmp.theme.ThemeController
@@ -177,7 +185,6 @@ private data class AgreementUi(
 
 private data class ActivationPage(
     val step: DraftStep,
-    val agreementIndex: Int = 0,
 ) {
     val sequence: Int
         get() = when (step) {
@@ -186,10 +193,10 @@ private data class ActivationPage(
             DraftStep.Appearance -> 2
             DraftStep.Personalization -> 3
             DraftStep.Migration -> 4
-            DraftStep.Agreements -> 5 + agreementIndex
-            DraftStep.RootAccess -> 5 + Agreement.entries.size
-            DraftStep.Lsposed -> 6 + Agreement.entries.size
-            DraftStep.Complete -> 7 + Agreement.entries.size
+            DraftStep.Agreements -> 5
+            DraftStep.RootAccess -> 6
+            DraftStep.Lsposed -> 7
+            DraftStep.Complete -> 8
         }
 }
 
@@ -269,9 +276,6 @@ fun OnboardingScreen(
     val scope = rememberCoroutineScope()
     val initialSnapshot = remember(context) { OnboardingPreferences.read(context) }
     var step by remember { mutableStateOf(initialSnapshot.draftStep) }
-    var agreementIndex by remember(context) {
-        mutableStateOf(OnboardingPreferences.readDraftAgreementIndex(context))
-    }
     val agreementState = remember {
         mutableStateMapOf<Agreement, Boolean>().also { state ->
             Agreement.entries.forEach { agreement ->
@@ -292,18 +296,77 @@ fun OnboardingScreen(
     var lspRefreshFailed by remember { mutableStateOf(false) }
     var completionVerified by remember { mutableStateOf(false) }
     var lspOpenFailed by remember { mutableStateOf(false) }
-    var saveFailed by remember { mutableStateOf(false) }
+    var stateErrorMessage by remember { mutableStateOf<Int?>(null) }
     var isExiting by remember { mutableStateOf(false) }
+    var pageTransitioning by remember { mutableStateOf(false) }
     var completeButtonBoundsInRoot by remember {
         mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
     }
     val exitProgress = remember { Animatable(0f) }
+    val activePage = ActivationPage(step)
+    val pageTransition = updateTransition(activePage, label = "c17ActivationPageState")
+
+    LaunchedEffect(pageTransition.currentState, pageTransition.targetState, pageTransition.isRunning, activePage) {
+        if (!pageTransition.isRunning && pageTransition.currentState == activePage &&
+            pageTransition.targetState == activePage) pageTransitioning = false
+    }
+
+    fun acceptsPageAction(page: ActivationPage): Boolean = OnboardingNavigationRules.acceptsAction(
+        page.step, step, pageTransitioning, isExiting,
+    )
+
+    fun pageAction(page: ActivationPage, action: () -> Unit): () -> Unit = {
+        if (acceptsPageAction(page)) action()
+    }
+
+    fun reportStateWriteFailure() {
+        stateErrorMessage = R.string.onboarding_save_failed
+        AppLogStore.w("Activation", "Draft state write failed at ${step.persistedValue}")
+        if (step != DraftStep.Agreements && step != DraftStep.Complete) {
+            Toast.makeText(context, R.string.onboarding_save_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun navigateTo(newStep: DraftStep, errorMessage: Int? = null): Boolean {
+        val saved = OnboardingPreferences.saveDraftStep(context, newStep)
+        if (!saved) {
+            reportStateWriteFailure()
+            return false
+        }
+        if (step != newStep) {
+            // Lock synchronously, before Compose can recompose/dispose the outgoing page.
+            pageTransitioning = true
+        }
+        completionVerified = false
+        step = newStep
+        stateErrorMessage = errorMessage
+        return true
+    }
+
+    fun returnToMissingAgreement(reason: CompletionResult) {
+        val snapshot = OnboardingPreferences.read(context)
+        Agreement.entries.forEach { agreementState[it] = it in snapshot.acceptedAgreements }
+        AppLogStore.w("Activation", "Completion blocked: $reason; accepted agreements=${snapshot.acceptedAgreements.size}")
+        navigateTo(DraftStep.Agreements, R.string.onboarding_agreements_required)
+    }
+
+    fun requireCurrentAgreements(): Boolean = when (val reason = OnboardingPreferences.completionBlockReason(context)) {
+        null -> true
+        CompletionResult.AgreementsRequired, CompletionResult.PolicyChanged -> {
+            returnToMissingAgreement(reason)
+            false
+        }
+        else -> {
+            stateErrorMessage = R.string.onboarding_save_failed
+            AppLogStore.w("Activation", "Completion validation failed: $reason")
+            false
+        }
+    }
 
     fun moveTo(newStep: DraftStep) {
-        if (OnboardingPreferences.saveDraftStep(context, newStep)) {
-            completionVerified = false
-            step = newStep
-        }
+        if (newStep in setOf(DraftStep.RootAccess, DraftStep.Lsposed, DraftStep.Complete) &&
+            !requireCurrentAgreements()) return
+        navigateTo(newStep)
     }
 
     fun refreshLsp() {
@@ -342,21 +405,14 @@ fun OnboardingScreen(
     }
 
     BackHandler(enabled = isExiting || step != DraftStep.Welcome) {
-        if (!isExiting) {
+        if (!isExiting && !pageTransitioning) {
             when (step) {
                 DraftStep.Welcome -> Unit
                 DraftStep.Language -> moveTo(DraftStep.Welcome)
                 DraftStep.Appearance -> moveTo(DraftStep.Language)
                 DraftStep.Personalization -> moveTo(DraftStep.Appearance)
                 DraftStep.Migration -> moveTo(DraftStep.Personalization)
-                DraftStep.Agreements -> {
-                    if (agreementIndex > 0) {
-                        agreementIndex -= 1
-                        OnboardingPreferences.saveDraftAgreementIndex(context, agreementIndex)
-                    } else {
-                        moveTo(DraftStep.Migration)
-                    }
-                }
+                DraftStep.Agreements -> moveTo(DraftStep.Migration)
                 DraftStep.RootAccess -> moveTo(DraftStep.Agreements)
                 DraftStep.Lsposed -> moveTo(DraftStep.RootAccess)
                 DraftStep.Complete -> moveTo(DraftStep.Lsposed)
@@ -365,8 +421,8 @@ fun OnboardingScreen(
     }
 
     LaunchedEffect(context, step) {
-        if (step == DraftStep.Lsposed) refreshLsp()
-        if (step == DraftStep.Complete) {
+        if (step == DraftStep.Lsposed && requireCurrentAgreements()) refreshLsp()
+        if (step == DraftStep.Complete && requireCurrentAgreements()) {
             onDestinationPreparationRequested()
             refreshLsp()
         }
@@ -463,15 +519,9 @@ fun OnboardingScreen(
                 },
         ) {
             ActivationBackground()
-            val activePage = ActivationPage(
-                step = step,
-                agreementIndex = if (step == DraftStep.Agreements) agreementIndex else 0,
-            )
-            AnimatedContent(
-                targetState = activePage,
+            pageTransition.AnimatedContent(
                 transitionSpec = { c17ActivationPageTransition() },
                 contentKey = { page -> page },
-                label = "c17ActivationPage",
             ) { page ->
                 Box(modifier = Modifier.fillMaxSize()) {
                     // BootReg moves two opaque Activity/page surfaces in parallel. Keeping the
@@ -480,21 +530,21 @@ fun OnboardingScreen(
                     ActivationBackground()
                     when (page.step) {
                         DraftStep.Welcome -> WelcomePage(
-                            onNext = { moveTo(DraftStep.Language) },
+                            onNext = pageAction(page) { moveTo(DraftStep.Language) },
                         )
                         DraftStep.Language -> LanguagePage(
                             selectedLanguageTag = appLanguageTag,
                             onLanguageSelected = onAppLanguageChange,
-                            onNext = { moveTo(DraftStep.Appearance) },
-                            onBack = { moveTo(DraftStep.Welcome) },
+                            onNext = pageAction(page) { moveTo(DraftStep.Appearance) },
+                            onBack = pageAction(page) { moveTo(DraftStep.Welcome) },
                         )
                         DraftStep.Appearance -> AppearancePage(
                             selectedUiStyle = appUiStyle,
                             onUiStyleSelected = onAppUiStyleChange,
                             selectedThemeMode = appThemeMode,
                             onThemeModeSelected = onAppThemeModeChange,
-                            onNext = { moveTo(DraftStep.Personalization) },
-                            onBack = { moveTo(DraftStep.Language) },
+                            onNext = pageAction(page) { moveTo(DraftStep.Personalization) },
+                            onBack = pageAction(page) { moveTo(DraftStep.Language) },
                         )
                         DraftStep.Personalization -> PersonalizationPage(
                             appUiStyle = appUiStyle,
@@ -505,56 +555,40 @@ fun OnboardingScreen(
                             onVideoBackgroundEnabledChange = { enabled ->
                                 onFeaturePageVideoHiddenChange(!enabled)
                             },
-                            onNext = { moveTo(DraftStep.Migration) },
-                            onBack = { moveTo(DraftStep.Appearance) },
+                            onNext = pageAction(page) { moveTo(DraftStep.Migration) },
+                            onBack = pageAction(page) { moveTo(DraftStep.Appearance) },
                         )
                         DraftStep.Migration -> MigrationPage(
-                            onNext = { moveTo(DraftStep.Agreements) },
-                            onBack = { moveTo(DraftStep.Personalization) },
+                            onNext = pageAction(page) { moveTo(DraftStep.Agreements) },
+                            onBack = pageAction(page) { moveTo(DraftStep.Personalization) },
                         )
-                        DraftStep.Agreements -> AgreementSequencePage(
-                            agreement = agreementRows[page.agreementIndex],
-                            pageIndex = page.agreementIndex,
-                            pageCount = agreementRows.size,
-                            accepted = agreementState[agreementRows[page.agreementIndex].agreement] == true,
+                        DraftStep.Agreements -> UnifiedAgreementsPage(
+                            accepted = Agreement.entries.all { agreementState[it] == true },
+                            errorMessage = stateErrorMessage,
                             onAgreementChanged = { accepted ->
-                                val agreement = agreementRows[page.agreementIndex].agreement
-                                if (OnboardingPreferences.setAgreementAccepted(
-                                        context,
-                                        agreement,
-                                        accepted,
-                                    )
-                                ) {
-                                    agreementState[agreement] = accepted
+                                if (acceptsPageAction(page)) {
+                                    if (OnboardingPreferences.setAllAgreementsAccepted(context, accepted)) {
+                                        Agreement.entries.forEach { agreementState[it] = accepted }
+                                        stateErrorMessage = null
+                                    } else {
+                                        reportStateWriteFailure()
+                                    }
                                 }
                             },
-                            onNext = {
-                                if (agreementIndex < agreementRows.lastIndex) {
-                                    agreementIndex += 1
-                                    OnboardingPreferences.saveDraftAgreementIndex(
-                                        context,
-                                        agreementIndex,
-                                    )
+                            onNext = pageAction(page) {
+                                val snapshot = OnboardingPreferences.read(context)
+                                if (!OnboardingNavigationRules.canContinueAgreements(snapshot.acceptedAgreements)) {
+                                    returnToMissingAgreement(CompletionResult.AgreementsRequired)
                                 } else {
                                     moveTo(DraftStep.RootAccess)
                                 }
                             },
-                            onBack = {
-                                if (agreementIndex > 0) {
-                                    agreementIndex -= 1
-                                    OnboardingPreferences.saveDraftAgreementIndex(
-                                        context,
-                                        agreementIndex,
-                                    )
-                                } else {
-                                    moveTo(DraftStep.Migration)
-                                }
-                            },
+                            onBack = pageAction(page) { moveTo(DraftStep.Migration) },
                         )
                         DraftStep.RootAccess -> RootAccessPage(
                             rootInfo = rootInfo,
                             verified = rootVerifiedThisRun,
-                            onPrimaryAction = {
+                            onPrimaryAction = pageAction(page) {
                                 if (rootVerifiedThisRun) {
                                     moveTo(DraftStep.Lsposed)
                                 } else if (rootInfo.state != RootAccessState.Checking) {
@@ -566,7 +600,7 @@ fun OnboardingScreen(
                                     }
                                 }
                             },
-                            onBack = { moveTo(DraftStep.Agreements) },
+                            onBack = pageAction(page) { moveTo(DraftStep.Agreements) },
                         )
                         DraftStep.Lsposed -> LsposedPage(
                             rootReady = rootVerifiedThisRun || rootInfo.state == RootAccessState.Granted,
@@ -574,7 +608,7 @@ fun OnboardingScreen(
                             checking = lspChecking,
                             refreshFailed = lspRefreshFailed,
                             openFailed = lspOpenFailed,
-                            onOpenOrNext = {
+                            onOpenOrNext = pageAction(page) {
                                 if (!lspRefreshFailed && lspSnapshot.canContinue) {
                                     moveTo(DraftStep.Complete)
                                 } else {
@@ -588,24 +622,25 @@ fun OnboardingScreen(
                                     }
                                 }
                             },
-                            onRefresh = { refreshLsp() },
-                            onBack = { moveTo(DraftStep.RootAccess) },
+                            onRefresh = pageAction(page) { refreshLsp() },
+                            onBack = pageAction(page) { moveTo(DraftStep.RootAccess) },
                         )
                         DraftStep.Complete -> CompletePage(
-                            saveFailed = saveFailed,
+                            errorMessage = stateErrorMessage,
                             exitProgress = exitProgress.value,
                             isExiting = isExiting,
                             canFinish = completionVerified && !lspChecking && !lspRefreshFailed &&
+                                !pageTransitioning && Agreement.entries.all { agreementState[it] == true } &&
                                 lspSnapshot.status != LspStatus.CHECKING && lspSnapshot.canContinue,
                             onButtonBoundsChanged = { completeButtonBoundsInRoot = it },
-                            onFinish = {
+                            onFinish = pageAction(page) {
                                 if (!isExiting && completionVerified && !lspChecking &&
                                     !lspRefreshFailed && lspSnapshot.status != LspStatus.CHECKING &&
-                                    lspSnapshot.canContinue) {
+                                    lspSnapshot.canContinue && requireCurrentAgreements()) {
                                     // Prepare the destination underneath the completion animation.
                                     onDestinationPreparationRequested()
                                     isExiting = true
-                                    saveFailed = false
+                                    stateErrorMessage = null
                                     scope.launch {
                                         var committed = false
                                         try {
@@ -624,12 +659,11 @@ fun OnboardingScreen(
                                                 moveTo(DraftStep.Lsposed)
                                                 return@launch
                                             }
-                                            val saved = OnboardingPreferences.complete(
+                                            val result = OnboardingPreferences.completeWithResult(
                                                 context,
                                                 allowBackgroundUpdates,
                                             )
-                                            saveFailed = !saved
-                                            if (saved) {
+                                            if (result == CompletionResult.Completed) {
                                                 committed = true
                                                 onActivationCommitted(
                                                     rootVerifiedThisRun ||
@@ -637,6 +671,12 @@ fun OnboardingScreen(
                                                 )
                                                 withFrameNanos { }
                                                 onExitFinished()
+                                            } else if (result == CompletionResult.AgreementsRequired ||
+                                                result == CompletionResult.PolicyChanged) {
+                                                returnToMissingAgreement(result)
+                                            } else {
+                                                stateErrorMessage = R.string.onboarding_save_failed
+                                                AppLogStore.w("Activation", "Activation commit failed: $result")
                                             }
                                         } catch (cancelled: CancellationException) {
                                             throw cancelled
@@ -2719,50 +2759,24 @@ private fun ActivationBackButton(onBack: () -> Unit) {
 }
 
 @Composable
-private fun AgreementSequencePage(
-    agreement: AgreementUi,
-    pageIndex: Int,
-    pageCount: Int,
+private fun UnifiedAgreementsPage(
     accepted: Boolean,
+    @StringRes errorMessage: Int?,
     onAgreementChanged: (Boolean) -> Unit,
     onNext: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val agreementText = remember(context, agreement.agreement) {
-        context.readAgreementText(agreement.agreement)
-    }
+    // Returning to the page starts collapsed; expansion never implies agreement acceptance.
+    var expandedAgreement by remember { mutableStateOf<Agreement?>(null) }
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp, vertical = 22.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "‹  ${stringResource(R.string.onboarding_back)}",
-                color = ActivationInk,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(18.dp))
-                    .clickable(onClick = onBack)
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Text(
-                text = "${pageIndex + 1} / $pageCount",
-                color = ActivationMutedInk,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(end = 8.dp),
-            )
-        }
-        Spacer(modifier = Modifier.height(28.dp))
+        ActivationBackButton(onBack)
+        Spacer(modifier = Modifier.height(22.dp))
         Text(
-            text = stringResource(agreement.title),
+            text = stringResource(R.string.onboarding_agreements_title),
             color = ActivationInk,
             fontSize = 30.sp,
             lineHeight = 37.sp,
@@ -2770,7 +2784,7 @@ private fun AgreementSequencePage(
         )
         Spacer(modifier = Modifier.height(10.dp))
         Text(
-            text = stringResource(agreement.summary),
+            text = stringResource(R.string.onboarding_agreements_summary),
             color = ActivationMutedInk,
             fontSize = 14.sp,
             lineHeight = 20.sp,
@@ -2780,17 +2794,20 @@ private fun AgreementSequencePage(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(Color.White.copy(alpha = 0.72f))
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 22.dp),
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = agreementText,
-                color = ActivationInk,
-                fontSize = 15.sp,
-                lineHeight = 25.sp,
-            )
+            agreementRows.forEachIndexed { index, row ->
+                ExpandableAgreementCard(
+                    row = row,
+                    number = index + 1,
+                    expanded = expandedAgreement == row.agreement,
+                    onToggle = {
+                        expandedAgreement = row.agreement.takeUnless { expandedAgreement == it }
+                    },
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
         }
         Row(
             modifier = Modifier
@@ -2798,7 +2815,7 @@ private fun AgreementSequencePage(
                 .padding(top = 14.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(Color.White.copy(alpha = 0.76f))
-                .clickable { onAgreementChanged(!accepted) }
+                .clickable(role = Role.Checkbox) { onAgreementChanged(!accepted) }
                 .padding(horizontal = 14.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -2807,11 +2824,21 @@ private fun AgreementSequencePage(
                 onClick = { onAgreementChanged(!accepted) },
             )
             Text(
-                text = stringResource(agreement.checkText),
+                text = stringResource(R.string.onboarding_agreements_accept_all),
                 color = ActivationInk,
                 fontSize = 13.sp,
                 lineHeight = 19.sp,
-                modifier = Modifier.padding(start = 9.dp),
+                modifier = Modifier.weight(1f).padding(start = 9.dp),
+            )
+        }
+        if (errorMessage != null) {
+            Text(
+                text = stringResource(errorMessage),
+                color = ActivationRed,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
         }
         ActivationCapsuleButton(
@@ -2827,245 +2854,78 @@ private fun AgreementSequencePage(
 }
 
 @Composable
-private fun AgreementsPage(
-    agreementState: Map<Agreement, Boolean>,
-    allowBackgroundUpdates: Boolean,
-    onAgreementChanged: (Agreement, Boolean) -> Unit,
-    onOpenAgreement: (AgreementUi) -> Unit,
-    onBackgroundUpdatesChanged: (Boolean) -> Unit,
-    onNext: () -> Unit,
-) {
-    val allAccepted = Agreement.entries.all { agreementState[it] == true }
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(top = 28.dp),
-    ) {
-        PageHeading(
-            title = stringResource(R.string.onboarding_agreements_title),
-            summary = stringResource(R.string.onboarding_agreements_summary),
-            modifier = Modifier.padding(horizontal = 28.dp),
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            agreementRows.forEach { row ->
-                AgreementRow(
-                    row = row,
-                    accepted = agreementState[row.agreement] == true,
-                    onAcceptedChange = { onAgreementChanged(row.agreement, it) },
-                    onOpen = { onOpenAgreement(row) },
-                )
-            }
-            OptionalNetworkRow(
-                checked = allowBackgroundUpdates,
-                onCheckedChange = onBackgroundUpdatesChanged,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-        ActivationCapsuleButton(
-            label = stringResource(R.string.onboarding_next),
-            visible = true,
-            enabled = allAccepted,
-            onClick = onNext,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(top = 12.dp, bottom = 36.dp),
-        )
-    }
-}
-
-@Composable
-private fun AgreementRow(
+private fun ExpandableAgreementCard(
     row: AgreementUi,
-    accepted: Boolean,
-    onAcceptedChange: (Boolean) -> Unit,
-    onOpen: () -> Unit,
+    number: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val expandLabel = stringResource(
+        if (expanded) R.string.enabled_features_collapse else R.string.enabled_features_expand,
+    )
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(260, easing = FastOutSlowInEasing),
+        label = "activationAgreementArrow",
+    )
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
-            .background(Color.White.copy(alpha = 0.72f))
-            .clickable(role = Role.Button, onClick = onOpen)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .background(Color.White.copy(alpha = 0.72f)),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(row.title),
-                        color = ActivationInk,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                    Text(
-                        text = stringResource(R.string.onboarding_required),
-                        color = ActivationBlue,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClickLabel = expandLabel, onClick = onToggle)
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = number.toString(),
+                color = ActivationMutedInk,
+                fontSize = 13.sp,
+                modifier = Modifier.width(24.dp),
+            )
+            Text(
+                text = stringResource(row.title),
+                color = ActivationInk,
+                fontSize = 16.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            io.github.suqi8.coui.kmp.basic.Icon(
+                imageVector = Icons.Filled.ExpandMore,
+                contentDescription = null,
+                tint = ActivationMutedInk,
+                modifier = Modifier.padding(start = 10.dp).size(22.dp)
+                    .graphicsLayer(rotationZ = arrowRotation),
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(tween(280), expandFrom = Alignment.Top) + fadeIn(tween(180)),
+            exit = shrinkVertically(tween(240), shrinkTowards = Alignment.Top) + fadeOut(tween(140)),
+        ) {
+            // Keep text composed until the collapse finishes, with no truncation or nested scroll.
+            val agreementText = remember(context, row.agreement) {
+                context.readAgreementText(row.agreement)
+            }
+            Column(modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 20.dp)) {
                 Text(
                     text = stringResource(row.summary),
                     color = ActivationMutedInk,
                     fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 20.sp,
                 )
-            }
-            Text(
-                text = stringResource(R.string.onboarding_view_details),
-                color = ActivationBlue,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(start = 10.dp),
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color.White.copy(alpha = 0.52f))
-                .clickable { onAcceptedChange(!accepted) }
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(
-                state = ToggleableState(accepted),
-                onClick = { onAcceptedChange(!accepted) },
-            )
-            Text(
-                text = stringResource(row.checkText),
-                color = ActivationInk,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun OptionalNetworkRow(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color.White.copy(alpha = 0.58f))
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(
-            state = ToggleableState(checked),
-            onClick = { onCheckedChange(!checked) },
-        )
-        Column(modifier = Modifier.padding(start = 10.dp)) {
-            Text(
-                text = stringResource(R.string.onboarding_background_updates_title),
-                color = ActivationInk,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-                text = stringResource(R.string.onboarding_background_updates_summary),
-                color = ActivationMutedInk,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-            )
-        }
-    }
-}
-
-@Composable
-private fun AgreementDetailPage(
-    agreement: AgreementUi,
-    accepted: Boolean,
-    onAcceptedChange: (Boolean) -> Unit,
-    onBack: () -> Unit,
-) {
-    val context = LocalContext.current
-    val agreementText = remember(context, agreement.agreement) {
-        context.readAgreementText(agreement.agreement)
-    }
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 22.dp),
-        ) {
-            Text(
-                text = "‹  ${stringResource(R.string.onboarding_back)}",
-                color = ActivationInk,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(18.dp))
-                    .clickable(onClick = onBack)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            )
-            Spacer(modifier = Modifier.height(28.dp))
-            Text(
-                text = stringResource(agreement.title),
-                color = ActivationInk,
-                fontSize = 30.sp,
-                lineHeight = 37.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(modifier = Modifier.height(22.dp))
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(Color.White.copy(alpha = 0.7f))
-                    .verticalScroll(rememberScrollState())
-                    .padding(20.dp),
-            ) {
+                Spacer(modifier = Modifier.height(14.dp))
                 Text(
                     text = agreementText,
                     color = ActivationInk,
                     fontSize = 15.sp,
-                    lineHeight = 24.sp,
-                )
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White.copy(alpha = 0.74f))
-                    .clickable { onAcceptedChange(!accepted) }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(
-                    state = ToggleableState(accepted),
-                    onClick = { onAcceptedChange(!accepted) },
-                )
-                Text(
-                    text = stringResource(agreement.checkText),
-                    color = ActivationInk,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    modifier = Modifier.padding(start = 9.dp),
+                    lineHeight = 25.sp,
                 )
             }
         }
@@ -3388,7 +3248,7 @@ private fun RuntimeDetailCard(
 
 @Composable
 private fun CompletePage(
-    saveFailed: Boolean,
+    @StringRes errorMessage: Int?,
     exitProgress: Float,
     isExiting: Boolean,
     canFinish: Boolean,
@@ -3462,9 +3322,9 @@ private fun CompletePage(
                     .padding(start = 16.dp, end = 16.dp, bottom = 254.dp)
                     .graphicsLayer(translationY = -142f * textExitProgress),
             )
-            if (saveFailed) {
+            if (errorMessage != null) {
                 Text(
-                    text = stringResource(R.string.onboarding_save_failed),
+                    text = stringResource(errorMessage),
                     color = ActivationRed,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,

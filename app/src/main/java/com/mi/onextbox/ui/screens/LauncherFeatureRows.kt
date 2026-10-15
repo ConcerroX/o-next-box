@@ -52,7 +52,10 @@ internal object LauncherFeatureItems {
         LauncherFeatureItem(LauncherFeature.Dock, R.string.launcher_dock, R.string.launcher_dock_summary),
         LauncherFeatureItem(LauncherFeature.DockBlur, R.string.launcher_dock_blur, R.string.launcher_dock_blur_summary),
     )
-    val all = pages + recent + badges + folder + dock
+    val effects = listOf(
+        LauncherFeatureItem(LauncherFeature.ForceBlur, R.string.launcher_force_blur_title, R.string.launcher_force_blur_summary),
+    )
+    val all = pages + recent + badges + folder + dock + effects
 }
 
 @Composable

@@ -11,6 +11,8 @@ internal data class SoftwareUpdatePackageInfo(
     val bytes: Long,
     val checksum: String,
     val links: List<String>,
+    val downloadLinks: List<String> = emptyList(),
+    val linkFailures: List<SoftwareUpdateLinkFailure> = emptyList(),
 )
 
 internal object SoftwareUpdatePackageReader {
@@ -23,8 +25,8 @@ internal object SoftwareUpdatePackageReader {
             while (result.size < 128 && cursor.moveToNext()) {
                 cancellation.throwIfCanceled()
                 val links = listOfNotNull(
-                    SoftwareUpdateRules.validDownloadUrl(cursor.getString(5)),
                     SoftwareUpdateRules.validDownloadUrl(cursor.getString(6)),
+                    SoftwareUpdateRules.validDownloadUrl(cursor.getString(5)),
                 ).distinct()
                 result += SoftwareUpdatePackageInfo(
                     cursor.getString(0).orEmpty(), cursor.getString(1).orEmpty(), cursor.getInt(2),

@@ -40,9 +40,36 @@ class GameAssistantHookContractTest {
         assertTrue(source.contains("getIdentifier(\"game_develop_options_"))
         assertTrue(source.contains("GameAssistantRules.ENV_PREFERENCES"))
         assertTrue(source.contains("setOnCheckedChangeListener"))
-        assertTrue(source.contains("canReload = { dialog?.isShowing != true }"))
+        assertTrue(source.contains("canReload = { dialog?.isShowing != true && choiceDialog?.isShowing != true }"))
         assertFalse(source.contains("putBoolean(key, true)"))
         assertFalse(source.contains("getSharedPreferences(\"settings\""))
+    }
+    @Test fun developerBackendIsReadByTypeWithoutUnsupportedEnumeration() {
+        val controller = source("main/java/com/mi/onextbox/lsp/GameAssistantDeveloperController.kt")
+        val preferences = source("main/java/com/mi/onextbox/lsp/GameAssistantDeveloperPreferences.kt")
+        assertFalse(controller.contains("prefs.all"))
+        assertFalse(preferences.contains("prefs.all"))
+        assertFalse(controller.contains(".getAll("))
+        assertFalse(preferences.contains(".getAll("))
+        assertTrue(preferences.contains("prefs.getBoolean(key, defaultValue)"))
+        assertTrue(preferences.contains("prefs.getInt(key,"))
+        assertTrue(preferences.contains("prefs.getString(key, defaultValue)"))
+        assertTrue(controller.contains("GameAssistantDeveloperPreferences.boolean("))
+        assertTrue(controller.contains("GameAssistantDeveloperPreferences.selection("))
+        assertTrue(controller.contains("getAttributeResourceValue(ANDROID, \"defaultValue\", 0)"))
+        assertTrue(controller.contains("host.resources.getValue(id, value, true)"))
+    }
+    @Test fun developerClickFailuresAndPickerLifetimeCannotCrashTheHost() {
+        val controller = source("main/java/com/mi/onextbox/lsp/GameAssistantDeveloperController.kt")
+        for (action in listOf("entry", "category", "choice:", "switch:", "selection:")) {
+            assertTrue(action, controller.contains("action(host, \"$action"))
+        }
+        assertTrue(controller.contains("return runCatching { block(); true }"))
+        assertTrue(controller.contains("R.string.game_assistant_developer_failed"))
+        assertTrue(controller.contains("host.isFinishing || host.isDestroyed || HotReloadLifecycle.isRetiring"))
+        assertTrue(controller.contains("finally {\n                                        button.setOnCheckedChangeListener(listener)"))
+        assertTrue(controller.contains("popup.setOnDismissListener"))
+        assertTrue(controller.contains("choiceDialog?.dismiss(); choiceDialog = null"))
     }
     @Test fun sidebarCacheIsReadOnlyAfterTheNativeHelperHasInitialized() {
         val cache = source("main/java/com/mi/onextbox/lsp/GameAssistantHooker.kt").substringAfter("private fun maxCache(")
@@ -83,7 +110,7 @@ class GameAssistantHookContractTest {
             val nodes = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file).getElementsByTagName("string")
             val strings = (0 until nodes.length).map { nodes.item(it) }
                 .filter { it.attributes.getNamedItem("name").nodeValue.startsWith("game_assistant_") }
-            assertEquals(locale, 20, strings.size)
+            assertEquals(locale, 21, strings.size)
             strings.forEach { assertTrue(locale, it.textContent.isNotBlank()); assertFalse(locale, it.textContent.endsWith(".") || it.textContent.endsWith("。")) }
         }
     }

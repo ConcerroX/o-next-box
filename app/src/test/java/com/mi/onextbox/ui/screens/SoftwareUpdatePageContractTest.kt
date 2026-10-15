@@ -39,7 +39,9 @@ class SoftwareUpdatePageContractTest {
 
     @Test fun translatedStringsAndFormatArgumentsMatchInAllExistingCoreLocales() {
         val baseline = strings("values")
-        assertEquals(40, baseline.size)
+        assertEquals(46, baseline.size)
+        assertTrue(baseline.keys.containsAll(listOf("ota_details_source_links", "ota_details_link_failed_code",
+            "ota_details_link_auth_unavailable", "ota_details_link_timeout", "ota_details_link_network", "ota_details_link_failed")))
         listOf("values-zh-rCN", "values-zh-rTW", "values-b+yue+Hant", "values-ja", "values-ja-rCN",
             "values-ko", "values-vi", "values-ru").forEach { locale ->
             val translated = strings(locale)

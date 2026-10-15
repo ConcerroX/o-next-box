@@ -17,13 +17,15 @@ import android.widget.Toast
 import com.mi.onextbox.R
 import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.lang.ref.WeakReference
+import java.lang.reflect.Method
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 
-internal class SoftwareUpdateMenuController(resourceKey: String) {
+internal class SoftwareUpdateMenuController(resourceKey: String, private val attestation: Method? = null) {
     private val menus = WeakHashMap<Activity, Menu>()
     private val localEntryStates = WeakHashMap<Activity, Boolean>()
     private val dialogs = WeakHashMap<Activity, AlertDialog>()
+    private val dialogCancellations = WeakHashMap<AlertDialog, CancellationSignal>()
     private val tasks = ConcurrentHashMap<CancellationSignal, Boolean>()
     private val main = Handler(Looper.getMainLooper())
 
@@ -95,6 +97,7 @@ internal class SoftwareUpdateMenuController(resourceKey: String) {
 
     private fun dismiss(activity: Activity) {
         dialogs.remove(activity)?.let { dialog ->
+            dialogCancellations.remove(dialog)?.cancel()
             dialog.setOnShowListener(null)
             dialog.setOnCancelListener(null)
             dialog.setOnDismissListener(null)
@@ -121,17 +124,24 @@ internal class SoftwareUpdateMenuController(resourceKey: String) {
             .setNeutralButton(module.getString(R.string.ota_copy_links), null)
             .create()
         dialogs[activity] = dialog
-        dialog.setOnDismissListener { dialogs.remove(activity, dialog) }
+        val cancellation = CancellationSignal()
+        dialogCancellations[dialog] = cancellation
+        dialog.setOnDismissListener {
+            dialogCancellations.remove(dialog)?.cancel()
+            dialogs.remove(activity, dialog)
+        }
         dialog.show()
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = false
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).isEnabled = false
         val activityRef = WeakReference(activity)
-        val cancellation = CancellationSignal()
         tasks[cancellation] = true
         val context = activity.applicationContext
         try {
             Thread({
-                val result = runCatching { SoftwareUpdatePackageReader.read(context, cancellation) }
+                val result = runCatching {
+                    val packages = SoftwareUpdatePackageReader.read(context, cancellation)
+                    SoftwareUpdateLinkClient(context, cancellation, attestation).resolve(packages)
+                }
                 val delivered = main.post {
                     tasks.remove(cancellation)
                     HotReloadLifecycle.withHook(fallback = {}) {
@@ -144,7 +154,7 @@ internal class SoftwareUpdateMenuController(resourceKey: String) {
                             content.text = module.getString(R.string.ota_details_empty)
                         } else {
                             val details = format(owner, module, packages)
-                            val links = packages.flatMap { it.links }.distinct().joinToString("\n")
+                            val links = packages.flatMap { it.downloadLinks }.distinct().joinToString("\n")
                             content.text = details
                             dialog.getButton(AlertDialog.BUTTON_NEGATIVE).apply {
                                 isEnabled = true
@@ -178,8 +188,18 @@ internal class SoftwareUpdateMenuController(resourceKey: String) {
                 module.getString(R.string.ota_details_type, item.type),
                 module.getString(R.string.ota_details_size, Formatter.formatFileSize(context, item.bytes)),
                 module.getString(R.string.ota_details_checksum, item.checksum.ifEmpty { "—" }),
-                module.getString(R.string.ota_details_links, item.links.joinToString("\n").ifEmpty { "—" }),
-            ).joinToString("\n")
+                module.getString(R.string.ota_details_links, item.downloadLinks.joinToString("\n").ifEmpty { "—" }),
+                module.getString(R.string.ota_details_source_links, item.links.joinToString("\n").ifEmpty { "—" }),
+                item.linkFailures.map { failure ->
+                    when {
+                        failure.code != null -> module.getString(R.string.ota_details_link_failed_code, failure.code)
+                        failure.problem == SoftwareUpdateLinkProblem.Authentication -> module.getString(R.string.ota_details_link_auth_unavailable)
+                        failure.problem == SoftwareUpdateLinkProblem.Timeout -> module.getString(R.string.ota_details_link_timeout)
+                        failure.problem == SoftwareUpdateLinkProblem.Network -> module.getString(R.string.ota_details_link_network)
+                        else -> module.getString(R.string.ota_details_link_failed)
+                    }
+                }.distinct().joinToString("\n"),
+            ).filter { it.isNotEmpty() }.joinToString("\n")
         } + "\n\n" + module.getString(R.string.ota_details_auth_notice)
 
     private fun copy(context: Context, module: Context, value: String) {

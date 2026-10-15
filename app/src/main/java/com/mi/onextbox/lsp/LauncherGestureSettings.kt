@@ -6,16 +6,19 @@ import com.mi.onextbox.lsp.compat.HookConfigSnapshot
 internal object LauncherGestureSettings {
     // Preserve the saved switch while narrowing it to native secondary-menu grouping.
     const val MENU = "launcher_disable_icon_menu"
+    const val WIDGETS = "launcher_widgets_in_icon_menu"
     const val TOP = "launcher_simplify_swipe_top"
     const val WIDTH = "launcher_swipe_float_width"
     fun menu(context: Context) = LspPreferenceStore.prefs(context).getBoolean(MENU, false)
+    fun widgets(context: Context) = LspPreferenceStore.prefs(context).getBoolean(WIDGETS, false)
     fun top(context: Context) = LspPreferenceStore.prefs(context).getBoolean(TOP, false)
     fun width(context: Context) = LauncherGestureRules.width(LspPreferenceStore.prefs(context).getInt(WIDTH, 100))
     fun menuXposed() = HookConfigSnapshot.boolean(MENU, false) == true
+    fun widgetsXposed() = HookConfigSnapshot.boolean(WIDGETS, false) == true
     fun topXposed() = HookConfigSnapshot.boolean(TOP, false) == true
     fun widthXposed() = LauncherGestureRules.width(HookConfigSnapshot.int(WIDTH, 100) ?: 100)
     fun save(context: Context, key: String, enabled: Boolean) {
-        require(key == MENU || key == TOP)
+        require(key == MENU || key == WIDGETS || key == TOP)
         check(LspPreferenceStore.prefs(context).edit().putBoolean(key, enabled).commit())
         LspConfig.syncReadableState(context)
     }

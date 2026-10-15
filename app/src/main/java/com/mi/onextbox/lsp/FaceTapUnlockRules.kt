@@ -12,6 +12,9 @@ internal object FaceTapUnlockRules {
         val showing: Boolean,
         val interactive: Boolean,
         val blocked: Boolean,
+        // Display/AOD flags may lag a successful authentication; security/lifecycle gates may not.
+        val handoffBlocked: Boolean = blocked,
+        val blockReasons: String = "",
     )
 
     fun eligible(state: State): Boolean = with(state) {

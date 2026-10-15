@@ -23,17 +23,21 @@ internal class FluidCloudNotificationMaterial(
     private var nativeApi: NativeApi? = null
     private val backgrounds = WeakHashMap<View, WeakReference<MaterialDrawable>>()
     private val panels = WeakHashMap<View, PanelState>()
+    private val aod = FluidCloudAodMaterial(loader, report)
     @Volatile private var blurManager: WeakReference<Any>? = null
     private var revision = 0
 
-    private class PanelState(var key: FluidCloudMaterialRules.StyleKey? = null, var mix: Any? = null)
+    private class PanelState(var key: FluidCloudMaterialRules.StyleKey? = null, var mix: Any? = null, var aodProgress: Float? = null)
 
     fun captureReloadState(): Array<Any?> = arrayOf(
         blurManager?.get(),
         backgrounds.mapNotNull { (view, reference) -> reference.get()?.captureReloadState(view) }.toTypedArray(),
+        aod.capture(),
     )
 
     fun releaseAll() {
+        panels.keys.toList().forEach(::releasePanelAod)
+        aod.releaseAll()
         backgrounds.keys.toList().forEach(::release)
         backgrounds.clear()
         panels.clear()
@@ -44,6 +48,9 @@ internal class FluidCloudNotificationMaterial(
         val values = saved as? Array<*> ?: return
         values.getOrNull(0)?.let(::observeManager)
         if (!LspConfig.isFluidCloudMaterialEnabledXposed()) return
+        (values.getOrNull(2) as? Array<*>)?.filterIsInstance<View>()?.forEach { view ->
+            (view.parent as? View)?.let { updatePanelAod(it) }
+        }
         (values.getOrNull(1) as? Array<*>)?.forEach { item ->
             val state = item as? Array<*> ?: return@forEach
             val view = state.getOrNull(0) as? View ?: return@forEach
@@ -72,7 +79,7 @@ internal class FluidCloudNotificationMaterial(
     }
 
     /** CUSTOM rows skip normal notification size updates and the BP material-color layer. */
-    fun preparePanel(view: View, proxy: Any) {
+    fun preparePanel(view: View, proxy: Any, aodProgress: Float? = null) {
         val native = api()
         val config = Reflect.callMethod(proxy, "getBlurConfig") ?: return
         val width = (Reflect.callMethod(view, "getActualWidth") as Number).toInt()
@@ -80,21 +87,68 @@ internal class FluidCloudNotificationMaterial(
         val key = native.key(view.context, width, height, revision)
         val state = panels.getOrPut(view) { PanelState() }
         val mix = Reflect.callMethod(config, "getPlatformMixConfig")
-        if (state.key != key || state.mix != mix) {
+        val refresh = state.key != key || state.mix != mix
+        if (refresh) {
             native.update(config, view.context,
                 (Reflect.callMethod(config, "getCornerRadius") as Number).toFloat(),
                 (Reflect.callMethod(config, "getRadiusWeight") as? Number)?.toFloat() ?: 0f, key)
-            Reflect.callMethod(proxy, "applyBlurConfig")
             state.key = key
             state.mix = Reflect.callMethod(config, "getPlatformMixConfig")
         }
+        val fraction = FluidCloudAodMaterialRules.progress(aodProgress ?: aod.progress(view))
+        val aodChanged = fraction != state.aodProgress
+        if (FluidCloudAodMaterialRules.needsEffectUpdate(refresh, state.aodProgress, fraction)) {
+            native.applyAod(config, key.mode, fraction)
+        }
+        if (refresh || aodChanged) Reflect.callMethod(proxy, "applyBlurConfig")
+        // Interpolation must read the new recipe, not the previous frame's mix config.
+        aod.prepare(view, proxy, revision, rendererActive = true, fraction = fraction)
+        state.aodProgress = fraction
         // Keep native row classification/stacking intact. Only its shader geometry is shared.
-        native.ensureNotificationMetaBall(proxy, key.mode)
+        if (fraction == 0f) native.ensureNotificationMetaBall(proxy, key.mode)
+    }
+
+    fun updatePanelAod(row: View, fraction: Float? = null): Boolean {
+        val view = Reflect.callMethod(row, "getMBackgroundNormal") as? View ?: return false
+        if (HotReloadLifecycle.isRetiring || !LspConfig.isFluidCloudMaterialEnabledXposed()) { releasePanelAod(view); return false }
+        val extension = Reflect.callMethod(view, "getExt") ?: return false
+        val proxy = Reflect.callMethod(extension, "getViewBlurProxy")
+        val progress = FluidCloudAodMaterialRules.progress(fraction ?: aod.progress(view))
+        if (proxy != null && available(view) && isPanelMaterialActive(proxy)) preparePanel(view, proxy, progress)
+        else aod.prepare(view, proxy, revision, rendererActive = false, fraction = progress)
+        view.invalidate()
+        return aod.active(view)
+    }
+
+    private fun releasePanelAod(view: View) {
+        val state = panels[view]
+        if ((state?.aodProgress ?: 0f) > 0f) runCatching {
+            val extension = Reflect.callMethod(view, "getExt") ?: return@runCatching
+            val proxy = Reflect.callMethod(extension, "getViewBlurProxy") ?: return@runCatching
+            val config = Reflect.callMethod(proxy, "getBlurConfig") ?: return@runCatching
+            val mode = state?.key?.mode ?: return@runCatching
+            api().applyAod(config, mode, 0f)
+            Reflect.callMethod(proxy, "applyBlurConfig")
+            state.aodProgress = 0f
+        }.onFailure { report("Cannot restore notification material effects", it) }
+        aod.release(view)
+        view.invalidate()
+    }
+
+    fun hasPanelAodMaterial(extension: Any): Boolean = (Reflect.callMethod(extension, "getBgView") as? View)?.let(aod::active) == true
+
+    fun drawPanelAod(canvas: Canvas, extension: Any, proxy: Any) {
+        val view = Reflect.callMethod(extension, "getBgView") as? View ?: return
+        aod.draw(view, canvas, proxy)
     }
 
     fun drawPanelColor(canvas: Canvas, extension: Any, proxy: Any) {
         val native = api()
         if (!native.isBP()) return
+        val view = Reflect.callMethod(extension, "getBgView") as? View ?: return
+        // Match ordinary rows' live BP tint. A fallback AOD mask must be drawn after it;
+        // if AOD preparation failed, leave the native mask's final compositing untouched.
+        if (!FluidCloudAodMaterialRules.drawMaterialTint(aod.progress(view), aod.active(view))) return
         val color = native.materialColor()
         if (Color.alpha(color) == 0) return
         val drawable = Reflect.callMethod(extension, "getMaterialColorDrawable") as? Drawable ?: return
@@ -320,6 +374,12 @@ internal class FluidCloudNotificationMaterial(
         }
 
         fun isBP(): Boolean = Reflect.callStaticMethod(policy, "isBPAnimLevel") == true
+
+        fun applyAod(config: Any, modeName: String, fraction: Float) {
+            Reflect.callMethod(params, "applyAodProgressToNotificationBlurParams",
+                Reflect.callMethod(config, "getGradientStrokeLineParam"), Reflect.callMethod(config, "getInnerShadowParams"),
+                fraction, mode.getField(modeName).get(null))
+        }
 
         fun materialColor(): Int {
             val dependencies = dependency.getDeclaredField("sDependency").apply { isAccessible = true }.get(null) ?: return 0

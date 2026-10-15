@@ -453,8 +453,9 @@
     <string name="onboarding_next">Tiếp theo</string>
     <string name="onboarding_back">Quay lại</string>
     <string name="onboarding_refresh">Kiểm tra lại</string>
-    <string name="onboarding_agreements_title">Trước khi bạn bắt đầu</string>
-    <string name="onboarding_agreements_summary">Đọc và chọn tất cả sáu xác nhận bắt buộc để tiếp tục</string>
+    <string name="onboarding_agreements_title">Thỏa thuận và thông báo</string>
+    <string name="onboarding_agreements_summary">Nhấn tiêu đề để mở từng thỏa thuận trong sáu thỏa thuận, đọc rồi xác nhận tất cả để tiếp tục</string>
+    <string name="onboarding_agreements_accept_all">Tôi đã đọc và đồng ý với tất cả thỏa thuận và thông báo ở trên</string>
     <string name="onboarding_view_details">Xem chi tiết</string>
     <string name="onboarding_required">Cần có</string>
     <string name="onboarding_background_updates_title">Cho phép kiểm tra cập nhật nền</string>
@@ -500,6 +501,7 @@
     <string name="onboarding_complete_title">Mọi thứ đã sẵn sàng</string>
     <string name="onboarding_enter_app">Nhập ONextBox</string>
     <string name="onboarding_save_failed">Không thể lưu trạng thái kích hoạt . Vui lòng thử lại</string>
+    <string name="onboarding_agreements_required">Vui lòng đọc và đồng ý với tất cả thỏa thuận bắt buộc trước khi tiếp tục</string>
     <string name="feature_wallpapers_title">Hình nền và cá nhân hóa</string>
     <string name="feature_wallpapers_clock_group">Thêm</string>
     <string name="feature_wallpapers_red_one_entry_title">Hiển thị OnePlus đỏ 1 mục</string>
@@ -1066,7 +1068,7 @@
     <string name="ota_package_details_summary">Thêm chi tiết gói vào menu cập nhật, xem phiên bản, kích thước, mã kiểm tra trong bộ nhớ đệm và sao chép liên kết tải xuống</string>
     <string name="ota_save_failed">Không thể lưu cài đặt</string>
     <string name="ota_details_menu">Chi tiết gói cập nhật</string>
-    <string name="ota_details_loading">Đang đọc bộ nhớ đệm gói cập nhật…</string>
+    <string name="ota_details_loading">Đang đọc gói cập nhật và phân giải liên kết tải xuống…</string>
     <string name="ota_details_empty">Chưa có gói cập nhật trong bộ nhớ đệm, hãy kiểm tra cập nhật thủ công trước</string>
     <string name="ota_details_failed">Không thể đọc bộ nhớ đệm gói cập nhật</string>
     <string name="ota_copy_details">Sao chép chi tiết</string>
@@ -1078,7 +1080,13 @@
     <string name="ota_details_size">Kích thước: %1$s</string>
     <string name="ota_details_checksum">MD5: %1$s</string>
     <string name="ota_details_links">Liên kết tải xuống:\n%1$s</string>
-    <string name="ota_details_auth_notice">Trang này chỉ đọc bộ nhớ đệm, một số liên kết yêu cầu xác thực và có thể không dùng được ngoài ứng dụng cập nhật</string>
+    <string name="ota_details_source_links">Liên kết gốc:\n%1$s</string>
+    <string name="ota_details_link_failed_code">Không thể phân giải liên kết (mã lỗi %1$d)</string>
+    <string name="ota_details_link_auth_unavailable">Không thể hoàn tất xác thực thiết bị, giữ lại liên kết xác thực gốc</string>
+    <string name="ota_details_link_timeout">Phân giải liên kết hết thời gian, mở lại trang này để thử lại</string>
+    <string name="ota_details_link_network">Không thể kết nối máy chủ tải xuống, giữ lại liên kết gốc</string>
+    <string name="ota_details_link_failed">Máy chủ không trả về liên kết gói cập nhật khả dụng, giữ lại liên kết gốc</string>
+    <string name="ota_details_auth_notice">Chỉ phân giải gói đã lưu trong bộ nhớ đệm, không bắt đầu tải hoặc cài đặt OTA; liên kết có thể hết hạn, hãy mở lại trang này để phân giải lại</string>
     <string name="ota_blocking_group">Chặn cập nhật</string>
     <string name="ota_block_system_title">Chặn cập nhật hệ thống</string>
     <string name="ota_block_system_summary">Ngăn phát hiện phiên bản OTA hệ thống mới</string>
@@ -1130,6 +1138,9 @@
     <string name="statusbar_layout_group">Biểu tượng và lề</string>
     <string name="statusbar_order_title">Thứ tự biểu tượng thanh trạng thái</string>
     <string name="statusbar_margins_title">Lề trái và phải thanh trạng thái</string>
+    <string name="statusbar_vertical_margins_title">Lề trên và dưới thanh trạng thái</string>
+    <string name="statusbar_margin_top">Độ lệch lề trên</string>
+    <string name="statusbar_margin_bottom">Độ lệch lề dưới</string>
     <string name="statusbar_margin_left">Độ lệch lề trái</string>
     <string name="statusbar_margin_right">Độ lệch lề phải</string>
     <string name="statusbar_order_up">Chuyển lên trước</string>
@@ -1147,6 +1158,8 @@
     <string name="statusbar_icon_nfc">NFC</string>
     <string name="statusbar_icon_cast">Truyền màn hình</string>
     <string name="launcher_icon_interaction_group">Tương tác biểu tượng</string>
+    <string name="launcher_widgets_menu_title">Hiện tiện ích trong menu biểu tượng</string>
+    <string name="launcher_widgets_menu_summary">Hiện mục chọn tiện ích gốc trong menu nhấn giữ biểu tượng của ứng dụng có tiện ích</string>
     <string name="launcher_disable_icon_menu_title">Tắt menu phụ</string>
     <string name="launcher_disable_icon_menu_summary">Ẩn menu phụ của biểu tượng ứng dụng</string>
     <string name="launcher_swipe_gesture_group">Cử chỉ vuốt lên</string>
@@ -1167,6 +1180,7 @@
     <string name="game_assistant_skins_title">Thay đổi giao diện Trợ lý trò chơi</string>
     <string name="game_assistant_skin_title">Giao diện hiển thị</string>
     <string name="game_assistant_developer_restart">Khởi động lại trợ lý trò chơi sau khi đổi tùy chọn gỡ lỗi; mở trang này không tự bật tùy chọn nào</string>
+    <string name="game_assistant_developer_failed">Không thể mở hoặc lưu tùy chọn gỡ lỗi này, hãy kiểm tra nhật ký mô-đun</string>
     <string name="game_assistant_skin_default">Mặc định</string>
     <string name="game_assistant_skin_cyber">Thi đấu Cyber</string>
     <string name="game_assistant_skin_snipe">Bắn tỉa chính xác</string>
@@ -1189,4 +1203,19 @@
     <string name="statusbar_icon_dynamic_info">Thông tin động</string>
     <string name="statusbar_order_reset">Khôi phục mặc định</string>
     <string name="feature_only_data_sim_independent_title">Chỉ áp dụng cho biểu tượng sóng riêng biệt</string>
+    <string name="carrier_name_group">Tên nhà mạng</string>
+    <string name="carrier_name_title">Tùy chỉnh tên nhà mạng</string>
+    <string name="carrier_name_summary">Đổi tên nhà mạng hiển thị trong giao diện hệ thống mà không đổi cài đặt SIM hoặc mạng</string>
+    <string name="carrier_name_sim1">Tên nhà mạng SIM 1</string>
+    <string name="carrier_name_sim2">Tên nhà mạng SIM 2</string>
+    <string name="carrier_name_original">Dùng tên gốc</string>
+    <string name="carrier_name_hint">Để trống để dùng tên gốc, tối đa %1$d ký tự</string>
+    <string name="carrier_name_reset">Khôi phục tên nhà mạng</string>
+    <string name="qs_tile_corner_group">Giao diện Trung tâm điều khiển</string>
+    <string name="qs_tile_corner_title">Tùy chỉnh góc Trung tâm điều khiển</string>
+    <string name="qs_tile_corner_summary">Điều chỉnh góc các ô, thẻ phương tiện và thanh độ sáng/âm lượng trong Trung tâm điều khiển; tắt để khôi phục hình dạng hệ thống</string>
+    <string name="qs_tile_corner_radius">Bán kính góc</string>
+    <string name="launcher_group_effects">Hiệu ứng hình ảnh</string>
+    <string name="launcher_force_blur_title">Buộc bật hiệu ứng làm mờ màn hình chính</string>
+    <string name="launcher_force_blur_summary">Thử gỡ giới hạn thiết bị cho nền màn hình chính, menu nhấn giữ và hoạt ảnh làm mờ, vẫn tuân theo cài đặt làm mờ hệ thống, tiết kiệm pin và chủ đề; có thể tăng tiêu thụ pin và cần firmware hỗ trợ sẵn; khởi động lại trình khởi chạy sau khi thay đổi</string>
 </resources>

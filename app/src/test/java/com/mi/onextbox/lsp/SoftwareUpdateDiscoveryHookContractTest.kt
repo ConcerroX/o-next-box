@@ -43,7 +43,7 @@ class SoftwareUpdateDiscoveryHookContractTest {
         assertTrue(hook.contains("HotReloadLifecycle.register(\"\$prefix:targets\", capture = { targets })"))
         assertTrue(hook.contains("ModernHookRegistry.installFast"))
         assertTrue(hook.contains("deoptimize(it)"))
-        assertTrue(source("SoftwareUpdateTargets.kt").contains("schema:update-discovery-v3"))
+        assertTrue(source("SoftwareUpdateTargets.kt").contains("schema:update-discovery-v4"))
     }
 
     private fun source(path: String) = listOf(File("src/main/java/com/mi/onextbox/lsp/$path"),

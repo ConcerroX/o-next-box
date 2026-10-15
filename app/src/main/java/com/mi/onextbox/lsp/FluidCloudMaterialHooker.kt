@@ -57,6 +57,28 @@ internal object FluidCloudMaterialHooker {
     }
 
     private fun installPanelMaterial(loader: ClassLoader) {
+        runCatching {
+            val changer = Reflect.findClass("com.oplus.systemui.notification.aod.notification.NotificationDetailColorChanger", loader)
+            val row = Reflect.findClass("com.oplus.systemui.statusbar.notification.customcard.OplusCustomRow", loader)
+            val method = changer.getDeclaredMethod("changeAodCustomRowColor", row, Float::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
+            ModernHookRegistry.installFast("$TAG:panel:aodProgress", method, XposedInterface.Hooker { chain ->
+                val result = chain.proceed()
+                runCatching {
+                    val view = chain.getArg(0) as? View ?: return@runCatching
+                    // Removal/idle callbacks may pass zero while the global AOD is still active.
+                    val fraction = (chain.getArg(1) as? Number)?.toFloat()
+                    if (material.updatePanelAod(view, fraction)) logged("panel:aod", "Fluid Cloud AOD uses native notification colors and effect fading")
+                }
+                    .onFailure { diagnose("Cannot synchronize Fluid Cloud AOD material", it) }
+                result
+            })
+            changer.declaredMethods.filter { it.name == "changeAodCustomRowColor" }.forEach {
+                ModernHookRuntime.requireModule().deoptimize(it)
+            }
+            val transition = Reflect.findClass("com.oplus.systemui.notification.aod.notification.NotificationAodTransition", loader)
+            transition.declaredMethods.filter { it.name in listOf("applyProgressToChildView", "onProgressChanged", "notifyDataChanged") }
+                .forEach { ModernHookRuntime.requireModule().deoptimize(it) }
+        }.onFailure { diagnose("Fluid Cloud AOD transition hook unavailable", it) }
         // Expanded cards do not participate in ViewBlurManager's native row refresh list.
         // Propagate resource/motion changes and animated BP tint changes without rebuilding
         // the proxy or recalculating geometry on every frame.
@@ -170,11 +192,16 @@ internal object FluidCloudMaterialHooker {
 
         runCatching {
             val gate = FluidCloudPanelDrawGate()
+            val aodScope = FluidCloudAodDrawScope()
             val extension = Reflect.findClass("com.oplus.systemui.statusbar.notification.row.NotificationBackgroundViewExtImp", loader)
             val row = Reflect.findClass("com.oplus.systemui.statusbar.notification.customcard.OplusCustomRow", loader)
             val draw = extension.getDeclaredMethod("draw", Canvas::class.java, Drawable::class.java)
             val policy = Reflect.findClass("com.oplusos.systemui.common.util.ScrimUtil", loader)
                 .getDeclaredMethod("isBPAnimLevel")
+            val aodMask = extension.getDeclaredMethod("getPanoramicAodDrawable")
+            ModernHookRegistry.installFast("$TAG:panel:aodMask", aodMask, XposedInterface.Hooker { chain ->
+                if (aodScope.hidesMask(chain.thisObject)) null else chain.proceed()
+            })
             ModernHookRegistry.installFast("$TAG:panel:drawDispatch", policy, XposedInterface.Hooker { chain ->
                 // Only the first dispatch check in this exact native draw chooses the CUSTOM
                 // solid/MetaBall shortcut. Later animation, stacking and AOD checks remain native.
@@ -195,13 +222,17 @@ internal object FluidCloudMaterialHooker {
                     true
                 }.onFailure { diagnose("Cannot select panel notification draw path", it) }.getOrDefault(false) else false
                 if (use) logged("draw", "Fluid Cloud panel background uses the ordinary notification draw path")
-                val result = gate.duringDraw(use) { chain.proceed() }
+                val result = aodScope.duringDraw(if (use && material.hasPanelAodMaterial(requireNotNull(extension))) extension else null) {
+                    gate.duringDraw(use) { chain.proceed() }
+                }
                 if (use) runCatching {
                     material.drawPanelColor(chain.getArg(0) as Canvas, requireNotNull(extension), requireNotNull(proxy))
+                    material.drawPanelAod(chain.getArg(0) as Canvas, requireNotNull(extension), requireNotNull(proxy))
                 }.onFailure { diagnose("Cannot draw native notification material color", it) }
                 result
             })
             ModernHookRuntime.requireModule().deoptimize(draw)
+            ModernHookRuntime.requireModule().deoptimize(aodMask)
         }.onFailure { diagnose("Panel background dispatch hook unavailable", it) }
     }
 

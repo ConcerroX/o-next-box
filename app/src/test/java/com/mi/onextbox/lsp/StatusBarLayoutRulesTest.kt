@@ -80,4 +80,72 @@ class StatusBarLayoutRulesTest {
         assertEquals(listOf(5, 8), source)
         assertEquals(listOf(8, 5), sorted)
     }
+
+    @Test fun verticalOffsetsUseNativePaddingDensityAndIndependentValues() {
+        assertEquals(8 to 7, StatusBarLayoutRules.verticalPadding(6, 4, 2, 3, 1f, 40, 20))
+        assertEquals(10 to 4, StatusBarLayoutRules.verticalPadding(6, 4, 2, 0, 2f, 40, 20))
+        assertEquals(6 to 8, StatusBarLayoutRules.verticalPadding(6, 4, 0, 2, 2f, 40, 20))
+        assertEquals(6 to 4, StatusBarLayoutRules.verticalPadding(6, 4, 0, 0, 3f, 40, 20))
+    }
+
+    @Test fun negativeVerticalOffsetsNeverMovePaddingOutsideTheWindow() {
+        assertEquals(0 to 0, StatusBarLayoutRules.verticalPadding(6, 4, -16, -16, 2f, 40, 20))
+        assertEquals(0 to 4, StatusBarLayoutRules.verticalPadding(6, 4, -500, 0, 2f, 40, 20))
+    }
+
+    @Test fun oversizedVerticalOffsetsShareSpaceWithoutErasingTheNativeIconRow() {
+        val result = StatusBarLayoutRules.verticalPadding(6, 4, 40, 40, 2f, 40, 20)
+        assertEquals(10 to 10, result)
+        assertEquals(20, 40 - result.first - result.second)
+        val down = StatusBarLayoutRules.verticalPadding(6, 4, 40, 0, 2f, 40, 20)
+        val up = StatusBarLayoutRules.verticalPadding(6, 4, 0, 40, 2f, 40, 20)
+        assertTrue(down.first > down.second)
+        assertTrue(up.second > up.first)
+    }
+
+    @Test fun verticalLimitsAndExistingNativeClippingDoNotChangeZeroOffsets() {
+        assertEquals(6 to 4, StatusBarLayoutRules.verticalPadding(6, 4, 0, 0, 2f, 20, 30))
+        assertEquals(StatusBarLayoutRules.verticalPadding(6, 4, 40, -16, 2f, 40, 20),
+            StatusBarLayoutRules.verticalPadding(6, 4, Int.MAX_VALUE, Int.MIN_VALUE, 2f, 40, 20))
+    }
+
+    @Test fun invalidOrUnavailableVerticalMetricsKeepNativeGeometry() {
+        for (density in listOf(0f, -1f, Float.NaN, Float.POSITIVE_INFINITY)) {
+            assertEquals(6 to 4, StatusBarLayoutRules.verticalPadding(6, 4, 5, 5, density, 40, 20))
+        }
+        assertEquals(6 to 4, StatusBarLayoutRules.verticalPadding(6, 4, 5, 5, 2f, 0, 20))
+        assertEquals(6 to 4, StatusBarLayoutRules.verticalPadding(6, 4, 5, 5, 2f, 40, 0))
+        assertEquals(6 to 4, StatusBarLayoutRules.verticalPadding(6, 4, 5, 5, 2f, 10, 20))
+        assertEquals(-1 to 4, StatusBarLayoutRules.verticalPadding(-1, 4, 5, 5, 2f, 40, 20))
+    }
+
+    @Test fun rotatedDisplaysFontSizesAndExtremeInputsStayWithinCurrentHeight() {
+        for (height in listOf(32, 40, 100, Int.MAX_VALUE)) {
+            for (icon in listOf(16, 24, 100)) {
+                for (density in listOf(1f, 2.75f, 4f, Float.MAX_VALUE)) {
+                    for (top in listOf(-16, 0, 5, 40)) for (bottom in listOf(-16, 0, 5, 40)) {
+                        val padding = StatusBarLayoutRules.verticalPadding(6, 4, top, bottom, density, height, icon)
+                        assertTrue(padding.first >= 0 && padding.second >= 0)
+                        assertTrue(height.toLong() - padding.first - padding.second >= minOf(icon, height - 10))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test fun eachRecalculationStartsFromNativePaddingNotThePreviousOverride() {
+        val first = StatusBarLayoutRules.verticalPadding(6, 4, 2, 3, 1f, 40, 20)
+        repeat(10) { assertEquals(first, StatusBarLayoutRules.verticalPadding(6, 4, 2, 3, 1f, 40, 20)) }
+        assertEquals(6 to 4, StatusBarLayoutRules.verticalPadding(6, 4, 0, 0, 1f, 40, 20))
+    }
+
+    @Test fun freshInstallLeavesBothAxesOffWithZeroVerticalOffsets() {
+        val state = StatusBarLayoutSettings.State()
+        assertFalse(state.marginsEnabled)
+        assertFalse(state.verticalMarginsEnabled)
+        assertEquals(0, state.top)
+        assertEquals(0, state.bottom)
+        assertFalse(state.copy(marginsEnabled = true).verticalMarginsEnabled)
+        assertFalse(state.copy(verticalMarginsEnabled = true).marginsEnabled)
+    }
 }

@@ -458,8 +458,9 @@
     <string name="onboarding_next">下一步</string>
     <string name="onboarding_back">返回</string>
     <string name="onboarding_refresh">重新偵測</string>
-    <string name="onboarding_agreements_title">開始前，請先瞭解這些事項</string>
-    <string name="onboarding_agreements_summary">閱讀並逐項勾選以下 6 項必選確認後才能繼續</string>
+    <string name="onboarding_agreements_title">協議與聲明</string>
+    <string name="onboarding_agreements_summary">點選標題展開六份協議，閱讀後統一確認即可繼續</string>
+    <string name="onboarding_agreements_accept_all">我已閱讀並同意上述全部協議與聲明</string>
     <string name="onboarding_view_details">查看詳細資料</string>
     <string name="onboarding_required">必選</string>
     <string name="onboarding_background_updates_title">允許背景檢查更新</string>
@@ -505,6 +506,7 @@
     <string name="onboarding_complete_title">一切準備就緒</string>
     <string name="onboarding_enter_app">進入 ONextBox</string>
     <string name="onboarding_save_failed">無法儲存啟用狀態，請重試</string>
+    <string name="onboarding_agreements_required">請先閱讀並同意所有必要協議，再繼續啟用</string>
     <string name="feature_wallpapers_title">桌布與個人化</string>
     <string name="feature_wallpapers_clock_group">更多</string>
     <string name="feature_wallpapers_red_one_entry_title">顯示一加紅「1」入口</string>
@@ -1066,7 +1068,7 @@
     <string name="ota_package_details_summary">在軟體更新選單中新增更新套件詳情，查看快取中的版本、大小、校驗值並複製下載連結</string>
     <string name="ota_save_failed">儲存設定失敗</string>
     <string name="ota_details_menu">更新套件詳情</string>
-    <string name="ota_details_loading">正在讀取更新套件快取…</string>
+    <string name="ota_details_loading">正在讀取更新套件並解析下載連結…</string>
     <string name="ota_details_empty">暫無快取更新套件，請先在軟體更新中手動檢查更新</string>
     <string name="ota_details_failed">讀取更新套件快取失敗</string>
     <string name="ota_copy_details">複製詳情</string>
@@ -1078,7 +1080,13 @@
     <string name="ota_details_size">大小：%1$s</string>
     <string name="ota_details_checksum">MD5：%1$s</string>
     <string name="ota_details_links">下載連結：\n%1$s</string>
-    <string name="ota_details_auth_notice">此頁只讀取快取，部分下載連結需要驗證，離開軟體更新後可能無法直接使用</string>
+    <string name="ota_details_source_links">原始連結：\n%1$s</string>
+    <string name="ota_details_link_failed_code">連結解析失敗（錯誤碼 %1$d）</string>
+    <string name="ota_details_link_auth_unavailable">無法完成裝置驗證，保留原始校驗位址</string>
+    <string name="ota_details_link_timeout">連結解析逾時，請重新開啟詳情頁重試</string>
+    <string name="ota_details_link_network">無法連線至下載伺服器，保留原始連結</string>
+    <string name="ota_details_link_failed">伺服器未傳回可用的更新套件連結，保留原始連結</string>
+    <string name="ota_details_auth_notice">僅解析已快取的更新套件，不啟動 OTA 下載或安裝；下載連結可能失效，失效後請重新開啟此頁解析</string>
     <string name="ota_blocking_group">更新封鎖</string>
     <string name="ota_block_system_title">封鎖系統更新</string>
     <string name="ota_block_system_summary">阻止取得新的系統 OTA 版本</string>
@@ -1142,6 +1150,9 @@
     <string name="statusbar_layout_group">圖示與邊距</string>
     <string name="statusbar_order_title">狀態列圖示排序</string>
     <string name="statusbar_margins_title">狀態列左右邊距</string>
+    <string name="statusbar_vertical_margins_title">狀態列上下邊距</string>
+    <string name="statusbar_margin_top">頂部邊距偏移</string>
+    <string name="statusbar_margin_bottom">底部邊距偏移</string>
     <string name="statusbar_margin_left">左側邊距偏移</string>
     <string name="statusbar_margin_right">右側邊距偏移</string>
     <string name="statusbar_order_up">向前移動</string>
@@ -1159,6 +1170,8 @@
     <string name="statusbar_icon_nfc">NFC</string>
     <string name="statusbar_icon_cast">投放螢幕</string>
     <string name="launcher_icon_interaction_group">圖示互動</string>
+    <string name="launcher_widgets_menu_title">長按選單顯示小工具</string>
+    <string name="launcher_widgets_menu_summary">在提供小工具的應用程式圖示長按選單中顯示原生小工具入口</string>
     <string name="launcher_disable_icon_menu_title">停用次級選單</string>
     <string name="launcher_disable_icon_menu_summary">隱藏應用程式圖示的次級選單</string>
     <string name="launcher_swipe_gesture_group">上滑手勢</string>
@@ -1179,6 +1192,7 @@
     <string name="game_assistant_skins_title">修改遊戲助手外觀</string>
     <string name="game_assistant_skin_title">介面外觀</string>
     <string name="game_assistant_developer_restart">修改偵錯選項後重新啟動遊戲助手，開啟此頁不會自動啟用任何選項</string>
+    <string name="game_assistant_developer_failed">無法開啟或儲存此偵錯選項，請查看模組日誌</string>
     <string name="game_assistant_skin_default">預設</string>
     <string name="game_assistant_skin_cyber">賽博競技</string>
     <string name="game_assistant_skin_snipe">精準狙擊</string>
@@ -1201,4 +1215,19 @@
     <string name="statusbar_icon_dynamic_info">動態資訊</string>
     <string name="statusbar_order_reset">還原預設</string>
     <string name="feature_only_data_sim_independent_title">僅獨立樣式生效</string>
+    <string name="carrier_name_group">電信業者名稱</string>
+    <string name="carrier_name_title">自訂電信業者名稱</string>
+    <string name="carrier_name_summary">修改系統介面顯示的電信業者名稱，不影響 SIM 卡和網路設定</string>
+    <string name="carrier_name_sim1">SIM 1 電信業者名稱</string>
+    <string name="carrier_name_sim2">SIM 2 電信業者名稱</string>
+    <string name="carrier_name_original">使用原名稱</string>
+    <string name="carrier_name_hint">留空使用原名稱，最多 %1$d 個字元</string>
+    <string name="carrier_name_reset">還原電信業者名稱</string>
+    <string name="qs_tile_corner_group">控制中心外觀</string>
+    <string name="qs_tile_corner_title">自訂控制中心圓角</string>
+    <string name="qs_tile_corner_summary">調整控制中心磁貼、媒體卡片及亮度和音量滑桿的圓角，關閉後恢復系統形狀</string>
+    <string name="qs_tile_corner_radius">圓角半徑</string>
+    <string name="launcher_group_effects">視覺效果</string>
+    <string name="launcher_force_blur_title">強制開啟桌面模糊動效</string>
+    <string name="launcher_force_blur_summary">嘗試解除桌面背景、長按選單材質及相關模糊動效的機型限制，遵循系統模糊、省電和主題設定；可能增加耗電，韌體需保留原生模糊支援，切換後需重新啟動桌面</string>
 </resources>

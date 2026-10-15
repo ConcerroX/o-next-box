@@ -9,6 +9,8 @@ internal class SoftwareUpdateTargets(private val dex: DexKitBridge) {
     fun resolve(loader: ClassLoader): Map<String, Array<Method>> {
         val targets = linkedMapOf<String, Array<Method>>()
         val lookups: Map<String, () -> MethodData> = linkedMapOf(
+            "downloadAttestation" to { anchored("generate attestation header exception:", "void",
+                "java.net.HttpURLConnection", CONTEXT, "java.lang.String", "int") },
             "root" to { anchored("device is root from su binary file:", "boolean", CONTEXT) },
             "bootloaderGuard" to { anchored("verity state=", "boolean", ownerTag = " device state=") },
             "bootloaderReport" to {
@@ -121,7 +123,7 @@ internal class SoftwareUpdateTargets(private val dex: DexKitBridge) {
         }.single()
 
     companion object {
-        const val CACHE_SCHEMA = "schema:update-discovery-v3"
+        const val CACHE_SCHEMA = "schema:update-discovery-v4"
         private const val CONTEXT = "android.content.Context"
     }
 }

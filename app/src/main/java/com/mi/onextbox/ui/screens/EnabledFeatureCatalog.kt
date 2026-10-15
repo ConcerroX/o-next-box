@@ -17,12 +17,16 @@ internal object EnabledFeatureCatalog {
         val read: suspend (Context) -> Boolean,
     )
     val entries = listOf(
+        Entry(R.string.qs_tile_corner_title, FeaturePageMode.SystemUiControlCenter) { QsTileCornerSettings.state(it).enabled },
         Entry(R.string.statusbar_order_title, FeaturePageMode.SystemUiStatusBar) { StatusBarLayoutSettings.state(it).orderEnabled },
         Entry(R.string.statusbar_sim_order_title, FeaturePageMode.SystemUiIconOrder, parents = setOf(R.string.statusbar_order_title)) {
             StatusBarLayoutSettings.state(it).simEnabled
         },
         Entry(R.string.statusbar_margins_title, FeaturePageMode.SystemUiStatusBar) { StatusBarLayoutSettings.state(it).marginsEnabled },
+        Entry(R.string.statusbar_vertical_margins_title, FeaturePageMode.SystemUiStatusBar) { StatusBarLayoutSettings.state(it).verticalMarginsEnabled },
+        Entry(R.string.carrier_name_title, FeaturePageMode.SystemUiStatusBar) { CarrierNameSettings.state(it).enabled },
         Entry(R.string.launcher_disable_icon_menu_title, FeaturePageMode.DesktopIcons) { LauncherGestureSettings.menu(it) },
+        Entry(R.string.launcher_widgets_menu_title, FeaturePageMode.DesktopIcons) { LauncherGestureSettings.widgets(it) },
         Entry(R.string.launcher_swipe_top_title, FeaturePageMode.DesktopRecent) { LauncherGestureSettings.top(it) },
         Entry(R.string.wallpaper_motion_title, FeaturePageMode.Wallpapers) { context -> WallpaperMotionSettings.enabled(context) },
         Entry(R.string.feature_aod_enhance_toggle_title, FeaturePageMode.Aod) { context -> LspConfig.isAodEnhanceEnabled(context) },
@@ -169,7 +173,7 @@ internal object EnabledFeatureCatalog {
         FeaturePageMode.DesktopPages to LauncherFeatureItems.pages,
         FeaturePageMode.DesktopRecent to LauncherFeatureItems.recent,
         FeaturePageMode.DesktopIcons to (LauncherFeatureItems.badges + LauncherFeatureItems.folder),
-        FeaturePageMode.DesktopLayout to LauncherFeatureItems.dock,
+        FeaturePageMode.DesktopLayout to (LauncherFeatureItems.dock + LauncherFeatureItems.effects),
     ).flatMap { (page, items) ->
         items.map { item ->
             Entry(item.title, page,
@@ -198,6 +202,7 @@ internal object EnabledFeatureCatalog {
     /** Parameters are read once with the inventory, never by invoking feature setters. */
     fun detail(context: Context, title: Int): String = when (title) {
         R.string.statusbar_margins_title -> StatusBarLayoutSettings.state(context).let { "${it.left} dp / ${it.right} dp" }
+        R.string.statusbar_vertical_margins_title -> StatusBarLayoutSettings.state(context).let { "${it.top} dp / ${it.bottom} dp" }
         R.string.launcher_swipe_top_title -> "${LauncherGestureSettings.width(context)}%"
         R.string.launcher_custom_grid_title -> LauncherGridSettings.state(context).grid.let { "${it.columns} × ${it.rows}" }
         R.string.feature_recent_task_radius_title -> "${LspConfig.getRecentTaskRadiusDp(context)} dp"

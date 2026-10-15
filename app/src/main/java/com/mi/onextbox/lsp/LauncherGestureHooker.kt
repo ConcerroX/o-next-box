@@ -19,6 +19,7 @@ internal object LauncherGestureHooker {
     private fun report(stage: String) { if (reported.add(stage)) HookLog.i(TAG, "Native launcher adapter reached: $stage") }
     fun hook(loader: ClassLoader) {
         runCatching { hookMenu(loader) }.onFailure { HookLog.w(TAG, "Secondary-menu adapter unavailable", it) }
+        runCatching { LauncherWidgetMenuHooker.hook(loader) }.onFailure { HookLog.w(TAG, "Widget-menu adapter unavailable", it) }
         runCatching { hookTop(loader) }.onFailure { HookLog.w(TAG, "Swipe-top adapter unavailable", it) }
     }
     private fun deopt(type: Class<*>, names: Set<String>) {

@@ -70,10 +70,42 @@ private fun <T> rememberCustomization(keys: Set<String>, read: (Context) -> T): 
 }
 
 @Composable
+internal fun QsTileCornerSettingsGroup() {
+    val context = LocalContext.current.applicationContext
+    val editor = rememberCustomization(QsTileCornerSettings.keys, QsTileCornerSettings::state)
+    val value = editor.state
+    SettingsSection(title = stringResource(R.string.qs_tile_corner_group))
+    FeatureAnimatedGroup(animateChanges = true) {
+        row(QsTileCornerSettings.ENABLED) { above, below ->
+            SettingsToggleRow(title = stringResource(R.string.qs_tile_corner_title), summary = stringResource(R.string.qs_tile_corner_summary),
+                checked = value.enabled, switchEnabled = editor.savingKey != QsTileCornerSettings.ENABLED,
+                hasDividerAbove = above, hasDividerBelow = below,
+                onCheckedChange = { enabled -> editor.save(QsTileCornerSettings.ENABLED, value.copy(enabled = enabled)) {
+                    QsTileCornerSettings.setEnabled(context, enabled)
+                } })
+        }
+        row(QsTileCornerSettings.RADIUS, visible = value.enabled) { above, below ->
+            FeatureSliderRow(heading = stringResource(R.string.qs_tile_corner_radius), currentValue = "${value.radius} dp",
+                value = value.radius.toFloat(), valueRange = 0f..QsTileCornerRules.MAX_DP.toFloat(), steps = QsTileCornerRules.MAX_DP - 1,
+                enabled = editor.savingKey != QsTileCornerSettings.RADIUS,
+                onValueChange = { editor.state = editor.state.copy(radius = it.roundToInt()) },
+                onValueChangeFinished = {
+                    val selected = editor.state
+                    editor.save(QsTileCornerSettings.RADIUS, selected) { QsTileCornerSettings.setRadius(context, selected.radius) }
+                },
+                onReset = { editor.save(QsTileCornerSettings.RADIUS, value.copy(radius = QsTileCornerRules.DEFAULT_DP)) {
+                    QsTileCornerSettings.setRadius(context, QsTileCornerRules.DEFAULT_DP)
+                } }, hasDividerAbove = above, hasDividerBelow = below)
+        }
+    }
+}
+
+@Composable
 internal fun StatusBarLayoutSettingsGroup(onOpenOrder: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val editor = rememberCustomization(setOf(StatusBarLayoutSettings.ORDER_ENABLED, StatusBarLayoutSettings.ORDER,
         StatusBarLayoutSettings.MARGINS_ENABLED, StatusBarLayoutSettings.LEFT, StatusBarLayoutSettings.RIGHT,
+        StatusBarLayoutSettings.VERTICAL_MARGINS_ENABLED, StatusBarLayoutSettings.TOP, StatusBarLayoutSettings.BOTTOM,
         StatusBarLayoutSettings.SIM_ENABLED, StatusBarLayoutSettings.SIM_ORDER), StatusBarLayoutSettings::state)
     val value = editor.state
     fun save(key: String, next: StatusBarLayoutSettings.State) = editor.save(key, next) { StatusBarLayoutSettings.save(context, next) }
@@ -108,6 +140,26 @@ internal fun StatusBarLayoutSettingsGroup(onOpenOrder: () -> Unit) {
                     onValueChange = { next -> editor.state = if (left) editor.state.copy(left = next.roundToInt()) else editor.state.copy(right = next.roundToInt()) },
                     onValueChangeFinished = { save(key, editor.state) },
                     onReset = { save(key, if (left) value.copy(left = 0) else value.copy(right = 0)) },
+                    hasDividerAbove = above, hasDividerBelow = below)
+            }
+        }
+        row("vertical-margins") { above, below ->
+            SettingsToggleRow(title = stringResource(R.string.statusbar_vertical_margins_title), summary = "",
+                checked = value.verticalMarginsEnabled, switchEnabled = editor.savingKey != StatusBarLayoutSettings.VERTICAL_MARGINS_ENABLED,
+                onCheckedChange = { next -> editor.save(StatusBarLayoutSettings.VERTICAL_MARGINS_ENABLED,
+                    value.copy(verticalMarginsEnabled = next)) { StatusBarLayoutSettings.setVerticalMarginsEnabled(context, next) } },
+                hasDividerAbove = above, hasDividerBelow = below)
+        }
+        listOf(true, false).forEach { top ->
+            val key = if (top) StatusBarLayoutSettings.TOP else StatusBarLayoutSettings.BOTTOM
+            val amount = if (top) value.top else value.bottom
+            row(key, visible = value.verticalMarginsEnabled) { above, below ->
+                FeatureSliderRow(heading = stringResource(if (top) R.string.statusbar_margin_top else R.string.statusbar_margin_bottom),
+                    currentValue = "$amount dp", value = amount.toFloat(), valueRange = -16f..40f, steps = 55,
+                    enabled = editor.savingKey != key,
+                    onValueChange = { next -> editor.state = if (top) editor.state.copy(top = next.roundToInt()) else editor.state.copy(bottom = next.roundToInt()) },
+                    onValueChangeFinished = { save(key, editor.state) },
+                    onReset = { save(key, if (top) value.copy(top = 0) else value.copy(bottom = 0)) },
                     hasDividerAbove = above, hasDividerBelow = below)
             }
         }
@@ -212,15 +264,31 @@ private fun StatusBarOrderRow(title: String, up: Boolean, down: Boolean, onUp: (
     }
 }
 
+private data class LauncherIconMenuState(val disableSecondary: Boolean, val widgets: Boolean)
+
 @Composable
 internal fun LauncherIconMenuSettingsGroup() {
     val context = LocalContext.current.applicationContext
-    val editor = rememberCustomization(setOf(LauncherGestureSettings.MENU), LauncherGestureSettings::menu)
+    val editor = rememberCustomization(setOf(LauncherGestureSettings.MENU, LauncherGestureSettings.WIDGETS)) {
+        LauncherIconMenuState(LauncherGestureSettings.menu(it), LauncherGestureSettings.widgets(it))
+    }
+    val value = editor.state
     SettingsSection(title = stringResource(R.string.launcher_icon_interaction_group))
-    SettingsGroup {
-        SettingsToggleRow(title = stringResource(R.string.launcher_disable_icon_menu_title), summary = stringResource(R.string.launcher_disable_icon_menu_summary),
-            checked = editor.state, switchEnabled = editor.savingKey == null,
-            onCheckedChange = { next -> editor.save(LauncherGestureSettings.MENU, next) { LauncherGestureSettings.save(context, LauncherGestureSettings.MENU, next) } })
+    FeatureAnimatedGroup(animateChanges = true) {
+        row("secondary-menu") { above, below ->
+            SettingsToggleRow(title = stringResource(R.string.launcher_disable_icon_menu_title), summary = stringResource(R.string.launcher_disable_icon_menu_summary),
+                checked = value.disableSecondary, switchEnabled = editor.savingKey != LauncherGestureSettings.MENU,
+                onCheckedChange = { next -> editor.save(LauncherGestureSettings.MENU, value.copy(disableSecondary = next)) {
+                    LauncherGestureSettings.save(context, LauncherGestureSettings.MENU, next)
+                } }, hasDividerAbove = above, hasDividerBelow = below)
+        }
+        row("widgets-menu") { above, below ->
+            SettingsToggleRow(title = stringResource(R.string.launcher_widgets_menu_title), summary = stringResource(R.string.launcher_widgets_menu_summary),
+                checked = value.widgets, switchEnabled = editor.savingKey != LauncherGestureSettings.WIDGETS,
+                onCheckedChange = { next -> editor.save(LauncherGestureSettings.WIDGETS, value.copy(widgets = next)) {
+                    LauncherGestureSettings.save(context, LauncherGestureSettings.WIDGETS, next)
+                } }, hasDividerAbove = above, hasDividerBelow = below)
+        }
     }
 }
 

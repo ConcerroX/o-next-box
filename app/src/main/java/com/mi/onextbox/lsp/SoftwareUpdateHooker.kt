@@ -157,7 +157,7 @@ internal object SoftwareUpdateHooker {
             val create = entry.getDeclaredMethod("onCreateOptionsMenu", Menu::class.java)
             check(create.returnType == Boolean::class.javaPrimitiveType && !Modifier.isStatic(create.modifiers))
             val menuScope = SoftwareUpdateMenuScope()
-            val controller = SoftwareUpdateMenuController("$prefix:menu")
+            val controller = SoftwareUpdateMenuController("$prefix:menu", targets["downloadAttestation"]?.singleOrNull())
             val read = Settings.Global::class.java.getDeclaredMethod("getInt", ContentResolver::class.java,
                 String::class.java, Int::class.javaPrimitiveType)
             install("developerMenuRead", read) { chain ->

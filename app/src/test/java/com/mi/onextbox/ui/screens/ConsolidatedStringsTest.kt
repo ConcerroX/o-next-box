@@ -15,7 +15,7 @@ class ConsolidatedStringsTest {
         "launcher_custom_grid_" to 7,
         "phone_manager_" to 4,
         "side_key_" to 36,
-        "ota_" to 40,
+        "ota_" to 46,
     )
 
     @Test fun consolidatedFilesHaveNoDuplicateStringsOrSplitFiles() {

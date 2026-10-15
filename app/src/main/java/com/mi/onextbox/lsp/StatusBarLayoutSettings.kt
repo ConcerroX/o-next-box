@@ -48,6 +48,23 @@ internal object StatusBarLayoutRules {
         if (!density.isFinite() || density <= 0f) return original
         return (original + (offset(offsetDp) * density).roundToInt()).coerceAtLeast(safeInset.coerceAtLeast(0))
     }
+    /** Keep a visible native icon row inside the existing bar; never enlarge its window. */
+    fun verticalPadding(top: Int, bottom: Int, topDp: Int, bottomDp: Int, density: Float,
+        barHeight: Int, iconHeight: Int): Pair<Int, Int> {
+        val original = top to bottom
+        if (!density.isFinite() || density <= 0f || top < 0 || bottom < 0 || barHeight <= 0 || iconHeight <= 0) return original
+        val nativeContent = barHeight.toLong() - top - bottom
+        if (nativeContent <= 0) return original
+        val budget = barHeight - minOf(iconHeight.toLong(), nativeContent).toInt()
+        val nextTop = (top.toDouble() + offset(topDp) * density.toDouble()).roundToInt().coerceAtLeast(0)
+        val nextBottom = (bottom.toDouble() + offset(bottomDp) * density.toDouble()).roundToInt().coerceAtLeast(0)
+        val total = nextTop.toLong() + nextBottom
+        if (total <= budget) return nextTop to nextBottom
+        // Share the available padding proportionally when both requested offsets
+        // cannot fit. This also permits vertical repositioning without clipping icons.
+        val boundedTop = (nextTop.toLong() * budget / total).toInt()
+        return boundedTop to (budget - boundedTop)
+    }
 }
 
 internal object StatusBarLayoutSettings {
@@ -58,13 +75,19 @@ internal object StatusBarLayoutSettings {
     const val MARGINS_ENABLED = "statusbar_custom_margins_enabled"
     const val LEFT = "statusbar_left_margin_offset"
     const val RIGHT = "statusbar_right_margin_offset"
+    const val VERTICAL_MARGINS_ENABLED = "statusbar_custom_vertical_margins_enabled"
+    const val TOP = "statusbar_top_margin_offset"
+    const val BOTTOM = "statusbar_bottom_margin_offset"
     data class State(val orderEnabled: Boolean = false, val order: List<String> = StatusBarLayoutRules.defaultOrder,
         val marginsEnabled: Boolean = false, val left: Int = 0, val right: Int = 0,
-        val simEnabled: Boolean = false, val simOrder: List<Int> = StatusBarLayoutRules.defaultSimOrder)
+        val simEnabled: Boolean = false, val simOrder: List<Int> = StatusBarLayoutRules.defaultSimOrder,
+        val verticalMarginsEnabled: Boolean = false, val top: Int = 0, val bottom: Int = 0)
     fun state(context: Context): State = LspPreferenceStore.prefs(context).let { prefs ->
         State(prefs.getBoolean(ORDER_ENABLED, false), StatusBarLayoutRules.normalizeOrder(prefs.getString(ORDER, "").orEmpty().split(',')),
             prefs.getBoolean(MARGINS_ENABLED, false), StatusBarLayoutRules.offset(prefs.getInt(LEFT, 0)), StatusBarLayoutRules.offset(prefs.getInt(RIGHT, 0)),
-            prefs.getBoolean(SIM_ENABLED, false), StatusBarLayoutRules.normalizeSimOrder(prefs.getString(SIM_ORDER, "").orEmpty().split(',').mapNotNull(String::toIntOrNull)))
+            prefs.getBoolean(SIM_ENABLED, false), StatusBarLayoutRules.normalizeSimOrder(prefs.getString(SIM_ORDER, "").orEmpty().split(',').mapNotNull(String::toIntOrNull)),
+            prefs.getBoolean(VERTICAL_MARGINS_ENABLED, false), StatusBarLayoutRules.offset(prefs.getInt(TOP, 0)),
+            StatusBarLayoutRules.offset(prefs.getInt(BOTTOM, 0)))
     }
     fun orderEnabledXposed() = HookConfigSnapshot.boolean(ORDER_ENABLED, false) == true
     fun orderXposed() = StatusBarLayoutRules.normalizeOrder(HookConfigSnapshot.string(ORDER, "").orEmpty().split(','))
@@ -72,16 +95,24 @@ internal object StatusBarLayoutSettings {
     fun simOrderXposed() = StatusBarLayoutRules.normalizeSimOrder(HookConfigSnapshot.string(SIM_ORDER, "").orEmpty().split(',').mapNotNull(String::toIntOrNull))
     fun marginsXposed() = if (HookConfigSnapshot.boolean(MARGINS_ENABLED, false) == true)
         (HookConfigSnapshot.int(LEFT, 0) ?: 0) to (HookConfigSnapshot.int(RIGHT, 0) ?: 0) else null
+    fun verticalMarginsXposed() = if (HookConfigSnapshot.boolean(VERTICAL_MARGINS_ENABLED, false) == true)
+        (HookConfigSnapshot.int(TOP, 0) ?: 0) to (HookConfigSnapshot.int(BOTTOM, 0) ?: 0) else null
     fun save(context: Context, value: State) {
         check(LspPreferenceStore.prefs(context).edit().putBoolean(ORDER_ENABLED, value.orderEnabled)
             .putString(ORDER, StatusBarLayoutRules.normalizeOrder(value.order).joinToString(","))
             .putBoolean(MARGINS_ENABLED, value.marginsEnabled).putInt(LEFT, StatusBarLayoutRules.offset(value.left))
             .putInt(RIGHT, StatusBarLayoutRules.offset(value.right)).putBoolean(SIM_ENABLED, value.simEnabled)
-            .putString(SIM_ORDER, StatusBarLayoutRules.normalizeSimOrder(value.simOrder).joinToString(",")).commit())
+            .putString(SIM_ORDER, StatusBarLayoutRules.normalizeSimOrder(value.simOrder).joinToString(","))
+            .putBoolean(VERTICAL_MARGINS_ENABLED, value.verticalMarginsEnabled)
+            .putInt(TOP, StatusBarLayoutRules.offset(value.top)).putInt(BOTTOM, StatusBarLayoutRules.offset(value.bottom)).commit())
         LspConfig.syncReadableState(context)
     }
     fun setOrderEnabled(context: Context, enabled: Boolean) {
         check(LspPreferenceStore.prefs(context).edit().putBoolean(ORDER_ENABLED, enabled).commit())
+        LspConfig.syncReadableState(context)
+    }
+    fun setVerticalMarginsEnabled(context: Context, enabled: Boolean) {
+        check(LspPreferenceStore.prefs(context).edit().putBoolean(VERTICAL_MARGINS_ENABLED, enabled).commit())
         LspConfig.syncReadableState(context)
     }
     fun saveOrder(context: Context, order: List<String>) {

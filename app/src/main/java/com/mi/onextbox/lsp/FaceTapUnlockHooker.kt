@@ -36,6 +36,9 @@ internal object FaceTapUnlockHooker {
     private var snapshot: IconSnapshot? = null
     private var tap: FaceTapUnlockRules.Tap? = null
     private val nativePress = FaceTapUnlockRules.NativePress()
+    private val nativeHandoff = FaceTapNativeHandoff()
+    private val pointerHookMethods = mutableSetOf<Method>()
+    private val pointerHookUnavailable = AtomicBoolean(false)
     private var gracePolls = 0
     private var faceSource: Any? = null
     private var fingerprintUtils: Any? = null
@@ -69,7 +72,8 @@ internal object FaceTapUnlockHooker {
             canReload = {
                 // Never migrate an authorization or a press which might later dismiss keyguard.
                 sessionUser == null && pendingDismiss == null && pendingHold == null &&
-                    pendingOpticalEvents.get() == 0 && !nativePress.active && !feedback.isActive && !wake.running && !wake.busy
+                    pendingOpticalEvents.get() == 0 && !nativePress.active && !nativeHandoff.pending &&
+                    !feedback.isActive && !wake.running && !wake.busy
             },
             capture = { arrayOf(panel.get(), mech.get()) },
             detach = {
@@ -81,6 +85,7 @@ internal object FaceTapUnlockHooker {
                 tap?.invalidate()
                 tap = null
                 nativePress.reset()
+                nativeHandoff.reset()
                 snapshot = null
                 removeButton()
                 panel.clear()
@@ -95,6 +100,8 @@ internal object FaceTapUnlockHooker {
                 if (host != null) tap = FaceTapUnlockRules.Tap(ViewConfiguration.get(host.context).scaledTouchSlop.toFloat())
                 // A fresh native authentication event is required after the handover.
                 sessionUser = null
+                authenticatedAt = 0L
+                nativeHandoff.reset()
             },
             resumeAfterRejection = ::resumeAfterRejectedReload)
         if (!enabled()) return
@@ -183,6 +190,7 @@ internal object FaceTapUnlockHooker {
                 onMain {
                     cancelFeedbackAndDismiss(hard = false)
                     nativePress.reset()
+                    nativeHandoff.reset()
                     wake.clear()
                     removeButton()
                     val view = param.thisObject as? FrameLayout ?: return@onMain
@@ -196,6 +204,7 @@ internal object FaceTapUnlockHooker {
                     if (panel.get() === param.thisObject) {
                         cancelFeedbackAndDismiss(hard = false)
                         nativePress.reset()
+                        nativeHandoff.reset()
                         wake.clear()
                         removeButton()
                         panel.clear()
@@ -252,16 +261,42 @@ internal object FaceTapUnlockHooker {
     private fun bool(target: Any, field: String) = Reflect.getObjectField(target, field) as Boolean
     private fun callBool(target: Any, name: String, vararg args: Any?) = Reflect.callMethod(target, name, *args) as Boolean
 
-    private fun liveState(): FaceTapUnlockRules.State? {
+    private fun liveState(forNativeContact: Boolean = false): FaceTapUnlockRules.State? {
         if (!enabled()) return null
         val source = mech.get() ?: return null
         val host = panel.get() ?: return null
-        if (!host.isAttachedToWindow || !host.isShown || host.display?.displayId != 0) return null
+        if (!host.isAttachedToWindow || (!forNativeContact && !host.isShown) || host.display?.displayId != 0) return null
         val monitor = Reflect.getObjectField(source, "keyguardUpdateMonitor") ?: return null
         val state = Reflect.getObjectField(source, "keyguardStateController") ?: return null
         val auth = Reflect.getObjectField(source, "oplusBiometricAuthController") ?: return null
         val user = Reflect.callStaticMethod(monitor.javaClass, "getCurrentUser") as Int
         val reason = Reflect.getObjectField(source, "fpShowReason") as Int
+        val hardBlocks = linkedMapOf(
+            "monitorSleeping" to bool(monitor, "mGoingToSleep"),
+            "switchingUser" to bool(monitor, "mSwitchingUser"),
+            "occluded" to bool(state, "mOccluded"),
+            "goingAway" to bool(state, "mKeyguardGoingAway"),
+            "fadingAway" to bool(state, "mKeyguardFadingAway"),
+            "primaryBouncer" to bool(state, "mPrimaryBouncerShowing"),
+            "bouncer" to callBool(monitor, "isBouncerShowing"),
+            "simPin" to callBool(monitor, "isSimPinSecure"),
+            "encryptedOrLockdown" to callBool(monitor, "isEncryptedOrLockdown", user),
+            "biometricPrompt" to callBool(auth, "isBiometricPromptShowing"),
+            "qsHidingIcon" to bool(source, "hasHideIconByQs"),
+            "sourceSleeping" to bool(source, "isGoingToSleep"),
+            "enrolling" to bool(source, "showForEnroll"),
+            "sourceBouncer" to bool(source, "bouncerShowing"),
+            "nonKeyguardReason" to (reason != 4 && reason != -1),
+        )
+        val displayBlocks = linkedMapOf(
+            "hostHidden" to !host.isShown,
+            "fpNotInitialized" to !bool(source, "hasInitFp"),
+            "screenOff" to bool(source, "screenTurnedOff"),
+            "doze" to bool(source, "onDozeState"),
+            "dreaming" to bool(source, "onDreamingStart"),
+            "hostDozing" to bool(host, "mDozing"),
+        )
+        val hardBlocked = hardBlocks.values.any { it }
         return FaceTapUnlockRules.State(
             sessionUser = sessionUser,
             currentUser = user,
@@ -270,15 +305,9 @@ internal object FaceTapUnlockHooker {
             canSkipBouncer = callBool(monitor, "getUserCanSkipBouncer", user),
             showing = bool(state, "mShowing"),
             interactive = bool(monitor, "mDeviceInteractive"),
-            blocked = bool(monitor, "mGoingToSleep") || bool(monitor, "mSwitchingUser") ||
-                bool(state, "mOccluded") || bool(state, "mKeyguardGoingAway") ||
-                bool(state, "mKeyguardFadingAway") || bool(state, "mPrimaryBouncerShowing") ||
-                callBool(monitor, "isBouncerShowing") || callBool(monitor, "isSimPinSecure") ||
-                callBool(monitor, "isEncryptedOrLockdown", user) || callBool(auth, "isBiometricPromptShowing") ||
-                !bool(source, "hasInitFp") || bool(source, "hasHideIconByQs") ||
-                bool(source, "isGoingToSleep") || bool(source, "screenTurnedOff") ||
-                bool(source, "onDozeState") || bool(source, "onDreamingStart") || bool(host, "mDozing") ||
-                bool(source, "showForEnroll") || bool(source, "bouncerShowing") || (reason != 4 && reason != -1),
+            blocked = hardBlocked || displayBlocks.values.any { it },
+            handoffBlocked = hardBlocked,
+            blockReasons = (hardBlocks + displayBlocks).filterValues { it }.keys.joinToString(","),
         )
     }
 
@@ -286,8 +315,51 @@ internal object FaceTapUnlockHooker {
         if (value == null || !enabled()) return
         onMain {
             mech = WeakReference(value)
+            installNativePointerHooks(value)
             captureIcon(value)
             schedule()
+        }
+    }
+
+    private fun installNativePointerHooks(source: Any) {
+        // Resolve the actual callback instance, not firmware-specific anonymous class names.
+        // onFpTouch(false) also occurs on auth failures, so it is NOT evidence of a real UP.
+        runCatching {
+            val monitor = Reflect.getObjectField(source, "keyguardUpdateMonitor") ?: return
+            val callback = Reflect.getObjectField(monitor, "mFingerprintAuthenticationCallback") ?: return
+            val down = Reflect.findDeclaredMethodExact(callback.javaClass, "onUdfpsPointerDown", Int::class.javaPrimitiveType!!)
+            val up = Reflect.findDeclaredMethodExact(callback.javaClass, "onUdfpsPointerUp", Int::class.javaPrimitiveType!!)
+            check(down.returnType == Void.TYPE && up.returnType == Void.TYPE)
+            val requiredMethods = setOf(down, up)
+            var installed = false
+            listOf(down to true, up to false).forEach { (method, isDown) ->
+                if (method in pointerHookMethods) return@forEach
+                before(method) { param ->
+                    // A partially installed pair must not arm contacts without a sensor UP hook.
+                    if (!pointerHookMethods.containsAll(requiredMethods)) return@before
+                    val at = SystemClock.uptimeMillis()
+                    val eventCallback = param.thisObject
+                    onMain {
+                        val current = mech.get() ?: return@onMain
+                        val currentMonitor = Reflect.getObjectField(current, "keyguardUpdateMonitor") ?: return@onMain
+                        if (Reflect.getObjectField(currentMonitor, "mFingerprintAuthenticationCallback") !== eventCallback) return@onMain
+                        val state = liveState(forNativeContact = true)
+                        val wasPending = nativeHandoff.pending
+                        if (isDown) nativeHandoff.pointerDown(at, state)
+                        else nativeHandoff.pointerUp(at, state)
+                        if (nativeHandoff.pending || wasPending) {
+                            HookLog.d(TAG, "Native sensor ${if (isDown) "DOWN" else "UP"}; pending=${nativeHandoff.pending}")
+                        }
+                        schedule()
+                    }
+                }
+                pointerHookMethods += method
+                installed = true
+            }
+            if (installed) HookLog.i(TAG, "Native UDFPS pointer callbacks installed")
+        }.onFailure {
+            if (pointerHookUnavailable.compareAndSet(false, true))
+                HookLog.w(TAG, "Native pointer handoff unavailable; window touch retained", it)
         }
     }
 
@@ -338,6 +410,7 @@ internal object FaceTapUnlockHooker {
             // re-check its live eligibility, and require a fresh press for any dismissal action.
             tap?.invalidate()
             nativePress.invalidate()
+            nativeHandoff.invalidate()
             cancelFeedbackAndDismiss(hard = false)
             main.removeCallbacks(refresh)
             gracePolls = 4
@@ -349,6 +422,13 @@ internal object FaceTapUnlockHooker {
         main.removeCallbacks(refresh)
         wake.expire()
         val state = liveState()
+        val now = SystemClock.uptimeMillis()
+        val contactState = state ?: liveState(forNativeContact = true)
+        if (nativeHandoff.claim(now, authenticatedAt, contactState)) {
+            HookLog.d(TAG, "Native sensor press handed off after live face authentication")
+            requestDismiss(immediate = true, animate = false)
+            return
+        }
         if (!FaceTapUnlockRules.contactAllowed(state)) nativePress.invalidate()
         val eligible = state != null && FaceTapUnlockRules.eligible(state)
         val host = panel.get()
@@ -356,7 +436,7 @@ internal object FaceTapUnlockHooker {
         val diagnostic = "State session=${sessionUser != null}, host=${host?.isAttachedToWindow == true}, mech=${source != null}, " +
             "face=${state?.faceAuthenticated}, allowed=${state?.faceAllowed}, skip=${state?.canSkipBouncer}, " +
             "showing=${state?.showing}, interactive=${state?.interactive}, blocked=${state?.blocked}, " +
-            "eligible=$eligible, icon=${snapshot != null}"
+            "eligible=$eligible, icon=${snapshot != null}, handoff=${nativeHandoff.pending}, reasons=${contactState?.blockReasons}"
         if (diagnostic != lastStateDiagnostic) {
             lastStateDiagnostic = diagnostic
             HookLog.d(TAG, diagnostic)
@@ -394,8 +474,8 @@ internal object FaceTapUnlockHooker {
         if (!enabled() || !ValueAnimator.areAnimatorsEnabled()) wake.clear()
         // Don't exhaust the ordinary grace polls at frame cadence while AOD is still exiting
         val handoffActive = wake.awaiting || wake.running
-        if (enabled() && (handoffActive || sessionUser != null && (eligible || gracePolls-- > 0)))
-            main.postDelayed(refresh, if (handoffActive) 16L else 500L)
+        if (enabled() && (handoffActive || nativeHandoff.pending || sessionUser != null && (eligible || gracePolls-- > 0)))
+            main.postDelayed(refresh, if (handoffActive) 16L else if (nativeHandoff.pending) FaceTapNativeHandoff.POLL_MS else 500L)
     }
 
     private fun showButton(host: FrameLayout, saved: IconSnapshot) {
@@ -442,6 +522,7 @@ internal object FaceTapUnlockHooker {
     }
 
     private fun handleTouch(event: MotionEvent): Boolean {
+        observeNativeHandoffTouch(event)
         if (observeNativePress(event)) return false
         val gesture = tap ?: return false
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
@@ -526,6 +607,24 @@ internal object FaceTapUnlockHooker {
 
     private fun touchObscured(event: MotionEvent): Boolean =
         event.flags and (MotionEvent.FLAG_WINDOW_IS_OBSCURED or MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED) != 0
+
+    private fun observeNativeHandoffTouch(event: MotionEvent) {
+        if (!nativeHandoff.pending) return
+        val saved = snapshot
+        val outside = saved != null && !FaceTapUnlockRules.IconBounds(
+            saved.bounds.left, saved.bounds.top, saved.bounds.right, saved.bounds.bottom,
+        ).contains(event.rawX, event.rawY)
+        if (event.pointerCount != 1 || touchObscured(event) ||
+            !event.rawX.isFinite() || !event.rawY.isFinite() ||
+            (outside && event.actionMasked != MotionEvent.ACTION_CANCEL)) {
+            nativeHandoff.invalidate()
+            return
+        }
+        when (event.actionMasked) {
+            MotionEvent.ACTION_UP -> nativeHandoff.touchReleased(event.eventTime)
+            MotionEvent.ACTION_CANCEL -> nativeHandoff.windowCanceled(liveState(forNativeContact = true))
+        }
+    }
 
     private fun observeNativePress(event: MotionEvent): Boolean {
         if (event.actionMasked == MotionEvent.ACTION_DOWN && !nativePress.matches(event.downTime)) {
@@ -623,6 +722,7 @@ internal object FaceTapUnlockHooker {
         }
         sessionUser = null
         nativePress.reset()
+        nativeHandoff.reset()
         cancelHold()
         wake.clear()
         tap?.invalidate()
@@ -632,8 +732,10 @@ internal object FaceTapUnlockHooker {
 
     private fun clearSession() {
         sessionUser = null
+        authenticatedAt = 0L
         onMain {
             nativePress.reset()
+            nativeHandoff.reset()
             cancelFeedbackAndDismiss()
             feedback.clear()
             wake.clear()
@@ -674,6 +776,7 @@ internal object FaceTapUnlockHooker {
                 sessionUser = null
                 main.post {
                     nativePress.reset()
+                    nativeHandoff.reset()
                     runCatching { cancelFeedbackAndDismiss() }
                     runCatching { feedback.clear() }
                     runCatching { wake.clear() }
