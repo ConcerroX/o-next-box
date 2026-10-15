@@ -1237,6 +1237,8 @@
     <string name="game_assistant_title">Game Assistant</string>
     <string name="game_assistant_promotions_title">Hide recommendations and promotions</string>
     <string name="game_assistant_promotions_summary">Hide tool recommendation dialogs, recognized recommendation cards and welfare promotional notifications</string>
+    <string name="game_assistant_realme_startup_title">Block the realme performance engine animation</string>
+    <string name="game_assistant_realme_startup_summary">Skip the full-screen realme GT performance engine animation played when a game starts</string>
     <string name="game_assistant_unlimited_title">Remove sidebar item limits</string>
     <string name="game_assistant_unlimited_summary">Remove limits on app shortcuts and bookmarks in the game sidebar</string>
     <string name="game_assistant_root_title">Block Root detection</string>

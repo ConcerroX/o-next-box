@@ -1171,6 +1171,8 @@
     <string name="game_assistant_title">ゲームアシスタント</string>
     <string name="game_assistant_promotions_title">おすすめと特典の宣伝を非表示</string>
     <string name="game_assistant_promotions_summary">ツールのおすすめダイアログ、識別済みのおすすめカードと特典の宣伝通知を非表示</string>
+    <string name="game_assistant_realme_startup_title">realme パフォーマンスエンジンアニメーションをブロック</string>
+    <string name="game_assistant_realme_startup_summary">realme 機種でゲーム開始時に再生される GT パフォーマンスエンジンの全画面アニメーションをスキップ</string>
     <string name="game_assistant_unlimited_title">サイドバーの項目数制限を解除</string>
     <string name="game_assistant_unlimited_summary">ゲームサイドバーのアプリショートカットとブックマークの数制限を解除</string>
     <string name="game_assistant_root_title">Root 検出をブロック</string>

@@ -1171,6 +1171,8 @@
     <string name="game_assistant_title">Trợ lý trò chơi</string>
     <string name="game_assistant_promotions_title">Ẩn đề xuất và quảng bá ưu đãi</string>
     <string name="game_assistant_promotions_summary">Ẩn hộp thoại đề xuất công cụ, thẻ đề xuất đã nhận diện và thông báo quảng bá ưu đãi</string>
+    <string name="game_assistant_realme_startup_title">Chặn hoạt ảnh engine hiệu năng của realme</string>
+    <string name="game_assistant_realme_startup_summary">Bỏ qua hoạt ảnh toàn màn hình của realme GT Engine khi vào trò chơi trên máy realme</string>
     <string name="game_assistant_unlimited_title">Bỏ giới hạn số mục thanh bên</string>
     <string name="game_assistant_unlimited_summary">Bỏ giới hạn số lối tắt ứng dụng và dấu trang trong thanh bên trò chơi</string>
     <string name="game_assistant_root_title">Chặn phát hiện Root</string>

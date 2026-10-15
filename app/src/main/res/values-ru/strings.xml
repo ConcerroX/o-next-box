@@ -1171,6 +1171,8 @@
     <string name="game_assistant_title">Игровой помощник</string>
     <string name="game_assistant_promotions_title">Скрывать рекомендации и рекламу бонусов</string>
     <string name="game_assistant_promotions_summary">Скрывать рекомендации инструментов, распознанные рекламные карточки и уведомления о бонусах</string>
+    <string name="game_assistant_realme_startup_title">Блокировать анимацию движка производительности realme</string>
+    <string name="game_assistant_realme_startup_summary">Пропускать полноэкранную анимацию realme GT Engine при запуске игры</string>
     <string name="game_assistant_unlimited_title">Убрать лимиты боковой панели</string>
     <string name="game_assistant_unlimited_summary">Убрать ограничения числа ярлыков приложений и закладок на игровой боковой панели</string>
     <string name="game_assistant_root_title">Блокировать проверку Root</string>

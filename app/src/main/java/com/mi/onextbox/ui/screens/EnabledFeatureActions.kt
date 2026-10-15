@@ -80,6 +80,7 @@ internal class EnabledFeatureActions {
         R.string.theme_store_ads_title to { context, enabled -> ThemeStoreSettings.setAds(context, enabled) },
         R.string.secure_pay_hide_risk_cloud_title to { context, enabled -> SecurePaySettings.setEnabled(context, enabled) },
         R.string.game_assistant_promotions_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.PROMOTIONS, enabled) },
+        R.string.game_assistant_realme_startup_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.REALME_STARTUP_ANIMATION, enabled) },
         R.string.game_assistant_unlimited_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.UNLIMITED, enabled) },
         R.string.game_assistant_root_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.BLOCK_ROOT, enabled) },
         R.string.game_assistant_developer_title to { context, enabled -> GameAssistantSettings.set(context, GameAssistantSettings.DEVELOPER, enabled) },

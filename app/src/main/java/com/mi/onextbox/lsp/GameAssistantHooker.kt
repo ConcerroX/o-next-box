@@ -71,6 +71,15 @@ internal object GameAssistantHooker {
                     } ?: error("Host Kotlin Unit unavailable")
                     replace(method, GameAssistantSettings.PROMOTIONS) { unit }
                 }
+                adapter("Startup animation") {
+                    val method = dex.findMethod { matcher {
+                        declaredClass = "com.oplus.games.arch.newarch.capabilities.StartupAnimationFeature"
+                        usingStrings("Creating startup animation")
+                        returnType = "void"
+                        paramTypes("java.lang.String", "android.graphics.drawable.Drawable")
+                    } }.single().getMethodInstance(loader)
+                    replace(method, GameAssistantSettings.REALME_STARTUP_ANIMATION) { null }
+                }
                 adapter("Local Root probes") {
                     val owner = dex.findMethod { matcher {
                         usingStrings("/system/app/Superuser.apk")

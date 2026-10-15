@@ -1183,6 +1183,8 @@
     <string name="game_assistant_title">遊戲助手</string>
     <string name="game_assistant_promotions_title">封鎖工具推薦與福利推廣</string>
     <string name="game_assistant_promotions_summary">封鎖工具推薦彈窗、已識別的推薦卡片與福利推廣通知</string>
+    <string name="game_assistant_realme_startup_title">封鎖真我效能引擎動畫</string>
+    <string name="game_assistant_realme_startup_summary">封鎖真我機型進入遊戲時播放的 GT 效能引擎全螢幕動畫</string>
     <string name="game_assistant_unlimited_title">移除側欄數量限制</string>
     <string name="game_assistant_unlimited_summary">移除遊戲側欄的應用程式捷徑與書籤數量限制</string>
     <string name="game_assistant_root_title">封鎖 Root 偵測</string>
