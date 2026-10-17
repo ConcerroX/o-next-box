@@ -651,6 +651,8 @@
     <string name="keyguard_face_tap_action">端末のロックを解除</string>
     <string name="keyguard_face_tap_animation_title">解除時の指紋アニメーション</string>
     <string name="keyguard_face_tap_animation_summary">顔認証後のアイコンタップのみ対象、標準の指紋アニメーションには影響しない</string>
+    <string name="keyguard_block_password_highlight_title">ロック画面パスワードのハイライト縁取りを削除</string>
+    <string name="keyguard_block_password_highlight_summary">パスワードキーのハイライト縁取りを削除します、キーのすりガラス背景はそのまま</string>
     <string name="keyguard_page_title">ロック画面</string>
     <string name="keyguard_page_entry_summary">顔認証後のタップ解除、標準の指紋アニメーション</string>
     <string name="feature_screenshot_title">スクリーンショット</string>

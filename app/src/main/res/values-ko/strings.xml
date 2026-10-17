@@ -651,6 +651,8 @@
     <string name="keyguard_face_tap_action">휴대전화 잠금 해제</string>
     <string name="keyguard_face_tap_animation_title">잠금 해제 지문 애니메이션</string>
     <string name="keyguard_face_tap_animation_summary">얼굴 인증 후 아이콘을 다시 누를 때만 적용, 기본 지문 애니메이션에는 영향 없음</string>
+    <string name="keyguard_block_password_highlight_title">잠금 화면 비밀번호 하이라이트 테두리 제거</string>
+    <string name="keyguard_block_password_highlight_summary">비밀번호 키의 하이라이트 테두리를 제거합니다, 키의 반투명 배경은 그대로</string>
     <string name="keyguard_page_title">잠금 화면</string>
     <string name="keyguard_page_entry_summary">얼굴 인증 후 터치로 잠금 해제, 기본 지문 애니메이션</string>
     <string name="feature_screenshot_title">스크린샷</string>

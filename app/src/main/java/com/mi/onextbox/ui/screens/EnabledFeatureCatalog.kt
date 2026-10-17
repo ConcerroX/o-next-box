@@ -64,6 +64,7 @@ internal object EnabledFeatureCatalog {
         Entry(R.string.keyboard_flag_emoji_title, FeaturePageMode.Keyboard) { context -> LspConfig.isKeyboardFlagEmojiEnabled(context) },
         Entry(R.string.keyguard_face_tap_title, FeaturePageMode.SystemUiLockScreen) { context -> LspConfig.isKeyguardFeatureEnabled(context, LspConfig.KeyguardFeature.FaceTapUnlock) },
         Entry(R.string.keyguard_face_tap_animation_title, FeaturePageMode.SystemUiLockScreen, parents = setOf(R.string.keyguard_face_tap_title)) { context -> LspConfig.isKeyguardFeatureEnabled(context, LspConfig.KeyguardFeature.FaceTapAnimation) },
+        Entry(R.string.keyguard_block_password_highlight_title, FeaturePageMode.SystemUiLockScreen) { context -> LspConfig.isKeyguardFeatureEnabled(context, LspConfig.KeyguardFeature.BlockPasswordHighlight) },
         Entry(R.string.feature_large_network_type_title, FeaturePageMode.SystemUiStatusBar) { context -> LargeNetworkTypeSettings.enabled(context) },
         Entry(R.string.feature_large_network_artwork_title, FeaturePageMode.SystemUiStatusBar, parents = setOf(R.string.feature_large_network_type_title)) { context -> LargeNetworkTypeSettings.usesArtwork(context) },
         Entry(R.string.feature_large_network_lte_title, FeaturePageMode.SystemUiStatusBar, parents = setOf(R.string.feature_large_network_artwork_title)) { context -> LargeNetworkTypeSettings.usesLte(context) },

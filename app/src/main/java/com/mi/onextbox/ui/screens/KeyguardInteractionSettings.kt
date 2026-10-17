@@ -36,11 +36,15 @@ internal fun KeyguardInteractionSettings() {
     var animationEnabled by remember {
         mutableStateOf(LspConfig.isKeyguardFeatureEnabled(context, KeyguardFeature.FaceTapAnimation))
     }
+    var highlightBlocked by remember {
+        mutableStateOf(LspConfig.isKeyguardFeatureEnabled(context, KeyguardFeature.BlockPasswordHighlight))
+    }
     DisposableEffect(context, owner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 enabled = LspConfig.isKeyguardFeatureEnabled(context, feature)
                 animationEnabled = LspConfig.isKeyguardFeatureEnabled(context, KeyguardFeature.FaceTapAnimation)
+                highlightBlocked = LspConfig.isKeyguardFeatureEnabled(context, KeyguardFeature.BlockPasswordHighlight)
             }
         }
         owner.lifecycle.addObserver(observer)
@@ -79,6 +83,27 @@ internal fun KeyguardInteractionSettings() {
                         writeLock.withLock {
                             withContext(Dispatchers.IO) {
                                 LspConfig.setKeyguardFeatureEnabled(context, KeyguardFeature.FaceTapAnimation, checked)
+                            }
+                        }
+                    }
+                },
+                hasDividerAbove = above,
+                hasDividerBelow = below,
+            )
+        }
+        row(2) { above, below ->
+            SettingsToggleRow(
+                title = stringResource(R.string.keyguard_block_password_highlight_title),
+                summary = stringResource(R.string.keyguard_block_password_highlight_summary),
+                checked = highlightBlocked,
+                onCheckedChange = { checked ->
+                    highlightBlocked = checked
+                    scope.launch {
+                        writeLock.withLock {
+                            withContext(Dispatchers.IO) {
+                                LspConfig.setKeyguardFeatureEnabled(
+                                    context, KeyguardFeature.BlockPasswordHighlight, checked,
+                                )
                             }
                         }
                     }

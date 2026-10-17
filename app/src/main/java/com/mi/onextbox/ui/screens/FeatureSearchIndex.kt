@@ -116,6 +116,7 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.SystemUiLockScreen, R.string.keyguard_page_title, R.string.keyguard_page_entry_summary),
         Entry(FeaturePageMode.SystemUiLockScreen, R.string.keyguard_face_tap_title, R.string.keyguard_face_tap_summary),
         Entry(FeaturePageMode.SystemUiLockScreen, R.string.keyguard_face_tap_animation_title, R.string.keyguard_face_tap_animation_summary),
+        Entry(FeaturePageMode.SystemUiLockScreen, R.string.keyguard_block_password_highlight_title, R.string.keyguard_block_password_highlight_summary),
         Entry(FeaturePageMode.SystemUiNavigationBar, R.string.feature_group_navigation_bar),
         Entry(FeaturePageMode.SystemUiNavigationBar, R.string.feature_immersive_navigation_title, R.string.feature_immersive_navigation_summary),
         Entry(FeaturePageMode.SystemUiNavigationBar, R.string.feature_navigation_handle_length_title),
