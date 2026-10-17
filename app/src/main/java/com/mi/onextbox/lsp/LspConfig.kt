@@ -625,6 +625,7 @@ object LspConfig {
         HideCloneBadge("launcher_hide_clone_badge"),
         HideUpdateDot("launcher_hide_update_dot"),
         ColorfulNotificationDot("launcher_colorful_notification_dot"),
+        NotificationDotShadow("launcher_notification_dot_shadow"),
         UnlimitedFolderInput("launcher_unlimited_folder_input"),
         ForceBlur("launcher_force_blur"),
         Dock("launcher_dock"),
