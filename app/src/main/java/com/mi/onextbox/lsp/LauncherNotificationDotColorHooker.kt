@@ -30,6 +30,7 @@ internal object LauncherNotificationDotColorHooker {
     private const val COLOR_EXTRACTOR = "com.android.launcher3.icons.ColorExtractor"
     private const val BIG_FOLDER_PREVIEW = "com.android.launcher3.folder.big.BigFolderPreviewItemManager"
     private const val BIG_FOLDER_NUM_BADGE = "com.android.launcher3.folder.big.BigFolderNumBadgeRender"
+    private const val FOLDER_ICON = "com.android.launcher3.folder.FlexibleFolderIcon"
 
     // The red dot drawable is a process-wide singleton reached through an obfuscated lazy holder
     // (f4.k -> Lht/c -> launcher_unread_notification_dot). It inflates from an XML <shape> to a
@@ -68,6 +69,11 @@ internal object LauncherNotificationDotColorHooker {
             HookLog.i(TAG, "Big folder badge color gate installed")
         }.onFailure {
             HookLog.w(TAG, "Big folder badge color unavailable, stock color retained", it)
+        }
+        runCatching { installFolderIcon(loader) }.onSuccess {
+            HookLog.i(TAG, "Folder icon badge color gate installed")
+        }.onFailure {
+            HookLog.w(TAG, "Folder icon badge color unavailable, stock color retained", it)
         }
     }
 
@@ -130,8 +136,7 @@ internal object LauncherNotificationDotColorHooker {
         })
     }
 
-    // Big folders paint a notification dot per previewed app via BigFolderNumBadgeRender, which
-    // builds its own DotRenderer$DrawParams (no host view) and never sees the app's icon color. We
+    // Big folders paint a notification dot per previewed app via BigFolderNumBadgeRender, which    // builds its own DotRenderer$DrawParams (no host view) and never sees the app's icon color. We
     // compute the color in drawDotIfNecessary (which has the WorkspaceItemInfo) and hand it to the
     // badge renderer through a thread-local; both the plain dot and the number pill read it.
     private fun installBigFolder(loader: ClassLoader) {
@@ -147,8 +152,6 @@ internal object LauncherNotificationDotColorHooker {
                 val params = param.args[1] ?: return
                 val item = ModernReflect.getObjectField(params, "item") ?: return
                 val info = ModernReflect.getObjectField(item, "bitmap") ?: return
-                // restoreColor() has already filled BitmapInfo.color at newIcon() time; just read it
-                // and apply the same 54% white scrim getIconColor() applies for regular icons.
                 val color = ModernReflect.getIntField(info, "color")
                 if (color == 0 || color == -0x1000000) return
                 pendingFolderDotColor.set(scrim(color))
@@ -191,6 +194,64 @@ internal object LauncherNotificationDotColorHooker {
                 numberPill(param.thisObject)?.clearColorFilter()
             }
         })
+    }
+
+    // A folder icon aggregates several apps; its notification dot belongs to whichever app inside
+    // actually has a notification. FlexibleFolderIcon.drawDot() (the desktop folder icon) draws via
+    // mDotRenderer without setting drawDotView first, so the regular installDot hook never sees a
+    // host. Hook drawDot directly, resolve the first notified item in the folder's contents, and
+    // tint the shared dot drawable with that app's dominant color for the duration of the draw.
+    private fun installFolderIcon(loader: ClassLoader) {
+        val folderIcon = ModernReflect.findClass(FOLDER_ICON, loader)
+        val drawDot = folderIcon.declaredMethods.single { it.name == "drawDot" && it.parameterTypes.size == 1 }
+        runCatching { ModernHookRuntime.requireModule().deoptimize(drawDot) }
+        ModernHookRegistry.installCompat("$TAG:folder-icon-dot", drawDot, object : ModernMethodHook() {
+            override fun beforeHookedMethod(param: MethodHookParam) {
+                if (!enabled()) return
+                val host = param.thisObject ?: return
+                val color = folderDotColor(host) ?: return
+                // Both the plain dot (draw) and the number pill (drawNumber) read from the renderer,
+                // so tint both for the duration of the draw.
+                val drawable = resolveDotDrawable(loader)
+                drawable?.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+                val pill = numberPill(ModernReflect.getObjectField(host, "mDotRenderer"))
+                pill?.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+                val renderer = ModernReflect.getObjectField(host, "mDotRenderer")
+                setTextColorForBg(renderer, color)
+            }
+
+            override fun afterHookedMethod(param: MethodHookParam) {
+                resolveDotDrawable(loader)?.clearColorFilter()
+                numberPill(ModernReflect.getObjectField(param.thisObject ?: return, "mDotRenderer"))?.clearColorFilter()
+            }
+        })
+    }
+
+    // Resolve the first notified app inside the folder, then return its (scrimmed) dominant color.
+    private fun folderDotColor(folderIcon: Any): Int? {
+        val folderInfo = ModernReflect.getObjectField(folderIcon, "mInfo") ?: return null
+        val contents = ModernReflect.getObjectField(folderInfo, "contents") as? List<*> ?: return null
+        val activity = ModernReflect.getObjectField(folderIcon, "mActivity") ?: return null
+        for (item in contents) {
+            if (item == null) continue
+            val dotInfo = runCatching {
+                ModernReflect.callMethod(activity, "getDotInfoForItem", item)
+            }.getOrNull() ?: continue
+            // A non-null DotInfo is not enough; it must actually show a badge (number type 1 or dot
+            // type 2), matching OplusFolderDotInfo.extractDotInfoFromItems().
+            val hasNumber = runCatching { ModernReflect.callMethod(dotInfo, "getBadgeType") as? Number }
+                .getOrNull()?.toInt() == 1
+            val hasDot = runCatching { ModernReflect.callMethod(dotInfo, "canShowDot") as? Boolean }
+                .getOrNull() == true
+            if (!hasNumber && !hasDot) continue
+            val info = ModernReflect.getObjectField(item, "bitmap") ?: continue
+            val color = ModernReflect.getIntField(info, "color")
+            if (color != 0 && color != -0x1000000) return scrim(color)
+            val bitmap = ModernReflect.getObjectField(info, "icon") as? Bitmap ?: continue
+            val extracted = dominantColor(bitmap) ?: continue
+            return scrim(extracted)
+        }
+        return null
     }
 
     // Runs ColorOS's own ColorExtractor over the icon bitmap when color is unset (0 or opaque
@@ -238,12 +299,54 @@ internal object LauncherNotificationDotColorHooker {
         return extractor
     }
 
-    // host -> icon drawable -> getIconColor(), which already applies the 54% white scrim.
+    // host -> icon drawable -> getIconColor(), which already applies the 54% white scrim. Stacked
+    // category preview icons (OplusStackedBubbleTextView) carry a translucent placeholder white and
+    // their tag is a list of AppInfo, so resolve the color from the first notified app instead.
+    // During the category-folder open transition the icon is a temporary LayerDrawable whose
+    // getIconColor() returns null, so fall back to the host's tag bitmap color.
     private fun iconColor(host: Any?): Int? {
-        val icon = runCatching { ModernReflect.callMethod(host ?: return null, "getIcon") }.getOrNull() ?: return null
+        if (host == null) return null
+        val tag = runCatching { ModernReflect.callMethod(host, "getTag") }.getOrNull()
+        if (tag is List<*>) {
+            // Stacked category icon: pick the first app that actually has a notification.
+            val activity = ModernReflect.getObjectField(host, "mActivity")
+            for (app in tag) {
+                if (app == null) continue
+                val dotInfo = runCatching {
+                    ModernReflect.callMethod(activity, "getDotInfoForItem", app)
+                }.getOrNull() ?: continue
+                val hasNumber = runCatching { ModernReflect.callMethod(dotInfo, "getBadgeType") as? Number }
+                    .getOrNull()?.toInt() == 1
+                val hasDot = runCatching { ModernReflect.callMethod(dotInfo, "canShowDot") as? Boolean }
+                    .getOrNull() == true
+                if (!hasNumber && !hasDot) continue
+                val info = ModernReflect.getObjectField(app, "bitmap") ?: continue
+                val color = ModernReflect.getIntField(info, "color")
+                if (color != 0 && color != -0x1000000 && Color.alpha(color) == 0xFF) return scrim(color)
+                val bitmap = ModernReflect.getObjectField(info, "icon") as? Bitmap ?: continue
+                val extracted = dominantColor(bitmap) ?: continue
+                return scrim(extracted)
+            }
+            return null
+        }
+        val icon = runCatching { ModernReflect.callMethod(host, "getIcon") }.getOrNull() ?: return null
         val value = runCatching { ModernReflect.callMethod(icon, "getIconColor") as? Number }.getOrNull()?.toInt()
-            ?: return null
-        return if (value == 0) null else value
+        if (value != null && value != 0 && Color.alpha(value) == 0xFF) return value
+        // Fallback: the icon is a transient LayerDrawable (category-folder open animation) or its
+        // color is unset; read the dominant color from the item's bitmap.
+        return itemBitmapColor(tag)
+    }
+
+    // Read the (scrimmed) dominant color from a WorkspaceItemInfo's bitmap, extracting it if the
+    // stored color is still unset.
+    private fun itemBitmapColor(item: Any?): Int? {
+        if (item == null) return null
+        val info = ModernReflect.getObjectField(item, "bitmap") ?: return null
+        val color = ModernReflect.getIntField(info, "color")
+        if (color != 0 && color != -0x1000000 && Color.alpha(color) == 0xFF) return scrim(color)
+        val bitmap = ModernReflect.getObjectField(info, "icon") as? Bitmap ?: return null
+        val extracted = dominantColor(bitmap) ?: return null
+        return scrim(extracted)
     }
 
     private fun numberPill(host: Any?): GradientDrawable? =
