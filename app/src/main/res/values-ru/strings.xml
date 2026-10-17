@@ -651,6 +651,8 @@
     <string name="keyguard_face_tap_action">Разблокировать телефон</string>
     <string name="keyguard_face_tap_animation_title">Анимация отпечатка при входе</string>
     <string name="keyguard_face_tap_animation_summary">Только для нажатия после распознавания лица, штатная анимация отпечатка не меняется</string>
+    <string name="keyguard_block_password_highlight_title">Убрать светящуюся обводку клавиш пароля</string>
+    <string name="keyguard_block_password_highlight_summary">Убирает подсветку контура клавиш ввода пароля, матовый фон клавиш не затрагивается</string>
     <string name="keyguard_page_title">Экран блокировки</string>
     <string name="keyguard_page_entry_summary">Разблокировка касанием после распознавания лица, штатная анимация отпечатка</string>
     <string name="feature_screenshot_title">Снимки экрана</string>

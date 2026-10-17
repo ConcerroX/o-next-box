@@ -65,6 +65,7 @@ internal class EnabledFeatureActions {
         R.string.keyboard_flag_emoji_title to { context, enabled -> LspConfig.setKeyboardFlagEmojiEnabled(context, enabled) },
         R.string.keyguard_face_tap_title to { context, enabled -> LspConfig.setKeyguardFeatureEnabled(context, LspConfig.KeyguardFeature.FaceTapUnlock, enabled) },
         R.string.keyguard_face_tap_animation_title to { context, enabled -> LspConfig.setKeyguardFeatureEnabled(context, LspConfig.KeyguardFeature.FaceTapAnimation, enabled) },
+        R.string.keyguard_block_password_highlight_title to { context, enabled -> LspConfig.setKeyguardFeatureEnabled(context, LspConfig.KeyguardFeature.BlockPasswordHighlight, enabled) },
         R.string.feature_navigation_handle_length_title to { context, enabled -> LspConfig.setNavigationHandleCustomLengthEnabled(context, enabled) },
         R.string.feature_immersive_navigation_title to { context, enabled -> LspConfig.setImmersiveNavigationEnabled(context, enabled) },
         R.string.feature_navigation_handle_auto_hide_title to { context, enabled -> LspConfig.setNavigationHandleAutoHideEnabled(context, enabled) },

@@ -657,6 +657,7 @@ object LspConfig {
     enum class KeyguardFeature(val key: String) {
         FaceTapUnlock("keyguard_face_tap_unlock"),
         FaceTapAnimation("keyguard_face_tap_animation"),
+        BlockPasswordHighlight("keyguard_block_password_highlight"),
         AodScreenshot("keyguard_aod_screenshot"),
         ScreenOffRecording("keyguard_screen_off_recording");
 

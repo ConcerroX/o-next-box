@@ -164,6 +164,7 @@ class OosLspModuleEntry : XposedModule() {
                 SmallWindowHooker.hookSystemUi(classLoader)
                 FaceTapUnlockHooker.hook(classLoader)
                 KeyguardCaptureHooker.hookSystemUi(classLoader)
+                PasswordDialHighlightHooker.hook(classLoader)
                 FluidCloudMediaBlacklistHooker.hook(classLoader)
             }
 
