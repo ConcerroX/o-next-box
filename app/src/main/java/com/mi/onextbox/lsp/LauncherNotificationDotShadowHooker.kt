@@ -136,7 +136,9 @@ internal object LauncherNotificationDotShadowHooker {
         }
         val baseY = max(0f, bounds.top.toFloat() - topOffset)
         val scale = (ModernReflect.getObjectField(drawParams, "scale") as? Number)?.toFloat() ?: 1f
-        paintShadow(canvas, baseX + radius, baseY + radius, dotSize, scale)
+        // BigFolderNumBadgeRender translates to the dot center and scales with no pivot, i.e. it
+        // scales about the dot center — so mirror that centered pivot, not the top-left origin.
+        paintShadow(canvas, baseX + radius, baseY + radius, dotSize, scale, centeredScale = true)
     }
 
     // Draws AOSP's two shadow layers behind the colored dot the original method paints. ColorOS
