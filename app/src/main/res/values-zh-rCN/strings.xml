@@ -813,6 +813,10 @@
     <string name="launcher_hide_clone_badge_summary">隐藏分身应用图标上的角标</string>
     <string name="launcher_hide_update_dot">隐藏 App 安装/更新圆点</string>
     <string name="launcher_hide_update_dot_summary">隐藏新安装或更新应用名称旁的圆点</string>
+    <string name="launcher_colorful_notification_dot">彩色通知圆点</string>
+    <string name="launcher_colorful_notification_dot_summary">让通知圆点和数字角标跟随每个应用图标的主色调显示</string>
+    <string name="launcher_notification_dot_shadow">通知圆点阴影</string>
+    <string name="launcher_notification_dot_shadow_summary">恢复 AOSP 在通知圆点下方绘制的投影阴影</string>
     <string name="launcher_unlimited_folder_input">移除文件夹输入限制</string>
     <string name="launcher_unlimited_folder_input_summary">移除文件夹名称的输入长度限制</string>
     <string name="launcher_dock">启用桌面 Dock 栏</string>
@@ -1242,6 +1246,8 @@
     <string name="game_assistant_realme_startup_summary">屏蔽真我机型进入游戏时播放的 GT 性能引擎全屏动画</string>
     <string name="game_assistant_unlimited_title">移除侧栏数量限制</string>
     <string name="game_assistant_unlimited_summary">移除游戏侧栏的应用快捷项与书签数量限制</string>
+    <string name="game_assistant_music_title">移除音乐卡片白名单</string>
+    <string name="game_assistant_music_summary">移除游戏侧边栏控制音乐卡片的白名单限制</string>
     <string name="game_assistant_root_title">屏蔽 Root 检测</string>
     <string name="game_assistant_root_summary">屏蔽游戏助手的本地 Root 判断与滤镜 Root 状态，不影响其他应用</string>
     <string name="game_assistant_developer_title">游戏助手开发者模式</string>

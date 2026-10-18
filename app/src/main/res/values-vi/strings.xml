@@ -751,6 +751,10 @@
     <string name="launcher_hide_clone_badge_summary">Ẩn huy hiệu trên biểu tượng ứng dụng nhân bản</string>
     <string name="launcher_hide_update_dot">Ẩn chấm cài đặt/cập nhật ứng dụng</string>
     <string name="launcher_hide_update_dot_summary">Ẩn chấm bên cạnh tên ứng dụng mới cài hoặc cập nhật</string>
+    <string name="launcher_colorful_notification_dot">Chấm thông báo nhiều màu</string>
+    <string name="launcher_colorful_notification_dot_summary">Tô màu chấm thông báo và huy hiệu số theo màu chủ đạo của từng biểu tượng ứng dụng</string>
+    <string name="launcher_notification_dot_shadow">Bóng đổ của chấm thông báo</string>
+    <string name="launcher_notification_dot_shadow_summary">Khôi phục bóng đổ dưới chấm thông báo mà AOSP vẽ</string>
     <string name="launcher_unlimited_folder_input">Bỏ giới hạn nhập tên thư mục</string>
     <string name="launcher_unlimited_folder_input_summary">Bỏ giới hạn độ dài tên thư mục</string>
     <string name="launcher_dock">Bật Dock màn hình chính</string>
@@ -1180,6 +1184,8 @@
     <string name="game_assistant_realme_startup_summary">Bỏ qua hoạt ảnh toàn màn hình của realme GT Engine khi vào trò chơi trên máy realme</string>
     <string name="game_assistant_unlimited_title">Bỏ giới hạn số mục thanh bên</string>
     <string name="game_assistant_unlimited_summary">Bỏ giới hạn số lối tắt ứng dụng và dấu trang trong thanh bên trò chơi</string>
+    <string name="game_assistant_music_title">Bỏ danh sách trắng thẻ nhạc</string>
+    <string name="game_assistant_music_summary">Bỏ danh sách trắng giới hạn các ứng dụng thẻ nhạc trong thanh bên trò chơi điều khiển được</string>
     <string name="game_assistant_root_title">Chặn phát hiện Root</string>
     <string name="game_assistant_root_summary">Chặn kiểm tra Root cục bộ và trạng thái Root của bộ lọc trong trợ lý trò chơi, không ảnh hưởng ứng dụng khác</string>
     <string name="game_assistant_developer_title">Chế độ nhà phát triển của trợ lý trò chơi</string>

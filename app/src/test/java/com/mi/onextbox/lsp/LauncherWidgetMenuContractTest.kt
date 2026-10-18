@@ -13,7 +13,7 @@ class LauncherWidgetMenuContractTest {
         assertTrue(setting.contains("const val WIDGETS = \"launcher_widgets_in_icon_menu\""))
         assertTrue(setting.contains("getBoolean(WIDGETS, false)"))
         assertTrue(setting.contains("HookConfigSnapshot.boolean(WIDGETS, false) == true"))
-        assertTrue(setting.contains("require(key == MENU || key == WIDGETS || key == TOP)"))
+        assertTrue(setting.contains("require(key == MENU || key == WIDGETS || key == TOP || key == SPACING_ENABLED)"))
         assertTrue(setting.contains("putBoolean(key, enabled).commit()"))
         assertTrue(setting.contains("LspConfig.syncReadableState(context)"))
         assertTrue(source("main/java/com/mi/onextbox/ui/common/ConfigBackup.kt").contains("LSP_PREFS_NAME"))
