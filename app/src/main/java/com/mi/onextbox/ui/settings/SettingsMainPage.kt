@@ -1414,7 +1414,8 @@ fun SoftwareUpdateTopBarActions(
                 DropdownMenuGroup(shapes = MenuDefaults.groupShape(index = 0, count = 1)) {
                     DropdownMenuItem(
                         text = { MaterialText(stringResource(R.string.software_update_auto_settings)) },
-                        shape = MenuDefaults.standaloneItemShape,
+                        // A single action should follow its enclosing expressive menu contour.
+                        shape = MenuDefaults.standaloneGroupShape,
                         onClick = {
                             expanded.value = false
                             onOpenAutoUpdateSettings()

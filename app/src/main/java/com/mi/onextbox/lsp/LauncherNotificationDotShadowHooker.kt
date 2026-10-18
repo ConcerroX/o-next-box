@@ -146,6 +146,8 @@ internal object LauncherNotificationDotShadowHooker {
     // must use the same origin to stay glued to the dot through the appear/disappear animation.
     // centeredScale mirrors the z10 branch: centered (radius,radius) pivot vs. top-left origin.
     private fun paintShadow(canvas: Canvas, cx: Float, cy: Float, dotSize: Int, scale: Float, centeredScale: Boolean = false) {
+        // Zero is the hidden endpoint of the native dot animation, not full size.
+        if (!LauncherDotShadowRules.shouldDraw(dotSize, scale)) return
         val radius = dotSize / 2f
         // AOSP ShadowGenerator: shadowBlur = size/24, keyShadowDistance = size/16.
         val blur = dotSize / 24f
@@ -178,4 +180,8 @@ internal object LauncherNotificationDotShadowHooker {
     }
 
     private fun enabled() = LspConfig.isLauncherFeatureEnabledXposed(LauncherFeature.NotificationDotShadow)
+}
+
+internal object LauncherDotShadowRules {
+    fun shouldDraw(size: Int, scale: Float) = size > 0 && scale.isFinite() && scale > 0f
 }

@@ -78,6 +78,7 @@ class OosLspModuleEntry : XposedModule() {
     }
 
     private fun dispatchSystemServer(loader: ClassLoader) {
+        CorePatchIntegration.hook(loader)
         if (LspConfig.isImmersiveNavigationEnabledXposed()) {
             ImmersiveNavigationHooker.hook()
         }
@@ -143,6 +144,8 @@ class OosLspModuleEntry : XposedModule() {
                 LargeNetworkTypeHooker.hook(classLoader)
                 DataSimSignalHooker.hook(classLoader)
                 StatusBarLayoutHooker.hook(classLoader)
+                PowerIndicatorHooker.hook(classLoader)
+                RotationSuggestionHooker.hook(classLoader)
                 CarrierNameHooker.hook(classLoader)
                 runCatching { QsTileCornerHooker.hook(classLoader) }
                     .onFailure { HookLog.w("ONextBox-QsTileCorner", "Tile corner adapter unavailable", it) }
@@ -161,6 +164,7 @@ class OosLspModuleEntry : XposedModule() {
                 SystemUiRedOneHooker.hook(classLoader)
                 NotificationRemovalHooker.hookSystemUi(classLoader)
                 NotificationClearButtonHooker.hook(classLoader)
+                HideNotificationClearHooker.hook(classLoader)
                 SmallWindowHooker.hookSystemUi(classLoader)
                 FaceTapUnlockHooker.hook(classLoader)
                 KeyguardCaptureHooker.hookSystemUi(classLoader)
@@ -185,6 +189,7 @@ class OosLspModuleEntry : XposedModule() {
                 LauncherHooker.hook(classLoader)
                 LauncherFeaturesHooker.hook(classLoader, target.sourceDir)
                 LauncherGestureHooker.hook(classLoader)
+                HideRecentAppsHooker.hook(classLoader)
                 LauncherIconLabelSpacingHooker.hook(classLoader)
                 LauncherNotificationDotColorHooker.hook(classLoader)
                 LauncherNotificationDotShadowHooker.hook(classLoader)
@@ -232,8 +237,10 @@ class OosLspModuleEntry : XposedModule() {
 
             "com.oplus.securitypermission" -> SecurityPermissionHooker.hook(classLoader)
 
-            PhoneManagerSettings.PACKAGE_NAME ->
+            PhoneManagerSettings.PACKAGE_NAME -> {
                 PhoneManagerCountdownHooker.hook(classLoader, target.sourceDir)
+                PhoneManagerRiskCloudHooker.hook(classLoader, target.sourceDir)
+            }
 
             OShareSettings.PACKAGE_NAME -> OShareVisibilityHooker.hook(classLoader)
             ThemeStoreSettings.PACKAGE_NAME -> ThemeStoreHooker.hook(classLoader)
@@ -258,7 +265,10 @@ class OosLspModuleEntry : XposedModule() {
             }
             PACKAGE_GOOGLE_MESSAGES -> GoogleMessagesHooker.hook(classLoader)
             "com.heytap.mcs" -> OppoPushMonitorHooker.hook(classLoader)
-            "com.oplus.screenshot" -> AodScreenshotHooker.hook(classLoader)
+            "com.oplus.screenshot" -> {
+                AodScreenshotHooker.hook(classLoader)
+                HideScreenshotFloatingHooker.hook(classLoader)
+            }
             "com.oplus.screenrecorder" -> KeyguardCaptureHooker.hookRecorder(classLoader)
             ExpressCardRules.PLATFORM, ExpressCardRules.ASSISTANT -> ExpressCardHooker.hook(packageName, classLoader)
         }

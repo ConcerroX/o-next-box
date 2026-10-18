@@ -14,7 +14,6 @@ import android.text.format.DateFormat
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.widget.TextView
-import com.mi.onextbox.R
 import com.mi.onextbox.lsp.SettingsAppInfoRules.Field
 import com.mi.onextbox.lsp.SettingsAppInfoRules.Snapshot
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
@@ -151,7 +150,7 @@ internal object SettingsAppInfoCardHooker {
         card.snapshot = snapshot
         if (changedPackage) {
             setExpanded(card, false, context)
-            setValue(card.rows.getValue(Field.Installer), text(context, R.string.settings_app_info_unknown))
+            setValue(card.rows.getValue(Field.Installer), text(context, "settings_app_info_unknown"))
         }
         populate(card, context)
         readInstaller(card, context.applicationContext, loader)
@@ -181,10 +180,10 @@ internal object SettingsAppInfoCardHooker {
         call(group, "setOrder", anchorOrder)
         call(group, "setPersistent", false)
         val header = preference(context, rowClass, HEADER_KEY,
-            text(context, R.string.settings_app_info_card_title), headerLayout, 0)
+            text(context, "settings_app_info_card_title"), headerLayout, 0)
         // Keep the models attached for native preference binding, but render only the single panel.
         call(header, "setVisible", false)
-        val unknown = text(context, R.string.settings_app_info_unknown)
+        val unknown = text(context, "settings_app_info_unknown")
         val rows = Field.entries.associateWith { field ->
             val label = text(context, label(field))
             val item = preference(context, rowClass, "onextbox_app_info_${field.name}", label, dataLayout, field.ordinal + 1)
@@ -212,7 +211,7 @@ internal object SettingsAppInfoCardHooker {
         bindCallback(header, loader) { holder ->
             val root = ModernReflect.getObjectField(holder, "itemView") as View
             card.headerView = WeakReference(root)
-            root.stateDescription = text(context, if (card.expanded) R.string.settings_app_info_expanded else R.string.settings_app_info_collapsed)
+            root.stateDescription = text(context, if (card.expanded) "settings_app_info_expanded" else "settings_app_info_collapsed")
             if (card.nativeRotateHeader) {
                 root.findViewById<View>(resource(context, "expand_list_item_indicator", "id"))?.let { rotate ->
                     card.rotateView = WeakReference(rotate)
@@ -278,18 +277,18 @@ internal object SettingsAppInfoCardHooker {
             call(card.header, "setJump", context.getDrawable(arrow) as Drawable)
         }
         card.headerView?.get()?.stateDescription = text(context,
-            if (expanded) R.string.settings_app_info_expanded else R.string.settings_app_info_collapsed)
+            if (expanded) "settings_app_info_expanded" else "settings_app_info_collapsed")
     }
 
     private fun populate(card: Card, context: Context) {
         val data = card.snapshot
-        val unknown = text(context, R.string.settings_app_info_unknown)
+        val unknown = text(context, "settings_app_info_unknown")
         val locale = context.resources.configuration.locales[0]
         val pattern = DateFormat.getBestDateTimePattern(locale, "yyyyMMddHHmmss")
         val zone = TimeZone.getDefault()
         setValue(card.rows.getValue(Field.PackageName), data.packageName)
         setValue(card.rows.getValue(Field.Version), SettingsAppInfoRules.version(data.versionName, data.versionCode, unknown))
-        setValue(card.rows.getValue(Field.Sdk), text(context, R.string.settings_app_info_sdk_value,
+        setValue(card.rows.getValue(Field.Sdk), text(context, "settings_app_info_sdk_value",
             data.minSdk.takeIf { it > 0 }?.toString() ?: unknown,
             data.targetSdk.takeIf { it > 0 }?.toString() ?: unknown))
         setValue(card.rows.getValue(Field.FirstInstalled), SettingsAppInfoRules.timestamp(data.firstInstalled, pattern, locale, zone, unknown))
@@ -299,7 +298,7 @@ internal object SettingsAppInfoCardHooker {
     private fun readInstaller(card: Card, appContext: Context, loader: ClassLoader) {
         val generation = ++card.generation
         val snapshot = card.snapshot
-        val unknown = text(appContext, R.string.settings_app_info_unknown)
+        val unknown = text(appContext, "settings_app_info_unknown")
         val target = WeakReference(card)
         reader.execute {
             if (HotReloadLifecycle.isRetiring) return@execute
@@ -403,13 +402,13 @@ internal object SettingsAppInfoCardHooker {
             }
         }
 
-    private fun label(field: Field): Int = when (field) {
-        Field.PackageName -> R.string.settings_app_info_package
-        Field.Version -> R.string.settings_app_info_version
-        Field.Sdk -> R.string.settings_app_info_sdk
-        Field.FirstInstalled -> R.string.settings_app_info_first_installed
-        Field.LastUpdated -> R.string.settings_app_info_last_updated
-        Field.Installer -> R.string.settings_app_info_installer
+    private fun label(field: Field): String = when (field) {
+        Field.PackageName -> "settings_app_info_package"
+        Field.Version -> "settings_app_info_version"
+        Field.Sdk -> "settings_app_info_sdk"
+        Field.FirstInstalled -> "settings_app_info_first_installed"
+        Field.LastUpdated -> "settings_app_info_last_updated"
+        Field.Installer -> "settings_app_info_installer"
     }
 
     private fun call(owner: Any, name: String, vararg args: Any?) = ModernReflect.callMethod(owner, name, *args)
@@ -417,6 +416,5 @@ internal object SettingsAppInfoCardHooker {
     @SuppressLint("DiscouragedApi") // These resources belong to the installed Settings APK.
     private fun resource(context: Context, name: String, type: String) = context.resources.getIdentifier(name, type, SETTINGS)
 
-    private fun text(context: Context, id: Int, vararg args: Any): String = context.createPackageContext("com.mi.onextbox", 0)
-        .createConfigurationContext(context.resources.configuration).getString(id, *args)
+    private fun text(context: Context, name: String, vararg args: Any): String = ModuleStrings.get(context, name, *args)
 }

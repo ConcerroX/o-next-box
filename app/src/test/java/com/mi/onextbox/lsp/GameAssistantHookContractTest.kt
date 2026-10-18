@@ -65,7 +65,8 @@ class GameAssistantHookContractTest {
             assertTrue(action, controller.contains("action(host, \"$action"))
         }
         assertTrue(controller.contains("return runCatching { block(); true }"))
-        assertTrue(controller.contains("R.string.game_assistant_developer_failed"))
+        assertTrue(controller.contains("\"game_assistant_developer_failed\""))
+        assertTrue(controller.contains("ModuleStrings.get(context, name)"))
         assertTrue(controller.contains("host.isFinishing || host.isDestroyed || HotReloadLifecycle.isRetiring"))
         assertTrue(controller.contains("finally {\n                                        button.setOnCheckedChangeListener(listener)"))
         assertTrue(controller.contains("popup.setOnDismissListener"))

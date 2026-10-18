@@ -294,8 +294,6 @@
     <string name="feature_monet_color_spec_off">关闭</string>
     <string name="feature_international_network_display_title">国际版网络显示规范</string>
     <string name="feature_international_network_display_summary">将 SystemUI 的移动网络类型图标显示规则切换为国际版规范，使用WI-FI时自动隐藏网络类型，使用移动数据恢复显示</string>
-    <string name="feature_restore_c16_network_icon_order_title">恢复 ColorOS 16 网络图标顺序</string>
-    <string name="feature_restore_c16_network_icon_order_summary">将 Wi-Fi 图标移到移动信号之前，恢复 Wi-Fi、SIM1、SIM2 的排列顺序</string>
     <string name="feature_hide_mobile_roaming_indicator_title">隐藏移动信号漫游指示标</string>
     <string name="feature_hide_mobile_roaming_indicator_summary">隐藏状态栏移动信号旁的漫游指示标</string>
     <string name="feature_hide_network_activity_indicator_title">隐藏网络活动指示标</string>

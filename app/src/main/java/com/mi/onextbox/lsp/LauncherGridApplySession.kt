@@ -7,7 +7,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.widget.Toast
-import com.mi.onextbox.R
 import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.MODERN_PREFERENCES_READY_KEY
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
@@ -205,7 +204,7 @@ internal class LauncherGridApplySession(private val loader: ClassLoader, private
         HookLog.w(TAG, message, error)
         runCatching {
             val module = host.createPackageContext("com.mi.onextbox", 0)
-            Toast.makeText(host, module.getString(R.string.launcher_custom_grid_apply_failed), Toast.LENGTH_SHORT).show()
+            Toast.makeText(host, ModuleStrings.get(module, "launcher_custom_grid_apply_failed"), Toast.LENGTH_SHORT).show()
         }
     }
 

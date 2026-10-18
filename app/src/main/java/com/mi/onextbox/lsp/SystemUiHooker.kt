@@ -66,10 +66,6 @@ object SystemUiHooker {
         "com.android.systemui.qs.footer.ui.viewmodel.FooterActionsViewModel\$Factory",
         "com.android.systemui.qs.panels.ui.viewmodel.toolbar.ToolbarViewModel",
     )
-    private val STATUS_BAR_ICON_LIST_CLASSES = arrayOf(
-        "com.android.systemui.statusbar.phone.ui.StatusBarIconList",
-        "com.android.systemui.statusbar.phone.StatusBarIconList",
-    )
     private const val MOBILE_ROAMING_SPACE_VIEW_ID = 0x7f0a0889
     private const val MOBILE_ROAMING_TEXT_VIEW_ID = 0x7f0a088a
     private val installedHookKeys = ConcurrentHashMap.newKeySet<String>()
@@ -80,7 +76,6 @@ object SystemUiHooker {
     private val mobileRoamingIndicatorHidden = AtomicBoolean(false)
     private val networkActivityIndicatorHidden = AtomicBoolean(false)
     private val nativePowerMenuShown = AtomicBoolean(false)
-    private val c16NetworkIconOrderApplied = AtomicBoolean(false)
     private val internationalNotificationStyleScope = ThreadLocal<Int>()
     private val nativePowerMenuLock = Any()
     private data class WifiGuard(
@@ -136,9 +131,6 @@ object SystemUiHooker {
         }
         if (LspConfig.isSystemUiNativePowerMenuEnabledXposed()) {
             hookNativePowerMenu(classLoader)
-        }
-        if (LspConfig.isSystemUiRestoreC16NetworkIconOrderEnabledXposed()) {
-            hookRestoreC16NetworkIconOrder(classLoader)
         }
         if (LspConfig.isSystemUiInternationalNotificationStyleEnabledXposed()) {
             hookInternationalNotificationStyle(classLoader)
@@ -670,52 +662,6 @@ object SystemUiHooker {
         }
     }
 
-/** Wi-Fi and mobile-icon slot ordering, preserving subscription updates. */
-    private fun hookRestoreC16NetworkIconOrder(classLoader: ClassLoader?) {
-        var hookCount = 0
-        STATUS_BAR_ICON_LIST_CLASSES.forEach { className ->
-            val iconListClass = XposedHelpers.findClassIfExists(className, classLoader)
-                ?: return@forEach
-            iconListClass.declaredConstructors
-                .filter { constructor ->
-                    constructor.parameterTypes.size == 1 &&
-                        constructor.parameterTypes[0].isArray &&
-                        constructor.parameterTypes[0].componentType == String::class.java
-                }
-                .forEach { constructor ->
-                    val key = "systemui:c16-network-icon-order:${constructor.toGenericString()}"
-                    if (!addHookKeyIfAbsent(key)) return@forEach
-                    XposedBridge.hookMethod(constructor, object : XC_MethodHook() {
-                        override fun beforeHookedMethod(param: MethodHookParam) {
-                            val original = param.args.getOrNull(0) as? Array<*> ?: return
-                            val slots = original.map { slot -> slot as? String ?: return }
-                            val wifiIndex = slots.indexOf("wifi")
-                            val firstMobileIndex = slots.indexOfFirst { slot ->
-                                slot == "stacked_mobile" || slot == "mobile"
-                            }
-                            if (wifiIndex < 0 || firstMobileIndex < 0 || wifiIndex < firstMobileIndex) {
-                                return
-                            }
-
-                            val reordered = slots.toMutableList()
-                            reordered.removeAt(wifiIndex)
-                            val insertionIndex = reordered.indexOfFirst { slot ->
-                                slot == "stacked_mobile" || slot == "mobile"
-                            }
-                            if (insertionIndex < 0) return
-                            reordered.add(insertionIndex, "wifi")
-                            param.args[0] = reordered.toTypedArray()
-
-                            if (c16NetworkIconOrderApplied.compareAndSet(false, true)) {
-                                log("SystemUI network icon order restored: wifi before mobile slots")
-                            }
-                        }
-                    })
-                    hookCount++
-                }
-        }
-        log("SystemUI ColorOS 16 network icon order hooks: $hookCount")
-    }
 
     /** Enables SystemUI's global pinned/alerting/silent notification sections. */
     private fun hookInternationalNotificationStyle(classLoader: ClassLoader?) {

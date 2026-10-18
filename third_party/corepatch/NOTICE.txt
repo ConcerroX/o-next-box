@@ -1,0 +1,27 @@
+CorePatch N local integration
+
+Upstream: https://github.com/LSPosed/CorePatch
+Revision: ddf87bb5fb2bb2eb962992103abf0b225952d738
+Authors: LSPosed/CorePatch contributors; upstream Git history retains individual authorship.
+Upstream README declares GNU General Public License v2.0.
+The upstream snapshot has no standalone LICENSE file or explicit later-version permission.
+This notice does not relicense upstream code under ONextBox's GPL v3.
+License compatibility/redistribution authorization remains unresolved; do not treat this
+local integration or a successful build as permission to redistribute the combined binary.
+
+Imported sources: app/src/main/java/org/lsposed/corepatch/hook/*.kt and Constant.kt.
+Adapted sources: Config.kt and XposedHelper.kt; localized option text from upstream resources.
+Original upstream README is retained alongside this notice.
+
+ONextBox adaptations:
+- API 102 callback bridge uses the existing registry, exception handling and lifecycle.
+- Preferences use a corepatch_ prefix and all default to false.
+- Settings are captured at system_server startup. Every change requires a phone reboot.
+- Active CorePatch rejects module hot replacement to protect signing/shared-UID state.
+- MessageDigest bypass is restricted to Android APK/JAR verification call stacks.
+- Signing capability gates preserve permission/auth capability bits, including combinations.
+- V1 certificate chains are converted from Collection to Certificate[] when needed.
+- Dedicated settings page, enable confirmation, search and configuration inventory.
+
+No upstream standalone application, Xposed entry point, icon or package identity is bundled.
+Do not activate this integration alongside the standalone CorePatch module.

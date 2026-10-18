@@ -1,6 +1,7 @@
 package com.mi.onextbox.lsp
 
 import android.view.View
+import android.widget.TextView
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
 import com.mi.onextbox.lsp.compat.ModernMethodHook
@@ -16,11 +17,6 @@ internal object LauncherIconLabelSpacingHooker {
     // Workspace(0), all-apps drawer(1), folder(2) and the drawer's category folder(11) share the
     // same icon/label layout path. Hot-seat(8) and super power workspace(9) are excluded.
     private val targetDisplays = setOf(0, 1, 2, 11)
-
-    // Native workspace icon-label padding in px, captured from a workspace icon (display=0) getter
-    // call. Avoids reading the obfuscated DeviceProfile field (j4.j.k) which changes across OTAs.
-    @Volatile
-    private var workspaceBasePaddingPx = -1
 
     fun hook(loader: ClassLoader) {
         runCatching { installIcons(loader) }.onSuccess {
@@ -54,6 +50,12 @@ internal object LauncherIconLabelSpacingHooker {
         check(ModernHookRuntime.requireModule().deoptimize(getter)) {
             "Unable to deoptimize icon-label padding getter"
         }
+        // Deoptimizing only the getter cannot invalidate an inlined copy in its caller.
+        bubble.declaredMethods.filter { it.name == "updateIconBounds" }.forEach {
+            check(ModernHookRuntime.requireModule().deoptimize(it)) {
+                "Unable to deoptimize icon bounds update"
+            }
+        }
 
         ModernHookRegistry.installFast("$TAG:padding", getter, XposedInterface.Hooker { chain ->
             val original = chain.proceed() as? Int ?: 0
@@ -67,17 +69,8 @@ internal object LauncherIconLabelSpacingHooker {
             }.getOrDefault(-1)
             if (display !in targetDisplays) return@Hooker original
             val delta = (offset * host.resources.displayMetrics.density + 0.5f).toInt()
-            // Folder icons (display=2) use a larger native base gap (folderDisplayOption.
-            // iconDrawablePaddingDp = 6dp) than workspace icons (1dp). Normalize the folder base to
-            // the workspace value so the spacing is uniform everywhere.
-            val base = if (display == 2) {
-                if (workspaceBasePaddingPx >= 0) workspaceBasePaddingPx else original
-            } else {
-                // Capture the native workspace base on any non-folder target display.
-                if (display == 0) workspaceBasePaddingPx = original
-                original
-            }
-            (base + delta).coerceAtLeast(0)
+            // Each layout owns its native base; never borrow another view/profile's padding.
+            (original + delta).coerceAtLeast(0)
         })
     }
 
@@ -96,6 +89,8 @@ internal object LauncherIconLabelSpacingHooker {
         ModernHookRegistry.installCompat(
             "$TAG:folder-name", placeGroupName, object : ModernMethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam) {
+                    // Landscape and unsupported layouts may return without resetting padding.
+                    if (param.throwable != null || param.result != true) return
                     val offset = LauncherGestureSettings.iconLabelSpacingOffsetXposed()
                     if (offset == 0 || !LauncherGestureSettings.iconLabelSpacingEnabledXposed()) return
                     val host = param.thisObject as? View ?: return
@@ -119,12 +114,15 @@ internal object LauncherIconLabelSpacingHooker {
             ModernHookRegistry.installCompat(
                 "$TAG:card-name:$name", measure, object : ModernMethodHook() {
                     override fun afterHookedMethod(param: MethodHookParam) {
+                        if (param.throwable != null) return
                         val offset = LauncherGestureSettings.iconLabelSpacingOffsetXposed()
                         if (offset == 0 || !LauncherGestureSettings.iconLabelSpacingEnabledXposed()) return
                         val host = param.thisObject ?: return
                         val label = runCatching {
                             ModernReflect.callMethod(host, "getCardName") as? View
                         }.getOrNull() ?: return
+                        // Group-card measurement does nothing without layout parameters.
+                        if (label.layoutParams == null) return
                         shiftLabelDown(label, offset)
                     }
                 })
@@ -137,12 +135,27 @@ internal object LauncherIconLabelSpacingHooker {
         // The label is bottom-aligned with a fixed height, so its text top is
         // containerBottom - height + paddingTop. Increasing only paddingTop moves the text down by
         // delta; changing height too would cancel the shift.
+        val text = label as? TextView ?: return
+        val height = label.layoutParams?.height ?: return
+        val metrics = text.paint.fontMetricsInt
+        val textHeight = if (text.includeFontPadding) metrics.bottom - metrics.top else metrics.descent - metrics.ascent
+        val top = LauncherLabelSpacingRules.labelTop(label.paddingTop, delta, height, label.paddingBottom, textHeight)
+        if (top == label.paddingTop) return
         label.setPadding(
             label.paddingLeft,
-            (label.paddingTop + delta).coerceAtLeast(0),
+            top,
             label.paddingRight,
             label.paddingBottom,
         )
         label.requestLayout()
+    }
+}
+
+internal object LauncherLabelSpacingRules {
+    // Native folder/card labels have a fixed height. Do not move their only line out of bounds.
+    fun labelTop(base: Int, delta: Int, height: Int, bottom: Int, textHeight: Int): Int {
+        if (height <= 0 || delta <= 0) return base
+        val available = (height - bottom - textHeight - base).coerceAtLeast(0)
+        return base + delta.coerceAtMost(available)
     }
 }

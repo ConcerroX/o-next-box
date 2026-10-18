@@ -82,6 +82,9 @@ internal fun NavigationBarFeaturesPage() {
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
     FeatureAnimatedGroup {
+        row("rotation-suggestion") { above, below ->
+            RotationSuggestionSettingsRow(above, below)
+        }
         row(0) { above, below ->
             SettingsToggleRow(
                 title = stringResource(R.string.feature_navigation_handle_length_title),

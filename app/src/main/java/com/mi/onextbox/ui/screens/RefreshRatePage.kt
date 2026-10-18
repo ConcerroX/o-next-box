@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -21,7 +20,8 @@ import com.mi.onextbox.R
 import com.mi.onextbox.refresh.RefreshRateControllerClient
 import com.mi.onextbox.refresh.RefreshRatePreferences
 import com.mi.onextbox.refresh.SavedRefreshRateMode
-import com.mi.onextbox.ui.common.ShellLogger
+import com.mi.onextbox.refresh.RefreshRateCommandExecutor
+import com.mi.onextbox.refresh.RefreshRateWriteQueue
 import com.mi.onextbox.ui.settings.SettingsGroup
 import com.mi.onextbox.ui.settings.SettingsCardRow
 import com.mi.onextbox.ui.settings.SettingsSection
@@ -30,6 +30,7 @@ import com.mi.onextbox.ui.settings.SettingsToggleRow
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -53,18 +54,19 @@ private sealed interface RefreshRateAction {
 @Composable
 fun RefreshRatePage() {
     val context = LocalContext.current
+    val app = context.applicationContext
     val scope = rememberCoroutineScope()
-    var refreshKey by remember { mutableIntStateOf(0) }
     val cachedModes = remember(context) { readCachedDisplayModes(context) }
     var modes by remember(context) { mutableStateOf(cachedModes) }
     var modesLoaded by remember(context) { mutableStateOf(cachedModes.isNotEmpty()) }
-    LaunchedEffect(context, refreshKey) {
-        // SurfaceFlinger's dumpsys can take around one second. Keep it off the
-        // composition thread so applying a mode never freezes the page.
-        val refreshedModes = withContext(Dispatchers.IO) { readDisplayModes(context) }
+    LaunchedEffect(context) {
+        // Mode tables do not change when selecting a refresh rate. Read once per
+        // page visit rather than launching a full dump after every tap.
+        val refreshedModes = withContext(Dispatchers.IO) {
+            readDisplayModes(context).also { if (it.isNotEmpty()) saveCachedDisplayModes(context, it) }
+        }
         if (refreshedModes.isNotEmpty()) {
             modes = refreshedModes
-            saveCachedDisplayModes(context, refreshedModes)
         }
         modesLoaded = true
     }
@@ -72,15 +74,16 @@ fun RefreshRatePage() {
         mutableStateOf(readAutoStartEnabled(context))
     }
     var showRefreshRate by remember { mutableStateOf(false) }
+    var forceLoaded by remember { mutableStateOf(false) }
+    var forceSaving by remember { mutableStateOf(false) }
     LaunchedEffect(context) {
         showRefreshRate = withContext(Dispatchers.IO) {
             readForceRefreshEnabled(context)
         }
+        forceLoaded = true
     }
-    var selectedModeId by remember(context, modes) {
-        val savedModeId = readSavedModeId(context)
-            ?.takeIf { savedId -> modes.any { mode -> mode.id == savedId } }
-        mutableStateOf(savedModeId)
+    var selectedModeId by remember(context) {
+        mutableStateOf(readSavedModeId(context))
     }
     var applying by remember { mutableStateOf(false) }
     val applyFailedText = stringResource(R.string.refresh_rate_apply_failed)
@@ -100,37 +103,39 @@ fun RefreshRatePage() {
         }
         applying = true
         scope.launch {
-            var nextAction: RefreshRateAction? = action
-            while (nextAction != null) {
-                when (nextAction) {
-                    is RefreshRateAction.Apply -> {
-                        val mode = nextAction.mode
-                        val success = withContext(Dispatchers.IO) {
-                            applyPreferredMode(context, mode)
-                        }
-                        if (success) {
-                            saveSelectedMode(context, mode)
-                        } else {
-                            Toast.makeText(context, applyFailedText, Toast.LENGTH_SHORT).show()
+            try {
+                var nextAction: RefreshRateAction? = action
+                while (nextAction != null) {
+                    val current = nextAction
+                    val pending = RefreshRateWriteQueue.enqueue {
+                        when (current) {
+                            is RefreshRateAction.Apply -> applyPreferredMode(app, current.mode)
+                                .also { if (it) saveSelectedMode(app, current.mode) }
+                            RefreshRateAction.RestoreDefault -> clearPreferredMode(app)
+                                .also { if (it) clearSavedModeId(app) }
                         }
                     }
-
-                    RefreshRateAction.RestoreDefault -> {
-                        val success = withContext(Dispatchers.IO) { clearPreferredMode(context) }
-                        Toast.makeText(
-                            context,
-                            if (success) restoreSuccessText else restoreFailedText,
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                        selectedModeId = null
-                        clearSavedModeId(context)
+                    val success = try { pending.await() }
+                    catch (cancel: CancellationException) { throw cancel }
+                    catch (_: Exception) { false }
+                    if (current == RefreshRateAction.RestoreDefault || !success) {
+                        val message = if (current == RefreshRateAction.RestoreDefault)
+                            if (success) restoreSuccessText else restoreFailedText else applyFailedText
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
+                    if (queuedAction == null) selectedModeId = readSavedModeId(context)
+                    nextAction = queuedAction
+                    queuedAction = null
                 }
-                refreshKey++
-                nextAction = queuedAction
+            } catch (cancel: CancellationException) {
+                throw cancel
+            } catch (_: Exception) {
+                selectedModeId = readSavedModeId(context)
+                Toast.makeText(context, applyFailedText, Toast.LENGTH_SHORT).show()
+            } finally {
                 queuedAction = null
+                applying = false
             }
-            applying = false
         }
     }
 
@@ -188,14 +193,23 @@ fun RefreshRatePage() {
         RefreshRateToggleRow(
             title = stringResource(R.string.refresh_rate_show_refresh_rate),
             checked = showRefreshRate,
+            switchEnabled = forceLoaded && !forceSaving,
             hasDividerAbove = true,
             onCheckedChange = { enabled ->
                 showRefreshRate = enabled
+                forceSaving = true
+                val pending = RefreshRateWriteQueue.enqueue { setForceRefreshEnabled(app, enabled) }
                 scope.launch {
-                    if (!withContext(Dispatchers.IO) { setForceRefreshEnabled(context, enabled) }) {
+                    try {
+                        if (!pending.await()) {
+                            showRefreshRate = !enabled
+                            Toast.makeText(context, applyFailedText, Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (cancel: CancellationException) { throw cancel }
+                    catch (_: Exception) {
                         showRefreshRate = !enabled
                         Toast.makeText(context, applyFailedText, Toast.LENGTH_SHORT).show()
-                    }
+                    } finally { forceSaving = false }
                 }
             },
         )
@@ -208,6 +222,7 @@ private fun RefreshRateToggleRow(
     title: String,
     summary: String? = null,
     checked: Boolean,
+    switchEnabled: Boolean = true,
     hasDividerAbove: Boolean = false,
     hasDividerBelow: Boolean = false,
     onCheckedChange: (Boolean) -> Unit,
@@ -216,6 +231,7 @@ private fun RefreshRateToggleRow(
         title = title,
         summary = summary.orEmpty(),
         checked = checked,
+        switchEnabled = switchEnabled,
         onCheckedChange = onCheckedChange,
         hasDividerAbove = hasDividerAbove,
         hasDividerBelow = hasDividerBelow,
@@ -279,7 +295,7 @@ private suspend fun readSurfaceFlingerDisplayModes(
     val currentMode = display.mode
     val controllerModes = RefreshRateControllerClient.getSupportedModes(context).orEmpty()
     val output = controllerModes.ifEmpty {
-        ShellLogger.exec(
+        RefreshRateCommandExecutor.exec(
             "RefreshRate list modes fallback",
             surfaceFlingerListCommand(context),
         ).out
@@ -439,7 +455,7 @@ private suspend fun applyPreferredMode(context: Context, mode: DisplayModeInfo):
         mode.surfaceFlingerModeIndex
     )
     if (appliedByController == true) return true
-    return ShellLogger.exec(
+    return RefreshRateCommandExecutor.exec(
         "RefreshRate apply fallback ${formatRefreshRate(mode.refreshRate)}",
         surfaceFlingerModeCommand(context, mode.surfaceFlingerModeIndex),
     ).isSuccess
@@ -447,7 +463,7 @@ private suspend fun applyPreferredMode(context: Context, mode: DisplayModeInfo):
 
 private suspend fun clearPreferredMode(context: Context): Boolean {
     if (RefreshRateControllerClient.resetRefreshRateMode(context) == true) return true
-    return ShellLogger.exec(
+    return RefreshRateCommandExecutor.exec(
         "RefreshRate clear fallback",
         surfaceFlingerResetCommand(context),
     ).isSuccess
@@ -462,7 +478,7 @@ private fun setAutoStartEnabled(context: Context, enabled: Boolean) {
 
 private suspend fun readForceRefreshEnabled(context: Context): Boolean {
     RefreshRateControllerClient.isRefreshRateDisplayEnabled(context)?.let { return it }
-    val result = ShellLogger.exec(
+    val result = RefreshRateCommandExecutor.exec(
         "RefreshRate force status fallback",
         surfaceFlingerForceStatusCommand(context),
     )
@@ -471,7 +487,7 @@ private suspend fun readForceRefreshEnabled(context: Context): Boolean {
 
 private suspend fun setForceRefreshEnabled(context: Context, enabled: Boolean): Boolean {
     if (RefreshRateControllerClient.setRefreshRateDisplayEnabled(context, enabled) == true) return true
-    val result = ShellLogger.exec(
+    val result = RefreshRateCommandExecutor.exec(
         "RefreshRate force fallback enabled=$enabled",
         surfaceFlingerForceEnabledCommand(context, enabled),
     )

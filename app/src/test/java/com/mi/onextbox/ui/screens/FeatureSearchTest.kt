@@ -285,7 +285,6 @@ class FeatureSearchTest {
             com.mi.onextbox.R.string.feature_status_bar_double_tap_to_top_title,
             com.mi.onextbox.R.string.feature_status_bar_remove_to_top_whitelist_title,
             com.mi.onextbox.R.string.feature_international_network_display_title,
-            com.mi.onextbox.R.string.feature_restore_c16_network_icon_order_title,
             com.mi.onextbox.R.string.feature_hide_mobile_roaming_indicator_title,
             com.mi.onextbox.R.string.feature_hide_network_activity_indicator_title,
             com.mi.onextbox.R.string.feature_hide_disconnected_bluetooth_title,

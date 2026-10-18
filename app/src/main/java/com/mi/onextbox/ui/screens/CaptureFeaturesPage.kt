@@ -43,6 +43,9 @@ internal fun CaptureFeaturesPage(feature: KeyguardFeature) {
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
     val screenshot = feature == KeyguardFeature.AodScreenshot
+    if (screenshot) {
+        SettingsGroup { HideScreenshotFloatingSettingsRow(false, false) }
+    }
     SettingsGroup {
         SettingsToggleRow(
             title = stringResource(if (screenshot) R.string.keyguard_aod_screenshot_title else R.string.keyguard_screen_off_recording_title),

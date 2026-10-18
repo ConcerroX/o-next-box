@@ -14,7 +14,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.mi.onextbox.R
 import com.mi.onextbox.lsp.LspConfig.BatteryFeature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernReflect
@@ -191,7 +190,7 @@ internal object BatteryCycleCountHooker {
         val cycleValue = requireNotNull(bottom.findViewById<TextView>(dataId))
         cycleTitle.id = View.generateViewId()
         cycleValue.id = View.generateViewId()
-        cycleTitle.text = moduleString(context, R.string.battery_cycle_count_label, "Cycle count")
+        cycleTitle.text = moduleString(context, "battery_cycle_count_label", "Cycle count")
         cycleValue.setTextColor(capacity.textColors)
         show(cycleValue, cached?.count)
         val column = LinearLayout(context).apply {
@@ -256,7 +255,7 @@ internal object BatteryCycleCountHooker {
 
     private fun show(value: TextView, count: Int?) {
         value.text = if (count == null) hostString(value.context, "battery_health_secret_code_info_obtain_fail",
-            R.string.battery_cycle_count_unavailable, "Unavailable")
+            "battery_cycle_count_unavailable", "Unavailable")
         else NumberFormat.getIntegerInstance(value.resources.configuration.locales[0]).apply {
             isGroupingUsed = false
         }.format(count)
@@ -266,15 +265,13 @@ internal object BatteryCycleCountHooker {
     private fun resource(context: Context, name: String, type: String) =
         context.resources.getIdentifier(name, type, PACKAGE)
 
-    private fun hostString(context: Context, name: String, fallback: Int, text: String): String {
+    private fun hostString(context: Context, name: String, fallback: String, text: String): String {
         val id = resource(context, name, "string")
         return if (id != 0) context.getString(id) else moduleString(context, fallback, text)
     }
 
-    private fun moduleString(context: Context, id: Int, fallback: String): String = runCatching {
-        context.createPackageContext("com.mi.onextbox", 0)
-            .createConfigurationContext(context.resources.configuration).getString(id)
-    }.getOrDefault(fallback)
+    private fun moduleString(context: Context, name: String, fallback: String): String =
+        ModuleStrings.get(context, name, fallback = fallback)
 }
 
 /** Main-thread request ownership; canceled reads must not leave an attached card busy. */

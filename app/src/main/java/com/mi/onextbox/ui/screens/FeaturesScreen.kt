@@ -176,6 +176,7 @@ enum class FeaturePageMode(val isNestedPage: Boolean = false) {
     DesktopLayout(true),
     DesktopIcons(true),
     DesktopRecent(true),
+    DesktopHiddenApps(true),
     DesktopPages(true),
     SystemUi,
     SystemUiNative(true),
@@ -194,6 +195,7 @@ enum class FeaturePageMode(val isNestedPage: Boolean = false) {
     AndroidSystem,
     SideKey(true),
     Installer(true),
+    CorePatch(true),
     Esim,
     EsimDiagnostics(true),
     AppMarket,
@@ -414,6 +416,10 @@ fun FeatureSubRoute(
         FluidCloudMediaBlacklistPage(modifier.fillMaxSize(), blurBackdrop, onBack)
         return
     }
+    if (pageMode == FeaturePageMode.DesktopHiddenApps) {
+        HideRecentAppsPage(modifier.fillMaxSize(), blurBackdrop, onBack)
+        return
+    }
     var restartConfirmMode by remember { mutableStateOf<FeaturePageMode?>(null) }
     var pushMonitorRefresh by remember { mutableStateOf(0) }
     val restartTargets = featureRestartPackages(pageMode)
@@ -561,6 +567,7 @@ internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
     FeaturePageMode.DesktopLayout -> stringResource(R.string.desktop_category_layout)
     FeaturePageMode.DesktopIcons -> stringResource(R.string.desktop_category_icons)
     FeaturePageMode.DesktopRecent -> stringResource(R.string.feature_group_recent_tasks)
+    FeaturePageMode.DesktopHiddenApps -> stringResource(R.string.hide_recent_apps_title)
     FeaturePageMode.DesktopPages -> stringResource(R.string.desktop_category_pages)
     FeaturePageMode.SystemUi -> stringResource(R.string.section_lsp)
     FeaturePageMode.SystemUiNative -> stringResource(R.string.feature_group_native)
@@ -577,6 +584,7 @@ internal fun featurePageTitle(mode: FeaturePageMode): String = when (mode) {
     FeaturePageMode.NotificationRemoval -> stringResource(R.string.notification_removal_title)
     FeaturePageMode.MobileNetwork -> stringResource(R.string.feature_mobile_network_title)
     FeaturePageMode.AndroidSystem -> stringResource(R.string.feature_android_system_title)
+    FeaturePageMode.CorePatch -> stringResource(R.string.corepatch_title)
     FeaturePageMode.SideKey -> stringResource(R.string.side_key_title)
     FeaturePageMode.Installer -> stringResource(R.string.installer_title)
     FeaturePageMode.Esim -> stringResource(R.string.feature_esim_title)
@@ -619,6 +627,7 @@ internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when 
     FeaturePageMode.DesktopLayout,
     FeaturePageMode.DesktopIcons,
     FeaturePageMode.DesktopRecent,
+    FeaturePageMode.DesktopHiddenApps,
     FeaturePageMode.DesktopPages -> listOf(
         "com.android.launcher",
     )
@@ -638,6 +647,7 @@ internal fun featureRestartPackages(mode: FeaturePageMode): List<String> = when 
     FeaturePageMode.NotificationRemoval -> listOf("android", "system", "com.android.systemui")
     FeaturePageMode.MobileNetwork -> listOf("com.android.phone")
     FeaturePageMode.AndroidSystem -> listOf("android", "system")
+    FeaturePageMode.CorePatch -> emptyList() // Full device reboot, never kill system_server from this page.
     FeaturePageMode.SideKey -> listOf("android", "system", "com.android.systemui")
     FeaturePageMode.Installer -> listOf("android", "system")
     FeaturePageMode.Esim -> listOf("com.oplus.euicc")
@@ -1478,12 +1488,14 @@ private fun FeatureSubPage(
             onRecentTaskRadiusEnabledChange = onRecentTaskRadiusEnabledChange,
             recentTaskRadiusDp = recentTaskRadiusDp,
             onRecentTaskRadiusDpChange = onRecentTaskRadiusDpChange,
+            onOpenSubPage = onOpenSubPage,
         )
         FeaturePageMode.NotificationRemoval -> NotificationRemovalPage()
         FeaturePageMode.SystemUi -> SystemUiCategoriesPage(onOpenSubPage)
         FeaturePageMode.SystemUiIconOrder -> StatusBarIconOrderPage()
         FeaturePageMode.SystemUiFluidCloud -> FluidCloudFeaturesPage(onOpenSubPage)
         FeaturePageMode.SystemUiFluidCloudMediaBlacklist -> Unit
+        FeaturePageMode.DesktopHiddenApps -> Unit
         FeaturePageMode.SystemUiSmallWindow -> SmallWindowFeaturesPage()
         FeaturePageMode.SystemUiLockScreen -> KeyguardInteractionSettings()
         FeaturePageMode.SystemUiNavigationBar -> NavigationBarFeaturesPage()
@@ -1530,6 +1542,7 @@ private fun FeatureSubPage(
         )
         FeaturePageMode.MobileNetwork -> MobileNetworkFeaturesPage()
         FeaturePageMode.Installer -> InstallerPage()
+        FeaturePageMode.CorePatch -> CorePatchPage()
         FeaturePageMode.SideKey -> SideKeyFeaturesPage()
         FeaturePageMode.Esim -> EsimFeaturesPage(onOpenSubPage = onOpenSubPage)
         FeaturePageMode.EsimDiagnostics -> EsimDiagnosticsPage()

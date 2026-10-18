@@ -107,8 +107,6 @@
     <string name="feature_monet_color_spec_off">關閉</string>
     <string name="feature_international_network_display_title">國際版網路顯示規範</string>
     <string name="feature_international_network_display_summary">將 SystemUI 的行動網路類型圖示顯示規則切換為國際版規範，使用 Wi-Fi 時自動隱藏網路類型，使用行動數據時恢復顯示</string>
-    <string name="feature_restore_c16_network_icon_order_title">恢復 ColorOS 16 網路圖示順序</string>
-    <string name="feature_restore_c16_network_icon_order_summary">將 Wi-Fi 圖示移到行動訊號之前，恢復 Wi-Fi、SIM1、SIM2 的排列順序</string>
     <string name="feature_hide_mobile_roaming_indicator_title">隱藏行動訊號漫遊指示標</string>
     <string name="feature_hide_mobile_roaming_indicator_summary">隱藏狀態列行動訊號旁的漫遊指示標</string>
     <string name="feature_hide_network_activity_indicator_title">隱藏網路活動指示標</string>

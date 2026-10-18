@@ -6,10 +6,18 @@ import org.junit.Test
 class LargeNetworkTypeHookerTest {
     @Test fun boldRequiresBothParentSwitches() {
         assertEquals(700, LargeNetworkTypeHooker.fontWeight(true, true, true, 400))
-        assertEquals(800, LargeNetworkTypeHooker.fontWeight(true, true, true, 800))
+        assertEquals(700, LargeNetworkTypeHooker.fontWeight(true, true, true, 800))
         assertEquals(400, LargeNetworkTypeHooker.fontWeight(false, true, true, 400))
         assertEquals(400, LargeNetworkTypeHooker.fontWeight(true, false, true, 400))
         assertEquals(400, LargeNetworkTypeHooker.fontWeight(true, true, false, 400))
+    }
+    @Test fun disablingBoldDoesNotInheritAHeavySystemWeight() {
+        for (weight in listOf(100, 400, 500, 600, 700, 800, 900)) {
+            assertEquals(400, LargeNetworkTypeHooker.fontWeight(true, true, false, weight))
+            assertEquals(700, LargeNetworkTypeHooker.fontWeight(true, true, true, weight))
+            assertEquals(weight, LargeNetworkTypeHooker.fontWeight(false, true, false, weight))
+            assertEquals(weight, LargeNetworkTypeHooker.fontWeight(true, false, true, weight))
+        }
     }
     @Test fun followsFontOnlyForEnabledLargeNetworkText() {
         assertTrue(LargeNetworkTypeHooker.shouldFollowFont(true, true, 25))

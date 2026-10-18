@@ -861,8 +861,6 @@ object LspConfig {
     private const val KEY_SYSTEMUI_HIDE_NETWORK_ACTIVITY_INDICATOR =
         "systemui_hide_network_activity_indicator"
     private const val KEY_SYSTEMUI_NATIVE_POWER_MENU = "systemui_native_power_menu"
-    private const val KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER =
-        "systemui_restore_c16_network_icon_order"
     private const val KEY_SYSTEMUI_INTERNATIONAL_NOTIFICATION_STYLE =
         "systemui_international_notification_style"
     private const val KEY_SYSTEMUI_FORCE_TONAL_SPOT = "systemui_force_tonal_spot"
@@ -960,8 +958,6 @@ object LspConfig {
     private const val PROP_KEY_SYSTEMUI_HIDE_NETWORK_ACTIVITY_INDICATOR =
         "oost.systemui_hide_network_activity_indicator"
     private const val PROP_KEY_SYSTEMUI_NATIVE_POWER_MENU = "oost.systemui_native_power_menu"
-    private const val PROP_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER =
-        "oost.systemui_restore_c16_network_icon_order"
     private const val PROP_KEY_SYSTEMUI_INTERNATIONAL_NOTIFICATION_STYLE =
         "oost.systemui_international_notification_style"
     private const val PROP_KEY_SYSTEMUI_FORCE_TONAL_SPOT = "oost.systemui_force_tonal_spot"
@@ -1058,8 +1054,6 @@ object LspConfig {
         "persist.sys.oost.systemui_hide_network_activity_indicator"
     private const val PERSIST_PROP_KEY_SYSTEMUI_NATIVE_POWER_MENU =
         "persist.sys.oost.systemui_native_power_menu"
-    private const val PERSIST_PROP_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER =
-        "persist.sys.oost.systemui_restore_c16_network_icon_order"
     private const val PERSIST_PROP_KEY_SYSTEMUI_INTERNATIONAL_NOTIFICATION_STYLE =
         "persist.sys.oost.systemui_international_notification_style"
     private const val PERSIST_PROP_KEY_SYSTEMUI_FORCE_TONAL_SPOT =
@@ -1161,8 +1155,6 @@ object LspConfig {
         "oost_systemui_hide_network_activity_indicator"
     private const val SETTINGS_KEY_SYSTEMUI_NATIVE_POWER_MENU =
         "oost_systemui_native_power_menu"
-    private const val SETTINGS_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER =
-        "oost_systemui_restore_c16_network_icon_order"
     private const val SETTINGS_KEY_SYSTEMUI_INTERNATIONAL_NOTIFICATION_STYLE =
         "oost_systemui_international_notification_style"
     private const val SETTINGS_KEY_SYSTEMUI_FORCE_TONAL_SPOT = "oost_systemui_force_tonal_spot"
@@ -1248,7 +1240,6 @@ object LspConfig {
     private const val DEFAULT_SYSTEMUI_HIDE_MOBILE_ROAMING_INDICATOR = false
     private const val DEFAULT_SYSTEMUI_HIDE_NETWORK_ACTIVITY_INDICATOR = false
     private const val DEFAULT_SYSTEMUI_NATIVE_POWER_MENU = false
-    private const val DEFAULT_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER = false
     private const val DEFAULT_SYSTEMUI_INTERNATIONAL_NOTIFICATION_STYLE = false
     private const val DEFAULT_SYSTEMUI_FORCE_TONAL_SPOT = false
     const val SYSTEMUI_MONET_COLOR_SPEC_OFF = 0
@@ -1874,22 +1865,7 @@ object LspConfig {
         )
     }
 
-    fun isSystemUiRestoreC16NetworkIconOrderEnabled(context: Context): Boolean {
-        return LspPreferenceStore.readBoolean(context, KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER, DEFAULT_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER)
-    }
 
-    fun setSystemUiRestoreC16NetworkIconOrderEnabled(context: Context, enabled: Boolean) {
-        setSyncedBooleanPreference(
-            context = context,
-            prefsKey = KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-            enabled = enabled,
-            propertyKeys = listOf(
-                PERSIST_PROP_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-                PROP_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-            ),
-            settingsGlobalKey = SETTINGS_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-        )
-    }
 
     fun isSystemUiInternationalNotificationStyleEnabled(context: Context): Boolean {
         return LspPreferenceStore.readBoolean(context, KEY_SYSTEMUI_INTERNATIONAL_NOTIFICATION_STYLE, DEFAULT_SYSTEMUI_INTERNATIONAL_NOTIFICATION_STYLE)
@@ -2799,10 +2775,6 @@ object LspConfig {
                 context,
                 DEFAULT_SYSTEMUI_NATIVE_POWER_MENU,
             )
-            setSystemUiRestoreC16NetworkIconOrderEnabled(
-                context,
-                DEFAULT_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-            )
             setSystemUiInternationalNotificationStyleEnabled(
                 context,
                 DEFAULT_SYSTEMUI_INTERNATIONAL_NOTIFICATION_STYLE,
@@ -2945,8 +2917,6 @@ object LspConfig {
         val systemUiHideNetworkActivityIndicator =
             isSystemUiHideNetworkActivityIndicatorEnabled(context)
         val systemUiNativePowerMenu = isSystemUiNativePowerMenuEnabled(context)
-        val systemUiRestoreC16NetworkIconOrder =
-            isSystemUiRestoreC16NetworkIconOrderEnabled(context)
         val systemUiInternationalNotificationStyle =
             isSystemUiInternationalNotificationStyleEnabled(context)
         val systemUiForceTonalSpot = isSystemUiForceTonalSpotEnabled(context)
@@ -3315,14 +3285,6 @@ object LspConfig {
                 PROP_KEY_SYSTEMUI_NATIVE_POWER_MENU,
             ),
             settingsGlobalKey = SETTINGS_KEY_SYSTEMUI_NATIVE_POWER_MENU,
-        )
-        syncScalarState(
-            value = if (systemUiRestoreC16NetworkIconOrder) "1" else "0",
-            propertyKeys = listOf(
-                PERSIST_PROP_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-                PROP_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-            ),
-            settingsGlobalKey = SETTINGS_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
         )
         syncScalarState(
             value = if (systemUiInternationalNotificationStyle) "1" else "0",
@@ -3988,15 +3950,6 @@ object LspConfig {
         )
     }
 
-    fun isSystemUiRestoreC16NetworkIconOrderEnabledXposed(): Boolean {
-        return readXposedBoolean(
-            persistPropertyKey = PERSIST_PROP_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-            propertyKey = PROP_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-            settingsKey = SETTINGS_KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-            prefsKey = KEY_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-            defaultValue = DEFAULT_SYSTEMUI_RESTORE_C16_NETWORK_ICON_ORDER,
-        )
-    }
 
     fun isSystemUiInternationalNotificationStyleEnabledXposed(): Boolean {
         return readXposedBoolean(

@@ -191,6 +191,15 @@ internal fun EnabledFeaturesPage(
                     }
                     items.forEach { entry ->
                         row(entry.title, visible = expanded) { above, below ->
+                            if (!actions.supports(entry.title)) {
+                                SettingsCardRow(
+                                    title = stringResource(entry.title),
+                                    summary = featurePageTitle(entry.page),
+                                    showArrow = true,
+                                    onClick = { if (!saving) onOpen(entry.page) },
+                                    hasDividerAbove = above, hasDividerBelow = below,
+                                )
+                            } else {
                             SettingsToggleRow(
                                 title = stringResource(entry.title),
                                 summary = listOf(
@@ -206,6 +215,7 @@ internal fun EnabledFeaturesPage(
                                 onRowClick = { if (!saving) onOpen(entry.page) },
                                 hasDividerAbove = above, hasDividerBelow = below,
                             )
+                            }
                         }
                     }
                 }

@@ -7,23 +7,23 @@ import org.junit.Test
 
 /** COUI host classes are unavailable in JVM tests; guard the verified teardown contract. */
 class SettingsNativePanelReloadContractTest {
-    @Test fun collapsedPressUsesTheWholeNativeCardSurface() {
+    @Test fun expandedAndCollapsedPressUseTheWholeNativeCardSurface() {
         val source = source()
         assertTrue(source.contains("call(view, \"consumeDispatchingEventForState\", true)"))
         assertTrue(source.contains("view.setOnClickListener"))
-        val update = source.substringAfter("private fun updatePressOwner() {")
-            .substringBefore("private fun adapter()")
-        assertTrue(update.contains("call(view, \"resetBackgroundAnimation\")"))
-        assertTrue(update.contains("call(view, \"setBackgroundAnimationEnabled\", !expanded)"))
-        assertTrue(update.contains("call(root, \"setBackgroundAnimationEnabled\", expanded)"))
-        val change = source.substringAfter("private fun changeState(").substringBefore("private fun updatePressOwner()")
-        assertTrue(change.indexOf("updatePressOwner()") > change.indexOf("expanded = value"))
+        assertTrue(source.contains("call(view, \"setBackgroundAnimationEnabled\", true)"))
+        assertFalse(source.contains("\"setBackgroundAnimationEnabled\", expanded"))
+        assertFalse(source.contains("\"setBackgroundAnimationEnabled\", !expanded"))
+        val change = source.substringAfter("private fun changeState(").substringBefore("private fun adapter()")
+        assertFalse(change.contains("resetBackgroundAnimation"))
     }
 
     @Test fun recycledHeaderDoesNotRestoreAnInsetPressMask() {
         val bind = source().substringAfter("private fun bind(").substringBefore("private fun connector()")
-        assertTrue(bind.contains("call(root, \"setBackgroundAnimationEnabled\", expanded)"))
-        assertTrue(bind.contains("call(root, \"setBackgroundAnimationEnabled\", true)"))
+        assertTrue(bind.contains("call(root, \"resetBackgroundAnimation\")"))
+        assertTrue(bind.contains("call(root, \"setBackgroundAnimationEnabled\", false)"))
+        assertFalse(bind.contains("setOnClickListener"))
+        assertFalse(bind.contains("setOnLongClickListener"))
         // Keep the original geometry/animation guard; removing its footer skips COUI expansion.
         assertTrue(source().contains("list.minimumHeight = root.measuredHeight + maxOf(1, view.paddingBottom)"))
     }

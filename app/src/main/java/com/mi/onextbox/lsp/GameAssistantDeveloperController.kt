@@ -15,7 +15,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.Toast
-import com.mi.onextbox.R
 import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.ModernHookRuntime
@@ -87,7 +86,7 @@ internal object GameAssistantDeveloperController {
             text = title
             setOnClickListener { action(host, "category") { showOptions(host, loader, title, id) } }
         }) }
-        show(host, loader, text(host, R.string.game_assistant_developer_title), scroll(host, layout))
+        show(host, loader, text(host, "game_assistant_developer_title"), scroll(host, layout))
     }
 
     private fun showOptions(host: Activity, loader: ClassLoader, title: String, id: Int) {
@@ -179,7 +178,7 @@ internal object GameAssistantDeveloperController {
             ModernReflect.callMethod(builder, "create") as Dialog
         }.getOrElse { AlertDialog.Builder(host).setTitle(title).setView(content).setPositiveButton(android.R.string.ok, close).create() }
         dialog?.show()
-        Toast.makeText(host, text(host, R.string.game_assistant_developer_restart), Toast.LENGTH_LONG).show()
+        Toast.makeText(host, text(host, "game_assistant_developer_restart"), Toast.LENGTH_LONG).show()
     }
 
     private fun dismissDialogs() {
@@ -193,7 +192,7 @@ internal object GameAssistantDeveloperController {
             !GameAssistantSettings.enabledXposed(GameAssistantSettings.DEVELOPER)) return false
         return runCatching { block(); true }.onFailure {
             HookLog.w(TAG, "Developer action unavailable: $name", it)
-            runCatching { Toast.makeText(host, text(host, R.string.game_assistant_developer_failed), Toast.LENGTH_LONG).show() }
+            runCatching { Toast.makeText(host, text(host, "game_assistant_developer_failed"), Toast.LENGTH_LONG).show() }
         }.getOrDefault(false)
     }
 
@@ -211,7 +210,7 @@ internal object GameAssistantDeveloperController {
     }
     private fun scroll(host: Activity, content: View) = ScrollView(host).apply { addView(content) }
     private fun dp(context: Context, value: Int) = (context.resources.displayMetrics.density * value).toInt()
-    private fun text(context: Context, id: Int) = context.createPackageContext("com.mi.onextbox", 0).getString(id)
+    private fun text(context: Context, name: String) = ModuleStrings.get(context, name)
     private fun preferences(host: Activity, loader: ClassLoader): SharedPreferences {
         // SharedDataHelp can delegate to ISharedPreferences. Use its native factory so
         // choices go to the same backing store consumed by SharedPreferencesProxy.

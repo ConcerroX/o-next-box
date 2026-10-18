@@ -12,16 +12,16 @@ class EnabledFeatureActionsTest {
         assertTrue(EnabledFeatureCatalog.isActive(child, setOf(parent, child)))
         assertTrue(EnabledFeatureActions().supports(child))
     }
-    @Test fun customStatusBarOrderTakesPrecedenceOverTheLegacyNetworkPreset() {
-        val preset = R.string.feature_restore_c16_network_icon_order_title
-        val custom = R.string.statusbar_order_title
-        assertTrue(EnabledFeatureCatalog.isActive(preset, setOf(preset)))
-        assertFalse(EnabledFeatureCatalog.isActive(preset, setOf(preset, custom)))
-        assertTrue(EnabledFeatureCatalog.isActive(custom, setOf(preset, custom)))
-    }
-    @Test fun everyInventoryEntryHasAnExplicitWriter() {
+    @Test fun everyInventoryEntryHasAnExplicitWriterOrRiskConfirmationDestination() {
         val actions = EnabledFeatureActions()
-        EnabledFeatureCatalog.entries.forEach { assertTrue("Missing writer: ${it.title}", actions.supports(it.title)) }
+        EnabledFeatureCatalog.entries.forEach {
+            if (it.page == FeaturePageMode.CorePatch) {
+                assertFalse("Core Patch must use its confirmation page", actions.supports(it.title))
+                assertEquals(FeaturePageMode.AndroidSystem, EnabledFeatureCatalog.group(it.page))
+            } else {
+                assertTrue("Missing writer: ${it.title}", actions.supports(it.title))
+            }
+        }
     }
 
     @Test fun temporaryDisableRestoresExactSelectedMode() {

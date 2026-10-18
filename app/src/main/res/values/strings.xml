@@ -127,8 +127,6 @@
     <string name="feature_monet_color_spec_off">Off</string>
     <string name="feature_international_network_display_title">Global network display rules</string>
     <string name="feature_international_network_display_summary">Use the global SystemUI rules for mobile network type icons; automatically hide the network type when using Wi-Fi and show it again when using mobile data</string>
-    <string name="feature_restore_c16_network_icon_order_title">Restore ColorOS 16 network icon order</string>
-    <string name="feature_restore_c16_network_icon_order_summary">Place Wi-Fi before mobile signals to restore the Wi-Fi, SIM1, SIM2 order</string>
     <string name="feature_hide_mobile_roaming_indicator_title">Hide mobile roaming indicator</string>
     <string name="feature_hide_mobile_roaming_indicator_summary">Hide the roaming indicator beside the mobile signal icon</string>
     <string name="feature_hide_network_activity_indicator_title">Hide network activity indicator</string>

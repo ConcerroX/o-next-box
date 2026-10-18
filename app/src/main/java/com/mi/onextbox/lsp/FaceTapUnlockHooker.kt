@@ -12,7 +12,6 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.widget.FrameLayout
 import android.widget.ImageView
-import com.mi.onextbox.R
 import com.mi.onextbox.lsp.LspConfig.KeyguardFeature
 import com.mi.onextbox.lsp.compat.ModernHookRegistry
 import com.mi.onextbox.lsp.compat.HotReloadLifecycle
@@ -489,7 +488,7 @@ internal object FaceTapUnlockHooker {
         val view = button ?: ImageView(host.context).apply {
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
             contentDescription = runCatching {
-                host.context.createPackageContext("com.mi.onextbox", 0).getString(R.string.keyguard_face_tap_action)
+                ModuleStrings.get(host.context, "keyguard_face_tap_action")
             }.getOrDefault("Unlock")
             isClickable = true
             // Do not depend solely on the panel/native window forwarding ACTION_DOWN.

@@ -61,6 +61,7 @@ internal object LauncherFeaturesHooker {
                 LauncherFeatureRules.ClearButton.Hidden -> {
                     ModernReflect.callMethod(button, "setVisibilityByForce", View.INVISIBLE)
                     button.isClickable = false
+                    button.isLongClickable = false
                 }
                 LauncherFeatureRules.ClearButton.Old -> {
                     val resources = button.resources
@@ -109,6 +110,41 @@ internal object LauncherFeaturesHooker {
                 if (isClearButton(button) && enabled(LauncherFeature.HideClearButton)) chain.proceed(arrayOf(View.INVISIBLE))
                 else chain.proceed()
             }
+        }
+        // The host re-enables hit targets during every recents transition. It also
+        // invokes performClick from the panel, which ignores View.isClickable.
+        val clickable = panel.getDeclaredMethod("setViewClickable", Float::class.javaPrimitiveType)
+        hook(clickable) { chain ->
+            if (enabled(LauncherFeature.HideClearButton)) chain.proceed(arrayOf(0f)) else chain.proceed()
+        }
+        val panelClick = panel.getDeclaredMethod("m")
+        require(panelClick.returnType == Void.TYPE)
+        hook(panelClick) { chain ->
+            if (enabled(LauncherFeature.HideClearButton)) null else chain.proceed()
+        }
+        val listenerSetter = panel.getDeclaredMethod("setOnClearClickListener", View.OnClickListener::class.java)
+        after(listenerSetter) { chain ->
+            // Leave the host listener untouched: a module-owned wrapper would outlive
+            // its hooks during hot reload. Deopt its runtime bridge instead (C17 inlines b).
+            runCatching {
+                val button = getButton.invoke(chain.thisObject) as? View ?: return@runCatching
+                val info = ModernReflect.getObjectField(button, "mListenerInfo") ?: return@runCatching
+                val listener = ModernReflect.getObjectField(info, "mOnClickListener") ?: return@runCatching
+                ModernHookRuntime.requireModule().deoptimize(listener.javaClass.getDeclaredMethod("onClick", View::class.java))
+            }.onFailure {
+                HookLog.w(TAG, "Clear click bridge deoptimization unavailable", it)
+            }
+            applyPanel(chain.thisObject)
+        }
+        // The verified host click bridge may show a permission dialog before reaching
+        // the external listener. Suppress that bridge too, scoped to this panel only.
+        val clickBridge = panel.getDeclaredMethod("b", panel, View.OnClickListener::class.java, View::class.java)
+        hook(clickBridge) { chain ->
+            if (enabled(LauncherFeature.HideClearButton)) null else chain.proceed()
+        }
+        panel.declaredMethods.forEach { method ->
+            runCatching { ModernHookRuntime.requireModule().deoptimize(method) }
+                .onFailure { HookLog.w(TAG, "Clear button caller deoptimization unavailable: ${method.name}", it) }
         }
         if (enabled(LauncherFeature.OldClearButton)) {
             val iconDrawing = LauncherClearIconDrawing(buttonClass)

@@ -47,10 +47,19 @@ internal fun AndroidSystemFeaturesPage(
     SettingsSection(title = stringResource(R.string.installer_group))
     SettingsGroup {
         SettingsCardRow(
+            title = stringResource(R.string.corepatch_title),
+            summary = "",
+            showArrow = true,
+            onClick = { onOpenSubPage(FeaturePageMode.CorePatch) },
+            hasDividerBelow = true,
+        )
+        SettingsDivider()
+        SettingsCardRow(
             title = stringResource(R.string.installer_title),
             summary = stringResource(R.string.installer_entry_summary),
             onClick = { onOpenSubPage(FeaturePageMode.Installer) },
             showArrow = true,
+            hasDividerAbove = true,
         )
     }
     if (SideKeyFeaturePolicy.available) {

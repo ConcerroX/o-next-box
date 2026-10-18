@@ -102,8 +102,6 @@
     <string name="feature_monet_color_spec_off">Выкл</string>
     <string name="feature_international_network_display_title">Правила отображения глобальной сети</string>
     <string name="feature_international_network_display_summary">Использовать глобальные правила SystemUI для значков типов мобильных сетей; автоматически скрывать тип сети при использовании Wi-Fi и снова показывать его при использовании мобильных данных</string>
-    <string name="feature_restore_c16_network_icon_order_title">Восстановить порядок сетевых значков ColorOS 16</string>
-    <string name="feature_restore_c16_network_icon_order_summary">Поместите Wi-Fi перед сигналами мобильной связи, чтобы восстановить порядок Wi-Fi, SIM1 и SIM2</string>
     <string name="feature_hide_mobile_roaming_indicator_title">Скрыть индикатор мобильного роуминга</string>
     <string name="feature_hide_mobile_roaming_indicator_summary">Скрыть индикатор роуминга рядом со значком мобильного сигнала</string>
     <string name="feature_hide_network_activity_indicator_title">Скрыть индикатор сетевой активности</string>

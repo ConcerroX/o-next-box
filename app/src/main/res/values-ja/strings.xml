@@ -102,8 +102,6 @@
     <string name="feature_monet_color_spec_off">オフ</string>
     <string name="feature_international_network_display_title">グローバルネットワーク表示ルール</string>
     <string name="feature_international_network_display_summary">モバイル ネットワーク タイプのアイコンにグローバル SystemUI ルールを使用する。Wi-Fi 使用時はネットワークの種類を自動的に非表示にし、モバイルデータ使用時に再表示する</string>
-    <string name="feature_restore_c16_network_icon_order_title">ColorOS 16 ネットワーク アイコンの順序を復元する</string>
-    <string name="feature_restore_c16_network_icon_order_summary">モバイル信号の前に Wi-Fi を配置して、Wi-Fi、SIM1、SIM2 の順序を復元します</string>
     <string name="feature_hide_mobile_roaming_indicator_title">モバイルローミングインジケーターを非表示にする</string>
     <string name="feature_hide_mobile_roaming_indicator_summary">モバイル信号アイコンの横にあるローミング インジケーターを非表示にする</string>
     <string name="feature_hide_network_activity_indicator_title">ネットワーク アクティビティ インジケーターを非表示にする</string>

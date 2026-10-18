@@ -19,6 +19,13 @@ internal object EnabledFeatureCatalog {
     val entries = listOf(
         SharedFeatureDefinitions.networkIdentity.catalogEntry(),
         SharedFeatureDefinitions.qsCorner.catalogEntry(),
+        SharedFeatureDefinitions.powerIndicator.catalogEntry(),
+        SharedFeatureDefinitions.phoneManagerRiskCloud.catalogEntry(),
+        SharedFeatureDefinitions.rotationSuggestion.catalogEntry(),
+        SharedFeatureDefinitions.launcherLabelSpacing.catalogEntry(),
+        SharedFeatureDefinitions.hideRecentApps.catalogEntry(),
+        SharedFeatureDefinitions.hideNotificationClear.catalogEntry(),
+        SharedFeatureDefinitions.hideScreenshotFloating.catalogEntry(),
         Entry(R.string.statusbar_order_title, FeaturePageMode.SystemUiStatusBar) { StatusBarLayoutSettings.state(it).orderEnabled },
         Entry(R.string.statusbar_sim_order_title, FeaturePageMode.SystemUiIconOrder, parents = setOf(R.string.statusbar_order_title)) {
             StatusBarLayoutSettings.state(it).simEnabled
@@ -129,7 +136,6 @@ internal object EnabledFeatureCatalog {
         Entry(R.string.feature_only_data_sim_signal_title, FeaturePageMode.SystemUiStatusBar) { context -> DataSimSignalSettings.enabled(context) },
         Entry(R.string.feature_only_data_sim_independent_title, FeaturePageMode.SystemUiStatusBar,
             parents = setOf(R.string.feature_only_data_sim_signal_title)) { context -> DataSimSignalSettings.independentOnly(context) },
-        Entry(R.string.feature_restore_c16_network_icon_order_title, FeaturePageMode.SystemUiStatusBar, excludes = setOf(R.string.statusbar_order_title)) { context -> LspConfig.isSystemUiRestoreC16NetworkIconOrderEnabled(context) },
         Entry(R.string.feature_hide_mobile_roaming_indicator_title, FeaturePageMode.SystemUiStatusBar) { context -> LspConfig.isSystemUiHideMobileRoamingIndicatorEnabled(context) },
         Entry(R.string.feature_hide_network_activity_indicator_title, FeaturePageMode.SystemUiStatusBar) { context -> LspConfig.isSystemUiHideNetworkActivityIndicatorEnabled(context) },
         Entry(R.string.feature_international_notification_style_title, FeaturePageMode.SystemUiNotificationCenter) { context -> LspConfig.isSystemUiInternationalNotificationStyleEnabled(context) },
@@ -189,6 +195,9 @@ internal object EnabledFeatureCatalog {
         Entry(item.title, FeaturePageMode.TrafficManagement) { LspConfig.isTrafficFeatureEnabled(it, item.feature) }
     } + SoftwareUpdateFeatureItems.all.map { item ->
         Entry(item.title, FeaturePageMode.SoftwareUpdate) { SoftwareUpdateSettings.enabled(it, item.feature) }
+    } + CorePatchSettings.Option.entries.map { option ->
+        // Navigate to the confirmation page; no quick-enable action bypasses its risk dialog.
+        Entry(option.title, FeaturePageMode.CorePatch) { CorePatchSettings.enabled(it, option) }
     }
 
     suspend fun read(context: Context): List<Entry> {
@@ -239,7 +248,7 @@ internal object EnabledFeatureCatalog {
         page.name.startsWith("Desktop") -> FeaturePageMode.Desktop
         page.name.startsWith("SystemUi") || page == FeaturePageMode.NotificationRemoval -> FeaturePageMode.SystemUi
         page.name.startsWith("Settings") -> FeaturePageMode.Settings
-        page == FeaturePageMode.Installer -> FeaturePageMode.AndroidSystem
+        page == FeaturePageMode.Installer || page == FeaturePageMode.CorePatch -> FeaturePageMode.AndroidSystem
         else -> page
     }
 }

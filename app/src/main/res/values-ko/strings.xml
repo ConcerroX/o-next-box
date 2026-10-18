@@ -102,8 +102,6 @@
     <string name="feature_monet_color_spec_off">끄기</string>
     <string name="feature_international_network_display_title">글로벌 네트워크 표시 규칙</string>
     <string name="feature_international_network_display_summary">모바일 네트워크 유형 아이콘에 전역 SystemUI 규칙을 사용합니다. Wi-Fi 사용 시 네트워크 유형을 자동으로 숨기고 모바일 데이터 사용 시 다시 표시합니다</string>
-    <string name="feature_restore_c16_network_icon_order_title">ColorOS 16 네트워크 아이콘 순서 복원</string>
-    <string name="feature_restore_c16_network_icon_order_summary">모바일 신호 앞에 Wi-Fi를 배치하여 Wi-Fi, SIM1, SIM2 순서를 복원합니다</string>
     <string name="feature_hide_mobile_roaming_indicator_title">모바일 로밍 표시기 숨기기</string>
     <string name="feature_hide_mobile_roaming_indicator_summary">모바일 신호 아이콘 옆에 로밍 표시 숨기기</string>
     <string name="feature_hide_network_activity_indicator_title">네트워크 활동 표시기 숨기기</string>

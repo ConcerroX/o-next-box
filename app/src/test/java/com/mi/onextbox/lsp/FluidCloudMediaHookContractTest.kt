@@ -142,7 +142,8 @@ class FluidCloudMediaHookContractTest {
         assertTrue(update.contains("if (updated == selected) return"))
         assertTrue(update.contains("requestScrollToItem(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset)"))
         assertTrue(update.indexOf("requestScrollToItem") < update.indexOf("selected = updated"))
-        assertTrue(picker.contains("scope.launch { updateSelected(FluidCloudMediaSettings.packages(context)) }"))
+        assertTrue(picker.contains("scope.launch { updateSelected(readPackages(context)) }"))
+        assertTrue(picker.contains("FluidCloudMediaSettings::packages, FluidCloudMediaSettings::setPackages"))
     }
 
     @Test fun blacklistDescriptionIncludesTheRestoredUnaffectedPlaybackSuffixInEveryLocale() {

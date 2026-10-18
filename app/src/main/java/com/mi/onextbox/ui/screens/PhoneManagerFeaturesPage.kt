@@ -58,6 +58,7 @@ internal fun PhoneManagerFeaturesPage() {
             title = stringResource(R.string.phone_manager_skip_countdown_title),
             summary = stringResource(R.string.phone_manager_skip_countdown_summary),
             checked = enabled,
+            hasDividerBelow = true,
             enabled = !applying,
             onCheckedChange = { checked ->
                 if (!applying) {
@@ -82,5 +83,7 @@ internal fun PhoneManagerFeaturesPage() {
                 }
             },
         )
+        com.mi.onextbox.ui.settings.SettingsDivider()
+        PhoneManagerRiskCloudSettingsRow()
     }
 }

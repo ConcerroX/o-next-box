@@ -39,6 +39,7 @@ internal fun DesktopFeaturesPage(
     onRecentTaskRadiusEnabledChange: (Boolean) -> Unit,
     recentTaskRadiusDp: Int,
     onRecentTaskRadiusDpChange: (Int) -> Unit,
+    onOpenSubPage: (FeaturePageMode) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -152,6 +153,12 @@ internal fun DesktopFeaturesPage(
     }
 
     if (mode == FeaturePageMode.DesktopRecent) {
+        SettingsGroup {
+            com.mi.onextbox.ui.settings.SettingsCardRow(
+                title = stringResource(R.string.hide_recent_apps_title),
+                summary = stringResource(R.string.hide_recent_apps_summary),
+                showArrow = true, onClick = { onOpenSubPage(FeaturePageMode.DesktopHiddenApps) })
+        }
         LauncherSwipeTopSettingsGroup()
         SettingsGroup {
             LauncherFeatureRows(LauncherFeatureItems.recent, hasDividerBelow = true)

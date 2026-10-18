@@ -29,5 +29,26 @@ internal object SharedFeatureDefinitions {
     val stackedSignal = Toggle(R.string.feature_c16_stacked_signal_title, R.string.feature_c16_stacked_signal_summary,
         FeaturePageMode.SystemUiNative, { C16StackedSignalSettings.enabled(it) },
         { context, enabled -> C16StackedSignalSettings.set(context, enabled) })
-    val all = listOf(networkIdentity, qsCorner, stackedSignal)
+    val powerIndicator = Toggle(R.string.power_indicator_title, R.string.power_indicator_summary,
+        FeaturePageMode.SystemUiStatusBar, { com.mi.onextbox.lsp.PowerIndicatorSettings.state(it).enabled },
+        { context, enabled -> com.mi.onextbox.lsp.PowerIndicatorSettings.setEnabled(context, enabled) })
+    val phoneManagerRiskCloud = Toggle(R.string.phone_manager_risk_cloud_title, R.string.phone_manager_risk_cloud_summary,
+        FeaturePageMode.PhoneManager, { com.mi.onextbox.lsp.PhoneManagerRiskCloudSettings.enabled(it) },
+        { context, enabled -> com.mi.onextbox.lsp.PhoneManagerRiskCloudSettings.set(context, enabled) })
+    val rotationSuggestion = Toggle(R.string.rotation_suggestion_hide_title, R.string.rotation_suggestion_hide_summary,
+        FeaturePageMode.SystemUiNavigationBar, { com.mi.onextbox.lsp.RotationSuggestionSettings.enabled(it) },
+        { context, enabled -> com.mi.onextbox.lsp.RotationSuggestionSettings.set(context, enabled) })
+    val launcherLabelSpacing = Toggle(R.string.launcher_icon_label_spacing_title, R.string.launcher_icon_label_spacing_summary,
+        FeaturePageMode.DesktopIcons, { com.mi.onextbox.lsp.LauncherGestureSettings.iconLabelSpacingEnabled(it) },
+        { context, enabled -> com.mi.onextbox.lsp.LauncherGestureSettings.save(context, com.mi.onextbox.lsp.LauncherGestureSettings.SPACING_ENABLED, enabled) })
+    val hideRecentApps = Toggle(R.string.hide_recent_apps_title, R.string.hide_recent_apps_summary,
+        FeaturePageMode.DesktopHiddenApps, { com.mi.onextbox.lsp.HideRecentAppsSettings.enabled(it) },
+        { context, enabled -> com.mi.onextbox.lsp.HideRecentAppsSettings.setEnabled(context, enabled) })
+    val hideNotificationClear = Toggle(R.string.hide_notification_clear_title, R.string.hide_notification_clear_summary,
+        FeaturePageMode.SystemUiNotificationCenter, { com.mi.onextbox.lsp.HideNotificationClearSettings.enabled(it) },
+        { context, enabled -> com.mi.onextbox.lsp.HideNotificationClearSettings.set(context, enabled) })
+    val hideScreenshotFloating = Toggle(R.string.hide_screenshot_floating_title, R.string.hide_screenshot_floating_summary,
+        FeaturePageMode.Screenshot, { com.mi.onextbox.lsp.HideScreenshotFloatingSettings.enabled(it) },
+        { context, enabled -> com.mi.onextbox.lsp.HideScreenshotFloatingSettings.set(context, enabled) })
+    val all = listOf(networkIdentity, qsCorner, stackedSignal, powerIndicator, phoneManagerRiskCloud, rotationSuggestion, launcherLabelSpacing, hideRecentApps, hideNotificationClear, hideScreenshotFloating)
 }

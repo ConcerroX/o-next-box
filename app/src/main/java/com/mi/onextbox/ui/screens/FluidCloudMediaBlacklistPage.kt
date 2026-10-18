@@ -58,10 +58,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-internal fun FluidCloudMediaBlacklistPage(modifier: Modifier, backdrop: LayerBackdrop?, onBack: () -> Unit) {
+internal fun FluidCloudMediaBlacklistPage(modifier: Modifier, backdrop: LayerBackdrop?, onBack: () -> Unit) =
+    PackageSelectionPage(modifier, backdrop, onBack, R.string.fluid_media_apps_title,
+        FluidCloudMediaSettings.PACKAGES, FluidCloudMediaSettings::packages, FluidCloudMediaSettings::setPackages)
+
+@Composable
+internal fun PackageSelectionPage(
+    modifier: Modifier, backdrop: LayerBackdrop?, onBack: () -> Unit, title: Int,
+    packagesKey: String, readPackages: (android.content.Context) -> Set<String>,
+    savePackages: (android.content.Context, Set<String>) -> Unit,
+    header: @Composable () -> Unit = {},
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var selected by remember(context) { mutableStateOf(FluidCloudMediaSettings.packages(context)) }
+    var selected by remember(context) { mutableStateOf(readPackages(context)) }
     var apps by remember { mutableStateOf(emptyList<MediaBlacklistApp>()) }
     var loading by remember { mutableStateOf(true) }
     var loadFailed by remember { mutableStateOf(false) }
@@ -93,8 +103,8 @@ internal fun FluidCloudMediaBlacklistPage(modifier: Modifier, backdrop: LayerBac
         saving = true
         scope.launch {
             try {
-                withContext(Dispatchers.IO) { FluidCloudMediaSettings.setPackages(context, updated) }
-                updateSelected(FluidCloudMediaSettings.packages(context))
+                withContext(Dispatchers.IO) { savePackages(context, updated) }
+                updateSelected(readPackages(context))
             } catch (cancel: CancellationException) { throw cancel }
             catch (_: Exception) {
                 Toast.makeText(context, R.string.fluid_media_save_failed, Toast.LENGTH_LONG).show()
@@ -105,8 +115,8 @@ internal fun FluidCloudMediaBlacklistPage(modifier: Modifier, backdrop: LayerBac
     DisposableEffect(context) {
         val prefs = LspPreferenceStore.prefs(context)
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == null || key == FluidCloudMediaSettings.PACKAGES) {
-                scope.launch { updateSelected(FluidCloudMediaSettings.packages(context)) }
+            if (key == null || key == packagesKey) {
+                scope.launch { updateSelected(readPackages(context)) }
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -128,10 +138,11 @@ internal fun FluidCloudMediaBlacklistPage(modifier: Modifier, backdrop: LayerBac
         finally { loading = false }
     }
 
-    SettingsPageSurface(title = stringResource(R.string.fluid_media_apps_title), modifier = modifier,
+    SettingsPageSurface(title = stringResource(title), modifier = modifier,
         showBack = true, onBack = onBack, blurBackdrop = backdrop, contentScrollable = false) {
         LazyColumn(modifier = Modifier.fillMaxSize().imePadding(), state = listState,
             contentPadding = PaddingValues(bottom = bottom)) {
+            item("header") { header() }
             item("search") { FeatureSearchBar(search, hint = stringResource(R.string.fluid_media_search_hint)) }
             item("count") { SettingsSection(title = stringResource(R.string.fluid_media_selected_count, selected.size)) }
             if (loading || loadFailed || (listed.isEmpty() && manualPackage == null)) {

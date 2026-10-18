@@ -59,9 +59,6 @@ internal fun SystemUiFeaturesPage(
     var monetColorSpecMode by remember {
         mutableStateOf(LspConfig.getSystemUiMonetColorSpecMode(context))
     }
-    var restoreC16NetworkIconOrderEnabled by rememberSaveable {
-        mutableStateOf(LspConfig.isSystemUiRestoreC16NetworkIconOrderEnabled(context))
-    }
     var nativePowerMenuEnabled by rememberSaveable {
         mutableStateOf(LspConfig.isSystemUiNativePowerMenuEnabled(context))
     }
@@ -168,6 +165,7 @@ internal fun SystemUiFeaturesPage(
         FeaturePageMode.SystemUiStatusBar -> {
             StatusBarLayoutSettingsGroup { onOpenSubPage(FeaturePageMode.SystemUiIconOrder) }
             CarrierNameSettingsGroup()
+            PowerIndicatorSettingsGroup()
             SettingsSection(title = stringResource(R.string.feature_large_network_type_title))
             SettingsGroup {
                 LargeNetworkTypeSettingsRow()
@@ -180,22 +178,6 @@ internal fun SystemUiFeaturesPage(
                     summary = stringResource(R.string.feature_international_network_display_summary),
                     checked = systemUiInternationalNetworkDisplayEnabled,
                     onCheckedChange = onSystemUiInternationalNetworkDisplayEnabledChange,
-                    hasDividerAbove = true,
-                    hasDividerBelow = true,
-                )
-                SettingsDivider()
-                SettingsToggleRow(
-                    title = stringResource(R.string.feature_restore_c16_network_icon_order_title),
-                    summary = stringResource(R.string.feature_restore_c16_network_icon_order_summary),
-                    checked = restoreC16NetworkIconOrderEnabled,
-                    onCheckedChange = { enabled ->
-                        restoreC16NetworkIconOrderEnabled = enabled
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                LspConfig.setSystemUiRestoreC16NetworkIconOrderEnabled(context, enabled)
-                            }
-                        }
-                    },
                     hasDividerAbove = true,
                     hasDividerBelow = true,
                 )
@@ -253,6 +235,8 @@ internal fun SystemUiFeaturesPage(
                 )
                 SettingsDivider()
                 NotificationClearButtonSettingsRow()
+                SettingsDivider()
+                HideNotificationClearSettingsRow(hasDividerAbove = true, hasDividerBelow = true)
                 SettingsDivider()
                 SettingsCardRow(
                     title = stringResource(R.string.notification_removal_title),

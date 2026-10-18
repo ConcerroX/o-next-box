@@ -22,6 +22,7 @@ internal object FeatureSearchIndex {
     ).flatMap { (page, items) -> items.map { Entry(page, it.title, it.summary) } } +
         TrafficFeatureItems.all.map { Entry(FeaturePageMode.TrafficManagement, it.title, it.summary) } +
         SoftwareUpdateFeatureItems.all.map { Entry(FeaturePageMode.SoftwareUpdate, it.title, it.summary) } +
+        com.mi.onextbox.lsp.CorePatchSettings.Option.entries.map { Entry(FeaturePageMode.CorePatch, it.title, it.summary) } +
         SideKeyFeatureItems.actions.filterNot { it.first in setOf(com.mi.onextbox.lsp.SideKeyAction.Stock,
             com.mi.onextbox.lsp.SideKeyAction.None) }.map { Entry(FeaturePageMode.SideKey, it.second) } + listOf(
         SharedFeatureDefinitions.networkIdentity.searchEntry(),
@@ -150,7 +151,6 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_international_network_display_title, R.string.feature_international_network_display_summary),
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_only_data_sim_signal_title, R.string.feature_only_data_sim_signal_summary),
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_only_data_sim_independent_title),
-        Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_restore_c16_network_icon_order_title, R.string.feature_restore_c16_network_icon_order_summary),
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_hide_mobile_roaming_indicator_title, R.string.feature_hide_mobile_roaming_indicator_summary),
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_hide_network_activity_indicator_title, R.string.feature_hide_network_activity_indicator_summary),
         Entry(FeaturePageMode.SystemUiStatusBar, R.string.feature_hide_disconnected_bluetooth_title, R.string.feature_hide_disconnected_bluetooth_summary),
@@ -161,6 +161,13 @@ internal object FeatureSearchIndex {
         Entry(FeaturePageMode.SystemUiNotificationCenter, R.string.feature_round_notification_clear_button_title, R.string.feature_round_notification_clear_button_summary),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.feature_group_control_center),
         SharedFeatureDefinitions.qsCorner.searchEntry(),
+        SharedFeatureDefinitions.powerIndicator.searchEntry(),
+        SharedFeatureDefinitions.phoneManagerRiskCloud.searchEntry(),
+        SharedFeatureDefinitions.rotationSuggestion.searchEntry(),
+        SharedFeatureDefinitions.launcherLabelSpacing.searchEntry(),
+        SharedFeatureDefinitions.hideRecentApps.searchEntry(),
+        SharedFeatureDefinitions.hideNotificationClear.searchEntry(),
+        SharedFeatureDefinitions.hideScreenshotFloating.searchEntry(),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.qs_tile_corner_radius),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.feature_hide_qs_edit_title, R.string.feature_hide_qs_edit_summary),
         Entry(FeaturePageMode.SystemUiControlCenter, R.string.feature_hide_qs_settings_title, R.string.feature_hide_qs_settings_summary),

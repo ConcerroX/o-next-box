@@ -12,7 +12,7 @@ internal object LargeNetworkTypeHooker {
     internal fun shouldEnable(enabled: Boolean, feature: String?) = enabled && feature == FEATURE
     internal fun shouldFollowFont(enabled: Boolean, follow: Boolean, width: Int) = enabled && follow && width == 25
     internal fun fontWeight(enabled: Boolean, follow: Boolean, bold: Boolean, weight: Int) =
-        if (enabled && follow && bold) maxOf(700, weight) else weight
+        if (enabled && follow) { if (bold) 700 else 400 } else weight
 
     fun hook(loader: ClassLoader) {
         LargeNetworkArtworkHooker.hook(loader)
@@ -47,7 +47,9 @@ internal object LargeNetworkTypeHooker {
             fun systemFont(receiver: Any?, value: Int): Typeface {
                 val targetWeight = weight(value)
                 val original = defaultFont.invoke(receiver, targetWeight) as Typeface
-                return if (LargeNetworkTypeSettings.usesBoldXposed()) Typeface.create(original, targetWeight, original.isItalic) else original
+                // The host may return a themed SANS_SERIF regardless of requested weight.
+                // Normalize both states; otherwise "off" can retain a bold system face.
+                return Typeface.create(original, targetWeight, original.isItalic)
             }
             val fontDelivered = AtomicBoolean()
             fun active() = LargeNetworkTypeSettings.enabledXposed() && LargeNetworkTypeSettings.followsSystemFontXposed() && !LargeNetworkTypeSettings.usesArtworkXposed()

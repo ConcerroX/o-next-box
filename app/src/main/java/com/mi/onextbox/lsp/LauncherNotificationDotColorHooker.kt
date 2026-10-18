@@ -86,7 +86,7 @@ internal object LauncherNotificationDotColorHooker {
             it.name == "newIcon" && it.parameterTypes.size == 2 && it.returnType.name == "com.android.launcher3.icons.FastBitmapDrawable"
         }
         runCatching { ModernHookRuntime.requireModule().deoptimize(newIcon) }
-        ModernHookRegistry.installCompat("$TAG:restore-color", newIcon, object : ModernMethodHook() {
+        ModernHookRegistry.installCompat("$TAG:restore-color", newIcon, object : ScopedTintHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (!enabled()) return
                 restoreColor(param.thisObject ?: return)
@@ -98,7 +98,7 @@ internal object LauncherNotificationDotColorHooker {
         val renderer = ModernReflect.findClass(OPLUS_DOT_RENDERER, loader)
         val draw = renderer.declaredMethods.single { it.name == "draw" && it.parameterTypes.size == 3 }
         runCatching { ModernHookRuntime.requireModule().deoptimize(draw) }
-        ModernHookRegistry.installCompat("$TAG:dot", draw, object : ModernMethodHook() {
+        ModernHookRegistry.installCompat("$TAG:dot", draw, object : ScopedTintHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (!enabled()) return
                 // The renderer pipeline calls setDrawDotView(hostView) right before draw(), so the
@@ -106,11 +106,11 @@ internal object LauncherNotificationDotColorHooker {
                 val host = ModernReflect.getObjectField(param.thisObject ?: return, "drawDotView") ?: return
                 val color = iconColor(host) ?: return
                 val drawable = resolveDotDrawable(loader) ?: return
-                drawable.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+                tint(param, drawable, color)
             }
 
             override fun afterHookedMethod(param: MethodHookParam) {
-                resolveDotDrawable(loader)?.clearColorFilter()
+                super.afterHookedMethod(param)
             }
         })
     }
@@ -119,19 +119,19 @@ internal object LauncherNotificationDotColorHooker {
         val renderer = ModernReflect.findClass(OPLUS_DOT_RENDERER, loader)
         val drawNumber = renderer.declaredMethods.single { it.name == "drawNumber" && it.parameterTypes.size == 5 }
         runCatching { ModernHookRuntime.requireModule().deoptimize(drawNumber) }
-        ModernHookRegistry.installCompat("$TAG:number", drawNumber, object : ModernMethodHook() {
+        ModernHookRegistry.installCompat("$TAG:number", drawNumber, object : ScopedTintHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (!enabled()) return
                 // drawNumber(Canvas, int count, DrawParams, Boolean, View host) — the last arg is
                 // the host BubbleTextView.
                 val color = iconColor(param.args[4]) ?: return
                 val pill = numberPill(param.thisObject) ?: return
-                pill.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
-                setTextColorForBg(param.thisObject, color)
+                tint(param, pill, color)
+                textColor(param, param.thisObject, color)
             }
 
             override fun afterHookedMethod(param: MethodHookParam) {
-                numberPill(param.thisObject)?.clearColorFilter()
+                super.afterHookedMethod(param)
             }
         })
     }
@@ -146,7 +146,7 @@ internal object LauncherNotificationDotColorHooker {
                 it.parameterTypes[1].name.endsWith("PreviewItemDrawingParams")
         }
         runCatching { ModernHookRuntime.requireModule().deoptimize(drawDot) }
-        ModernHookRegistry.installCompat("$TAG:big-folder-dot-color", drawDot, object : ModernMethodHook() {
+        ModernHookRegistry.installCompat("$TAG:big-folder-dot-color", drawDot, object : ScopedTintHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (!enabled()) return
                 val params = param.args[1] ?: return
@@ -169,29 +169,29 @@ internal object LauncherNotificationDotColorHooker {
         }
         runCatching { ModernHookRuntime.requireModule().deoptimize(draw) }
         runCatching { ModernHookRuntime.requireModule().deoptimize(drawNumber) }
-        ModernHookRegistry.installCompat("$TAG:big-folder-dot", draw, object : ModernMethodHook() {
+        ModernHookRegistry.installCompat("$TAG:big-folder-dot", draw, object : ScopedTintHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (!enabled()) return
                 val color = pendingFolderDotColor.get() ?: return
                 val drawable = resolveDotDrawable(loader) ?: return
-                drawable.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+                tint(param, drawable, color)
             }
 
             override fun afterHookedMethod(param: MethodHookParam) {
-                resolveDotDrawable(loader)?.clearColorFilter()
+                super.afterHookedMethod(param)
             }
         })
-        ModernHookRegistry.installCompat("$TAG:big-folder-number", drawNumber, object : ModernMethodHook() {
+        ModernHookRegistry.installCompat("$TAG:big-folder-number", drawNumber, object : ScopedTintHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (!enabled()) return
                 val color = pendingFolderDotColor.get() ?: return
                 val pill = numberPill(param.thisObject) ?: return
-                pill.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
-                setTextColorForBg(param.thisObject, color)
+                tint(param, pill, color)
+                textColor(param, param.thisObject, color)
             }
 
             override fun afterHookedMethod(param: MethodHookParam) {
-                numberPill(param.thisObject)?.clearColorFilter()
+                super.afterHookedMethod(param)
             }
         })
     }
@@ -205,7 +205,7 @@ internal object LauncherNotificationDotColorHooker {
         val folderIcon = ModernReflect.findClass(FOLDER_ICON, loader)
         val drawDot = folderIcon.declaredMethods.single { it.name == "drawDot" && it.parameterTypes.size == 1 }
         runCatching { ModernHookRuntime.requireModule().deoptimize(drawDot) }
-        ModernHookRegistry.installCompat("$TAG:folder-icon-dot", drawDot, object : ModernMethodHook() {
+        ModernHookRegistry.installCompat("$TAG:folder-icon-dot", drawDot, object : ScopedTintHook() {
             override fun beforeHookedMethod(param: MethodHookParam) {
                 if (!enabled()) return
                 val host = param.thisObject ?: return
@@ -213,18 +213,44 @@ internal object LauncherNotificationDotColorHooker {
                 // Both the plain dot (draw) and the number pill (drawNumber) read from the renderer,
                 // so tint both for the duration of the draw.
                 val drawable = resolveDotDrawable(loader)
-                drawable?.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+                tint(param, drawable, color)
                 val pill = numberPill(ModernReflect.getObjectField(host, "mDotRenderer"))
-                pill?.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+                tint(param, pill, color)
                 val renderer = ModernReflect.getObjectField(host, "mDotRenderer")
-                setTextColorForBg(renderer, color)
+                textColor(param, renderer, color)
             }
 
             override fun afterHookedMethod(param: MethodHookParam) {
-                resolveDotDrawable(loader)?.clearColorFilter()
-                numberPill(ModernReflect.getObjectField(param.thisObject ?: return, "mDotRenderer"))?.clearColorFilter()
+                super.afterHookedMethod(param)
             }
         })
+    }
+
+    // Restore only state changed by this invocation, including nested folder draws and failures.
+    private abstract class ScopedTintHook : ModernMethodHook() {
+        private val restores = java.util.Collections.synchronizedMap(
+            java.util.IdentityHashMap<MethodHookParam, MutableList<() -> Unit>>()
+        )
+
+        protected fun tint(param: MethodHookParam, drawable: GradientDrawable?, color: Int) {
+            drawable ?: return
+            val original = drawable.colorFilter
+            restores.getOrPut(param) { mutableListOf() }.add { drawable.colorFilter = original }
+            drawable.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+        }
+
+        protected fun textColor(param: MethodHookParam, renderer: Any?, color: Int) {
+            renderer ?: return
+            val original = ModernReflect.getIntField(renderer, "mBadgeNumTextColor")
+            restores.getOrPut(param) { mutableListOf() }.add {
+                ModernReflect.setIntField(renderer, "mBadgeNumTextColor", original)
+            }
+            setTextColorForBg(renderer, color)
+        }
+
+        override fun afterHookedMethod(param: MethodHookParam) {
+            restores.remove(param)?.asReversed()?.forEach { restore -> runCatching { restore() } }
+        }
     }
 
     // Resolve the first notified app inside the folder, then return its (scrimmed) dominant color.
@@ -277,8 +303,12 @@ internal object LauncherNotificationDotColorHooker {
         } else {
             bitmap
         }
-        val value = runCatching { ModernReflect.callMethod(ex, "findDominantColorByHue", software) as? Number }
-            .getOrNull()?.toInt() ?: 0
+        val value = try {
+            runCatching { ModernReflect.callMethod(ex, "findDominantColorByHue", software) as? Number }
+                .getOrNull()?.toInt() ?: 0
+        } finally {
+            if (software !== bitmap) software.recycle()
+        }
         return if (value == 0 || value == -0x1000000) null else value
     }
 

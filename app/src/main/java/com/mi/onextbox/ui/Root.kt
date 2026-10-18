@@ -325,6 +325,9 @@ private sealed interface RootRoute : NavKey {
     data object FeatureDesktopRecent : RootRoute
 
     @Serializable
+    data object FeatureDesktopHiddenApps : RootRoute
+
+    @Serializable
     data object FeatureDesktopPages : RootRoute
 
     @Serializable
@@ -371,6 +374,9 @@ private sealed interface RootRoute : NavKey {
 
     @Serializable
     data object FeatureAndroidSystem : RootRoute
+
+    @Serializable
+    data object FeatureCorePatch : RootRoute
 
     @Serializable
     data object FeatureSideKey : RootRoute
@@ -515,6 +521,7 @@ private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
     FeaturePageMode.DesktopLayout -> RootRoute.FeatureDesktopLayout
     FeaturePageMode.DesktopIcons -> RootRoute.FeatureDesktopIcons
     FeaturePageMode.DesktopRecent -> RootRoute.FeatureDesktopRecent
+    FeaturePageMode.DesktopHiddenApps -> RootRoute.FeatureDesktopHiddenApps
     FeaturePageMode.DesktopPages -> RootRoute.FeatureDesktopPages
     FeaturePageMode.SystemUi -> RootRoute.FeatureSystemUi
     FeaturePageMode.SystemUiNative -> RootRoute.FeatureSystemUiNative
@@ -531,6 +538,7 @@ private fun FeaturePageMode.toRootRoute(): RootRoute? = when (this) {
     FeaturePageMode.NotificationRemoval -> RootRoute.FeatureNotificationRemoval
     FeaturePageMode.MobileNetwork -> RootRoute.FeatureMobileNetwork
     FeaturePageMode.AndroidSystem -> RootRoute.FeatureAndroidSystem
+    FeaturePageMode.CorePatch -> RootRoute.FeatureCorePatch
     FeaturePageMode.SideKey -> RootRoute.FeatureSideKey
     FeaturePageMode.Installer -> RootRoute.FeatureInstaller
     FeaturePageMode.Esim -> RootRoute.FeatureEsim
@@ -1028,6 +1036,7 @@ fun Root(
                     subclass(RootRoute.FeatureDesktopLayout::class)
                     subclass(RootRoute.FeatureDesktopIcons::class)
                     subclass(RootRoute.FeatureDesktopRecent::class)
+                    subclass(RootRoute.FeatureDesktopHiddenApps::class)
                     subclass(RootRoute.FeatureDesktopPages::class)
                     subclass(RootRoute.FeatureSystemUi::class)
                     subclass(RootRoute.FeatureSystemUiNative::class)
@@ -1044,6 +1053,7 @@ fun Root(
                     subclass(RootRoute.FeatureNotificationRemoval::class)
                     subclass(RootRoute.FeatureMobileNetwork::class)
                     subclass(RootRoute.FeatureAndroidSystem::class)
+                    subclass(RootRoute.FeatureCorePatch::class)
                     subclass(RootRoute.FeatureSideKey::class)
                     subclass(RootRoute.FeatureInstaller::class)
                     subclass(RootRoute.FeatureEsim::class)
@@ -2316,6 +2326,9 @@ fun Root(
             entry<RootRoute.FeatureDesktopRecent> {
                 featureEntryContent(FeaturePageMode.DesktopRecent)
             }
+            entry<RootRoute.FeatureDesktopHiddenApps> {
+                featureEntryContent(FeaturePageMode.DesktopHiddenApps)
+            }
             entry<RootRoute.FeatureDesktopPages> {
                 featureEntryContent(FeaturePageMode.DesktopPages)
             }
@@ -2366,6 +2379,9 @@ fun Root(
             }
             entry<RootRoute.FeatureAndroidSystem> {
                 featureEntryContent(FeaturePageMode.AndroidSystem)
+            }
+            entry<RootRoute.FeatureCorePatch> {
+                featureEntryContent(FeaturePageMode.CorePatch)
             }
             entry<RootRoute.FeatureSideKey> {
                 featureEntryContent(FeaturePageMode.SideKey)

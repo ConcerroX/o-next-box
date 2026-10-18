@@ -14,7 +14,6 @@ import android.view.MenuItem
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import com.mi.onextbox.R
 import com.mi.onextbox.lsp.compat.HotReloadLifecycle
 import java.lang.ref.WeakReference
 import java.lang.reflect.Method
@@ -67,7 +66,7 @@ internal class SoftwareUpdateMenuController(resourceKey: String, private val att
             dismiss(activity)
             return
         }
-        menu.add(Menu.NONE, DETAILS_ID, Menu.NONE, text(activity, R.string.ota_details_menu))
+        menu.add(Menu.NONE, DETAILS_ID, Menu.NONE, text(activity, "ota_details_menu"))
             .setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_NEVER)
             .setOnMenuItemClickListener {
                 HotReloadLifecycle.withHook(fallback = { false }) {
@@ -110,18 +109,18 @@ internal class SoftwareUpdateMenuController(resourceKey: String, private val att
         val module = activity.createPackageContext("com.mi.onextbox", Context.CONTEXT_IGNORE_SECURITY)
             .createConfigurationContext(activity.resources.configuration)
         val content = TextView(activity).apply {
-            text = module.getString(R.string.ota_details_loading)
+            text = ModuleStrings.get(module, "ota_details_loading")
             textSize = 14f
             setTextIsSelectable(true)
             val padding = (24 * resources.displayMetrics.density).toInt()
             setPadding(padding, padding / 2, padding, padding / 2)
         }
         val dialog = AlertDialog.Builder(activity)
-            .setTitle(module.getString(R.string.ota_details_menu))
+            .setTitle(ModuleStrings.get(module, "ota_details_menu"))
             .setView(ScrollView(activity).apply { addView(content) })
             .setPositiveButton(android.R.string.ok, null)
-            .setNegativeButton(module.getString(R.string.ota_copy_details), null)
-            .setNeutralButton(module.getString(R.string.ota_copy_links), null)
+            .setNegativeButton(ModuleStrings.get(module, "ota_copy_details"), null)
+            .setNeutralButton(ModuleStrings.get(module, "ota_copy_links"), null)
             .create()
         dialogs[activity] = dialog
         val cancellation = CancellationSignal()
@@ -149,9 +148,9 @@ internal class SoftwareUpdateMenuController(resourceKey: String, private val att
                         if (owner.isFinishing || owner.isDestroyed || dialogs[owner] !== dialog || !dialog.isShowing) return@withHook
                         val packages = result.getOrNull()
                         if (packages == null) {
-                            content.text = module.getString(R.string.ota_details_failed)
+                            content.text = ModuleStrings.get(module, "ota_details_failed")
                         } else if (packages.isEmpty()) {
-                            content.text = module.getString(R.string.ota_details_empty)
+                            content.text = ModuleStrings.get(module, "ota_details_empty")
                         } else {
                             val details = format(owner, module, packages)
                             val links = packages.flatMap { it.downloadLinks }.distinct().joinToString("\n")
@@ -183,37 +182,36 @@ internal class SoftwareUpdateMenuController(resourceKey: String, private val att
     private fun format(context: Context, module: Context, packages: List<SoftwareUpdatePackageInfo>): String =
         packages.joinToString("\n\n──────────\n\n") { item ->
             listOf(
-                module.getString(R.string.ota_details_name, item.name),
-                module.getString(R.string.ota_details_version, item.version),
-                module.getString(R.string.ota_details_type, item.type),
-                module.getString(R.string.ota_details_size, Formatter.formatFileSize(context, item.bytes)),
-                module.getString(R.string.ota_details_checksum, item.checksum.ifEmpty { "—" }),
-                module.getString(R.string.ota_details_links, item.downloadLinks.joinToString("\n").ifEmpty { "—" }),
-                module.getString(R.string.ota_details_source_links, item.links.joinToString("\n").ifEmpty { "—" }),
+                ModuleStrings.get(module, "ota_details_name", item.name),
+                ModuleStrings.get(module, "ota_details_version", item.version),
+                ModuleStrings.get(module, "ota_details_type", item.type),
+                ModuleStrings.get(module, "ota_details_size", Formatter.formatFileSize(context, item.bytes)),
+                ModuleStrings.get(module, "ota_details_checksum", item.checksum.ifEmpty { "—" }),
+                ModuleStrings.get(module, "ota_details_links", item.downloadLinks.joinToString("\n").ifEmpty { "—" }),
+                ModuleStrings.get(module, "ota_details_source_links", item.links.joinToString("\n").ifEmpty { "—" }),
                 item.linkFailures.map { failure ->
                     when {
-                        failure.code != null -> module.getString(R.string.ota_details_link_failed_code, failure.code)
-                        failure.problem == SoftwareUpdateLinkProblem.Authentication -> module.getString(R.string.ota_details_link_auth_unavailable)
-                        failure.problem == SoftwareUpdateLinkProblem.Timeout -> module.getString(R.string.ota_details_link_timeout)
-                        failure.problem == SoftwareUpdateLinkProblem.Network -> module.getString(R.string.ota_details_link_network)
-                        else -> module.getString(R.string.ota_details_link_failed)
+                        failure.code != null -> ModuleStrings.get(module, "ota_details_link_failed_code", failure.code)
+                        failure.problem == SoftwareUpdateLinkProblem.Authentication -> ModuleStrings.get(module, "ota_details_link_auth_unavailable")
+                        failure.problem == SoftwareUpdateLinkProblem.Timeout -> ModuleStrings.get(module, "ota_details_link_timeout")
+                        failure.problem == SoftwareUpdateLinkProblem.Network -> ModuleStrings.get(module, "ota_details_link_network")
+                        else -> ModuleStrings.get(module, "ota_details_link_failed")
                     }
                 }.distinct().joinToString("\n"),
             ).filter { it.isNotEmpty() }.joinToString("\n")
-        } + "\n\n" + module.getString(R.string.ota_details_auth_notice)
+        } + "\n\n" + ModuleStrings.get(module, "ota_details_auth_notice")
 
     private fun copy(context: Context, module: Context, value: String) {
         runCatching {
             context.getSystemService(ClipboardManager::class.java)
-                .setPrimaryClip(ClipData.newPlainText(module.getString(R.string.ota_details_menu), value))
-            Toast.makeText(context, module.getString(R.string.ota_details_copied), Toast.LENGTH_SHORT).show()
+                .setPrimaryClip(ClipData.newPlainText(ModuleStrings.get(module, "ota_details_menu"), value))
+            Toast.makeText(context, ModuleStrings.get(module, "ota_details_copied"), Toast.LENGTH_SHORT).show()
         }.onFailure { HookLog.w("SoftwareUpdate", "Clipboard unavailable") }
     }
 
     private fun enabled() = SoftwareUpdateSettings.enabledXposed(SoftwareUpdateFeature.PackageDetails)
     private fun localEntryEnabled() = SoftwareUpdateSettings.enabledXposed(SoftwareUpdateFeature.ShowLocalInstall)
-    private fun text(context: Context, id: Int): String =
-        context.createPackageContext("com.mi.onextbox", Context.CONTEXT_IGNORE_SECURITY).getString(id)
+    private fun text(context: Context, name: String): String = ModuleStrings.get(context, name)
 
     private companion object { const val DETAILS_ID = 0x6f4f5441 }
 }

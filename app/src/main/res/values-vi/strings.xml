@@ -102,8 +102,6 @@
     <string name="feature_monet_color_spec_off">Tắt</string>
     <string name="feature_international_network_display_title">Quy tắc hiển thị mạng toàn cầu</string>
     <string name="feature_international_network_display_summary">Sử dụng các quy tắc SystemUI toàn cầu cho các biểu tượng loại mạng di động; tự động ẩn loại mạng khi dùng Wi-Fi và hiển thị lại khi dùng dữ liệu di động</string>
-    <string name="feature_restore_c16_network_icon_order_title">Khôi phục thứ tự biểu tượng mạng ColorOS 16</string>
-    <string name="feature_restore_c16_network_icon_order_summary">Đặt Wi-Fi trước tín hiệu di động để khôi phục thứ tự Wi-Fi, SIM1, SIM2</string>
     <string name="feature_hide_mobile_roaming_indicator_title">Ẩn chỉ báo chuyển vùng di động</string>
     <string name="feature_hide_mobile_roaming_indicator_summary">Ẩn chỉ báo chuyển vùng bên cạnh biểu tượng tín hiệu di động</string>
     <string name="feature_hide_network_activity_indicator_title">Ẩn chỉ báo hoạt động mạng</string>
